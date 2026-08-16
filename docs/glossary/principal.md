@@ -6,7 +6,7 @@
      auto-prune marker above lets `disambiguate prune` remove this term
      from a repo that never links it. -->
 
-The human operator who owns an [organization](org.md); every gate
+The human operator who owns an [org](org.md); every gate
 ends at the principal.
 
 _Avoid_: user, operator, Pando-Genet

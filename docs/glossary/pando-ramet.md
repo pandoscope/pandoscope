@@ -8,6 +8,6 @@
 
 A worker or reviewer agent [session](session.md) spawned by
 [Pando](pando.md) — an aspen stem: same genome ([template](template.md)),
-same roots (the organization's memory repos).
+same roots (the [org](org.md)'s memory repos).
 
 _Avoid_: ramet, subagent, worker
