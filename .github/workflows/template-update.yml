@@ -1,0 +1,301 @@
+name: Template Update
+
+on:
+  # Fired by the template's own release job the moment a release is cut,
+  # so an update arrives because something happened rather than because a
+  # timer caught up.
+  repository_dispatch:
+    types: [template-released]
+  schedule:
+    # Backstop, not the delivery path: a repo stamped after the dispatch
+    # ran, or one the dispatch failed to reach, still converges within a
+    # week. Off the top of the hour to dodge GitHub's cron stampede.
+    - cron: "17 5 * * 1"
+  workflow_dispatch:
+
+# The update job only acts through the release-bot app token minted
+# below — the default GITHUB_TOKEN would open PRs that trigger no CI,
+# silently skipping the checks that flag copier conflict markers for
+# resolution. The audit job runs on the default token deliberately, so
+# a repo whose bot credentials are broken still reports its drift.
+permissions: {}
+
+concurrency:
+  group: template-update
+
+jobs:
+  # Independent of the update and of the app token (#134): every path to
+  # loudness used to sit downstream of token minting, so the repos that
+  # could not authenticate — the ones most likely to be behind — died
+  # before the drift was ever named. This job needs only read access and
+  # runs on every trigger; only the weekly run turns drift into failure,
+  # because on the dispatch path being behind is the expected state the
+  # update job is about to fix.
+  audit:
+    name: "template drift audit"
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+
+      - name: Report — is this repo actually on the latest template?
+        id: report
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          answers_file=".copier-answers.agentic.yml"
+          stamped="$(awk '$1 == "_commit:" {print $2}' "$answers_file")"
+
+          src_path="$(awk '$1 == "_src_path:" {print $2}' "$answers_file")"
+          template_repo="${src_path#gh:}"
+          template_repo="${template_repo#https://github.com/}"
+          template_repo="${template_repo%.git}"
+
+          latest="$(gh release view --repo "$template_repo" --json tagName --jq .tagName)"
+
+          open_pr="$(gh pr list --state open --json headRefName,url,createdAt \
+            --jq 'map(select(.headRefName | startswith("chore/template-update-"))) | first')"
+
+          if [ "$stamped" = "$latest" ]; then
+            echo "On the latest template ($latest)."
+            echo "drift=false" >> "$GITHUB_OUTPUT"
+          elif [ "${GITHUB_EVENT_NAME:-}" != "schedule" ]; then
+            # The dispatch that announces a release necessarily finds
+            # the repo behind it; that is delivery, not drift.
+            echo "Behind: stamped $stamped, latest is $latest — the update job should converge this run."
+            echo "drift=false" >> "$GITHUB_OUTPUT"
+          elif [ -n "$open_pr" ] && [ "$open_pr" != "null" ]; then
+            echo "::error::Out of date: stamped $stamped, latest is $latest. An update PR has been open since $(echo "$open_pr" | jq -r .createdAt) and has not been merged: $(echo "$open_pr" | jq -r .url)"
+            echo "drift=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::error::Out of date: stamped $stamped, latest is $latest, and no update PR exists. The release fan-out did not reach this repo — check the dispatch step of the template's release job, and this repo's bot credentials."
+            echo "drift=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Fail the weekly audit if this repo is behind
+        if: github.event_name == 'schedule' && steps.report.outputs.drift == 'true'
+        run: |
+          echo "Weekly audit found this repo behind the template — see the annotation above."
+          exit 1
+
+  update:
+    name: "copier update (agentic template)"
+    runs-on: ubuntu-latest
+    steps:
+      # Named refusal before the octokit stack trace (#134): on GitHub
+      # Free, org variables and secrets do not reach private repos, and
+      # the mint step's own failure buries which variable was missing.
+      # The audit job above still reports drift on the default token.
+      - name: Refuse without release-bot credentials, naming the gap
+        env:
+          HAS_ID: ${{ vars.RELEASE_BOT_CLIENT_ID != '' }}
+          HAS_KEY: ${{ secrets.RELEASE_BOT_PRIVATE_KEY != '' }}
+        run: |
+          set -euo pipefail
+          if [ "$HAS_ID" != "true" ] || [ "$HAS_KEY" != "true" ]; then
+            [ "$HAS_ID" = "true" ] || echo "::error::vars.RELEASE_BOT_CLIENT_ID is empty in $GITHUB_REPOSITORY."
+            [ "$HAS_KEY" = "true" ] || echo "::error::secrets.RELEASE_BOT_PRIVATE_KEY is empty in $GITHUB_REPOSITORY."
+            echo "::error::On GitHub Free, org credentials do not reach private repos — each private repo needs its own copies (the credentials reconciler in meta seeds them). Template updates cannot run here until then."
+            exit 1
+          fi
+
+      - name: Mint release-bot installation token
+        id: app-token
+        uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2.2.2
+        with:
+          app-id: ${{ vars.RELEASE_BOT_CLIENT_ID }}
+          private-key: ${{ secrets.RELEASE_BOT_PRIVATE_KEY }}
+
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          # Push the update branch as the app so the resulting PR runs CI.
+          token: ${{ steps.app-token.outputs.token }}
+          fetch-depth: 0
+
+      # An open update PR for the CURRENT release is genuine dedupe. A
+      # stale one is JOINED (#137): its branch is checked out and the
+      # new release lands as a commit ON it — the PR, its discussion and
+      # the conflict resolutions already on the branch all survive.
+      # Closing it would throw that branch work away; skipping wholesale
+      # would let a PR nobody merged block every later release (#134).
+      - name: Skip on a current update PR, join a stale one
+        id: dedupe
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          answers_file=".copier-answers.agentic.yml"
+          src_path="$(awk '$1 == "_src_path:" {print $2}' "$answers_file")"
+          template_repo="${src_path#gh:}"
+          template_repo="${template_repo#https://github.com/}"
+          template_repo="${template_repo%.git}"
+          latest="$(gh release view --repo "$template_repo" --json tagName --jq .tagName)"
+
+          echo "skip=false" >> "$GITHUB_OUTPUT"
+          while read -r number head url; do
+            [ -z "$number" ] && continue
+            if [ "$head" = "chore/template-update-$latest" ]; then
+              echo "An update PR for the current release is already open — skipping: $url"
+              echo "skip=true" >> "$GITHUB_OUTPUT"
+            else
+              git fetch origin "$head"
+              git checkout -B "$head" "origin/$head"
+              {
+                echo "existing_branch=$head"
+                echo "existing_pr=$number"
+              } >> "$GITHUB_OUTPUT"
+              echo "Joining open update PR $url — the $latest update lands as a commit on it."
+            fi
+          done < <(gh pr list --state open --json headRefName,number,url \
+            --jq '.[] | select(.headRefName | startswith("chore/template-update-")) | "\(.number) \(.headRefName) \(.url)"')
+
+      - uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
+        if: steps.dedupe.outputs.skip == 'false'
+
+      - name: Run copier update against the latest template tag
+        if: steps.dedupe.outputs.skip == 'false'
+        id: update
+        run: |
+          set -euo pipefail
+          answers_file=".copier-answers.agentic.yml"
+          old_ref="$(awk '$1 == "_commit:" {print $2}' "$answers_file")"
+
+          # --skip-tasks: post-tasks (doctor.sh, skills install, prek) need
+          # host tools absent on runners; the consuming repo already ran them.
+          # copier-template-extensions is required to load the template's
+          # Jinja extensions.
+          uvx --with copier-template-extensions copier update \
+            --answers-file "$answers_file" \
+            --defaults --trust --skip-tasks
+
+          new_ref="$(awk '$1 == "_commit:" {print $2}' "$answers_file")"
+          {
+            echo "old_ref=$old_ref"
+            echo "new_ref=$new_ref"
+          } >> "$GITHUB_OUTPUT"
+
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Already up to date ($old_ref) — nothing to do."
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Open update PR, or land the commit on the joined one
+        if: steps.dedupe.outputs.skip == 'false' && steps.update.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          OLD_REF: ${{ steps.update.outputs.old_ref }}
+          NEW_REF: ${{ steps.update.outputs.new_ref }}
+          EXISTING_BRANCH: ${{ steps.dedupe.outputs.existing_branch }}
+          EXISTING_PR: ${{ steps.dedupe.outputs.existing_pr }}
+        run: |
+          set -euo pipefail
+          branch="${EXISTING_BRANCH:-chore/template-update-$NEW_REF}"
+          head="$(git rev-parse HEAD)"
+
+          # The commit is created through the API, not the git CLI:
+          # createCommitOnBranch commits are signed by GitHub on behalf
+          # of the app and show as Verified, so repos can require
+          # verified signatures without exempting this bot. Conflicts
+          # are still committed as copier's inline markers on purpose:
+          # the PR opens either way and red CI flags them for resolution
+          # on the branch, so updates never silently stall.
+          if [ -z "$EXISTING_BRANCH" ]; then
+            gh api "repos/$GITHUB_REPOSITORY/git/refs" \
+              -f ref="refs/heads/$branch" -f sha="$head" --silent
+          fi
+
+          git add -A
+          printf '[]' > /tmp/additions.json
+          printf '[]' > /tmp/deletions.json
+          while IFS=$'\t' read -r status path; do
+            [ -z "$status" ] && continue
+            if [ "$status" = "D" ]; then
+              jq --arg p "$path" '. + [{path: $p}]' /tmp/deletions.json \
+                > /tmp/d.json && mv /tmp/d.json /tmp/deletions.json
+            else
+              jq --arg p "$path" --arg c "$(base64 -w0 "$path")" \
+                '. + [{path: $p, contents: $c}]' /tmp/additions.json \
+                > /tmp/a.json && mv /tmp/a.json /tmp/additions.json
+            fi
+          done < <(git -c core.quotePath=false -c diff.renames=false \
+            diff --cached --name-status)
+
+          jq -n \
+            --slurpfile adds /tmp/additions.json \
+            --slurpfile dels /tmp/deletions.json \
+            --arg repo "$GITHUB_REPOSITORY" \
+            --arg branch "$branch" \
+            --arg head "$head" \
+            --arg headline "chore: update agentic template $OLD_REF -> $NEW_REF" \
+            '{query: "mutation($input: CreateCommitOnBranchInput!) { createCommitOnBranch(input: $input) { commit { oid } } }",
+              variables: {input: {
+                branch: {repositoryNameWithOwner: $repo, branchName: $branch},
+                expectedHeadOid: $head,
+                message: {headline: $headline},
+                fileChanges: {additions: $adds[0], deletions: $dels[0]}}}}' \
+            > /tmp/graphql.json
+          gh api graphql --input /tmp/graphql.json \
+            --jq '.data.createCommitOnBranch.commit.oid'
+
+          # Changelog excerpt from the template's GitHub Release for the new
+          # tag. Best-effort: a missing release only degrades the PR body.
+          src_path="$(awk '$1 == "_src_path:" {print $2}' .copier-answers.agentic.yml)"
+          template_repo="${src_path#gh:}"
+          template_repo="${template_repo#https://github.com/}"
+          template_repo="${template_repo%.git}"
+          changelog="$(gh release view "$NEW_REF" --repo "$template_repo" \
+            --json body --jq .body \
+            || echo "_No release notes found for $NEW_REF in $template_repo._")"
+
+          # The changelog is quoted material from another repo, and it
+          # must not act on this one (#149). Release notes render every
+          # reference as `closes owner/repo#n`, GitHub reads closing
+          # keywords in a PR BODY, and `owner/repo#n` reaches across
+          # repositories — so merging an update PR here closed an
+          # upstream ticket whose work was not done. The verb is
+          # defused and the link kept: `closes [x#1]` -> `ref [x#1]`.
+          changelog="$(printf '%s' "$changelog" | sed -E \
+            's/(close[sd]?|fix(e[sd])?|resolve[sd]?)([[:space:]]+\[?[A-Za-z0-9._\/-]*#[0-9]+)/ref\3/Ig')"
+
+          {
+            echo "Automated \`copier update\` of the agentic template: \`$OLD_REF\` -> \`$NEW_REF\`."
+            echo
+            echo "If CI is red, the update hit merge conflicts — resolve copier's inline conflict markers on this branch."
+            echo
+            echo "## Template changelog ($NEW_REF)"
+            echo
+            echo "$changelog"
+          } > /tmp/pr-body.md
+
+          # The ticket gate's designed escape (#137): a bot-authored PR
+          # carrying the `automated` label needs no ticket reference — a
+          # template update traces to a release, not a ticket. The label
+          # is ensured first because this very PR can be the one that
+          # delivers labels.toml's entry to the repo.
+          gh label create automated \
+            --color ededed \
+            --description "Bot-authored maintenance PR; the ticket gate's designed escape" \
+            || true
+
+          # A joined PR is refreshed in place — title, body and label
+          # brought to the new release — so one PR carries the update
+          # conversation however many releases pass through it.
+          if [ -n "$EXISTING_PR" ]; then
+            gh pr edit "$EXISTING_PR" \
+              --title "chore: update agentic template to $NEW_REF" \
+              --body-file /tmp/pr-body.md \
+              --add-label automated
+          else
+            gh pr create \
+              --title "chore: update agentic template to $NEW_REF" \
+              --body-file /tmp/pr-body.md \
+              --head "$branch" \
+              --label automated
+          fi
