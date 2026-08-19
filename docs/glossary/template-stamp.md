@@ -1,4 +1,4 @@
-## Session
+## Template stamp
 
 <!-- d10e: auto-prune -->
 <!-- Copier-vendored from the agentic-engineering-template — do NOT edit
@@ -6,7 +6,6 @@
      auto-prune marker above lets `disambiguate prune` remove this term
      from a repo that never links it. -->
 
-One agent conversation with a defined working set (attached repos) and
-lifetime. Sessions are disposable — repos are the memory; anything durable a
-session produces must land in a repo, an issue, or a decision record before
-it ends.
+To instantiate a project from a template with `copier`. A
+stamped repo carries the template's conventions and receives later
+convention changes as reviewable `copier update` diffs.

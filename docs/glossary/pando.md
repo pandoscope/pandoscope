@@ -7,5 +7,5 @@
      from a repo that never links it. -->
 
 The orchestrator agent — the [principal](principal.md)'s single interface
-(First Mate) to an [org](org.md). The principal may run
-concurrent Pando [sessions](session.md).
+(like a ship's First Mate) to an [org](org.md). The principal may run
+concurrent Pando [sessions](agent-session.md).

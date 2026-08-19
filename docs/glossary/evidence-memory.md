@@ -1,4 +1,4 @@
-## Pando-Ramet
+## Evidence-memory
 
 <!-- d10e: auto-prune -->
 <!-- Copier-vendored from the agentic-engineering-template — do NOT edit
@@ -6,8 +6,7 @@
      auto-prune marker above lets `disambiguate prune` remove this term
      from a repo that never links it. -->
 
-A worker or reviewer agent [session](session.md) spawned by
-[Pando](pando.md) — an aspen stem: same genome ([template](template.md)),
-same roots (the [org](org.md)'s memory repos).
-
-_Avoid_: ramet, subagent, worker
+The private, data-only store of detection records: bugs and features
+found while working, one immutable file per detection — the substrate
+for dedup, lookup, and later regression tests. Reached at runtime via
+`EVIDENCE_MEMORY_URL`, never a committed URL.

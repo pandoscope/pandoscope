@@ -7,7 +7,7 @@
      from a repo that never links it. -->
 
 The private, data-only store of [decision records](decision-record.md) and
-the [preference set](preference-set.md), scoped to one principal. It is the
-terminal store: records stay individual immutable files (no compaction),
+the [preference set](preference-set.md). It is the terminal store:
+records stay individual immutable files (no compaction),
 because per-record review and append-only history are the point. Reached at
 runtime via `DECISION_MEMORY_URL`, never a committed URL.

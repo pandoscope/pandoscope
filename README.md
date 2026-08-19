@@ -48,10 +48,15 @@ term and its transitive dependencies with `uvx disambiguate <term>`.
 - The instrument: [Pandoscope](docs/glossary/pandoscope.md)
 - The actors: [Principal](docs/glossary/principal.md),
   [Pando](docs/glossary/pando.md),
-  [Pando-Ramet](docs/glossary/pando-ramet.md), [Org](docs/glossary/org.md)
-- Building blocks: [Template](docs/glossary/template.md),
-  [Stamp](docs/glossary/stamp.md), [Session](docs/glossary/session.md)
-- Memory: [Decision-memory](docs/glossary/decision-memory.md),
+  [Pando cell](docs/glossary/pando-cell.md), [Org](docs/glossary/org.md)
+- Building blocks: [Pandoscope template](docs/glossary/pandoscope-template.md),
+  [Org genome](docs/glossary/org-genome.md),
+  [Template stamp](docs/glossary/template-stamp.md),
+  [Agent session](docs/glossary/agent-session.md)
+- Memory: [Memory repo](docs/glossary/memory-repo.md),
+  [Decision-memory](docs/glossary/decision-memory.md),
+  [Session-memory](docs/glossary/session-memory.md),
+  [Evidence-memory](docs/glossary/evidence-memory.md),
   [Decision record](docs/glossary/decision-record.md),
   [Preference set](docs/glossary/preference-set.md),
   [Record contract](docs/glossary/record-contract.md)
