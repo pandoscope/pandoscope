@@ -1,0 +1,115 @@
+# Version-driven releases (docs/releasing.md): merging a PR that bumps
+# `project.version` IS the release. The gate compares the version on
+# main against the pushed tags; when the tag already exists every
+# publish job no-ops, so doc-only pushes to main stay silent. Both
+# registries authenticate the workflow itself via OIDC trusted
+# publishing — no long-lived tokens in secrets.
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  gate:
+    name: "version gate"
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.decide.outputs.version }}
+      publish: ${{ steps.decide.outputs.publish }}
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+
+      # The lockstep test guards version agreement on every PR; the gate
+      # re-checks at the moment it matters so a surface can never be
+      # published under the wrong version.
+      - name: Every release surface carries the same unpublished version
+        id: decide
+        run: |
+          set -euo pipefail
+          version="$(python3 -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')"
+          for manifest in npm/package.json .claude-plugin/plugin.json; do
+            other="$(python3 -c "import json, sys; print(json.load(open(sys.argv[1]))['version'])" "$manifest")"
+            if [ "$other" != "$version" ]; then
+              echo "::error::$manifest carries $other but pyproject.toml carries $version"
+              exit 1
+            fi
+          done
+          module="$(python3 -c 'import re; print(re.search(r"__version__ = \"(.+)\"", open("src/pandoscope/__init__.py").read()).group(1))')"
+          if [ "$module" != "$version" ]; then
+            echo "::error::src/pandoscope/__init__.py carries $module but pyproject.toml carries $version"
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          if git ls-remote --exit-code --tags origin "refs/tags/v$version" >/dev/null 2>&1; then
+            echo "v$version is already tagged — nothing to publish"
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  pypi:
+    name: "publish to PyPI"
+    needs: gate
+    if: needs.gate.outputs.publish == 'true'
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      contents: read
+      id-token: write # PyPI trusted publishing (OIDC)
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
+
+      # --check-url makes re-runs idempotent: files already on the index
+      # are skipped instead of failing the upload.
+      - name: Build and publish the wheel and sdist
+        run: |
+          set -euo pipefail
+          uv build
+          uv publish --check-url https://pypi.org/simple/pandoscope/
+
+  npm:
+    name: "publish to npm"
+    needs: [gate, pypi]
+    if: needs.gate.outputs.publish == 'true'
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      contents: read
+      id-token: write # npm trusted publishing (OIDC provenance)
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+
+      # The launcher publishes after PyPI so the version it pins exists
+      # the moment npm serves it. Trusted publishing needs npm >= 11.5.1.
+      - name: Publish the launcher
+        working-directory: npm
+        run: |
+          set -euo pipefail
+          npm install -g npm@latest
+          npm publish --access public
+
+  release:
+    name: "tag + GitHub release"
+    needs: [gate, pypi, npm]
+    if: needs.gate.outputs.publish == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - name: Tag the published version
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.gate.outputs.version }}
+        run: |
+          set -euo pipefail
+          gh release create "v$VERSION" --title "v$VERSION" --generate-notes
