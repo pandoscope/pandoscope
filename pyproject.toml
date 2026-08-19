@@ -4,7 +4,7 @@ requires = [ "hatchling>=1.27" ]
 
 [project]
 name = "pandoscope"
-version = "0.0.1"
+version = "0.1.0"
 description = "Agentic engineering instrument: high-level commands to run a Pandoscope-powered project as a self-improving software factory."
 readme = "README.md"
 license = "MIT"

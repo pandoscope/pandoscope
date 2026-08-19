@@ -7,8 +7,20 @@ and hardens itself by turning every failure into a regression test.
 
 ## Install
 
+Every surface delivers the same Python implementation at the same
+version (see [docs/releasing.md](docs/releasing.md)):
+
 ```sh
-uvx pandoscope --help
+uvx pandoscope --help   # Python (uv)
+npx pandoscope --help   # Node — a launcher shim that bootstraps uv
+```
+
+Agent-native: install the repository as a Claude Code plugin to get the
+`pandoscope-stamp` skill:
+
+```text
+/plugin marketplace add pandoscope/pandoscope
+/plugin install pandoscope@pandoscope
 ```
 
 ## Commands
