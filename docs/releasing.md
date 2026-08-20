@@ -18,16 +18,22 @@ A release is a version bump merged to `main`. The `Release` workflow
 ## One-time registry configuration (principal)
 
 Both registries authenticate the workflow itself via OIDC — no
-long-lived tokens in repository secrets:
+long-lived tokens in repository secrets. `scripts/register-packages.sh`
+walks the whole setup: it checks both names, prints the exact
+trusted-publisher form values, and (with `NPM_TOKEN` set) publishes the
+npm name-reservation stub. The underlying facts:
 
-- **PyPI**: project `pandoscope` → Publishing → add a GitHub trusted
-  publisher: owner `pandoscope`, repository `pandoscope`, workflow
-  `release.yml`, environment `release`.
-- **npm**: package `pandoscope` → Settings → Trusted publisher →
-  GitHub Actions: repository `pandoscope/pandoscope`, workflow
-  `release.yml`, environment `release`. (First-ever publish of the
-  name may need a manual `npm publish` from a maintainer login,
-  because trusted-publisher config attaches to an existing package.)
+- **PyPI**: needs no upload — add a *pending* trusted publisher at
+  <https://pypi.org/manage/account/publishing/> for the
+  not-yet-existing project: name `pandoscope`, owner `pandoscope`, repository
+  `pandoscope`, workflow `release.yml`, environment `release`. The
+  release workflow's first publish then creates the project.
+- **npm**: has no pending-publisher equivalent — the package must
+  exist before a trusted publisher can attach, so the script mints the
+  name with a stub `pandoscope@0.0.0` (README only, no bin). Then
+  attach the publisher: package `pandoscope` → Settings → Trusted
+  publisher → GitHub Actions: repository `pandoscope/pandoscope`,
+  workflow `release.yml`, environment `release`.
 
 Until both are configured, the publish jobs fail with an
 authentication error. Configure, then re-run the workflow — the gate
