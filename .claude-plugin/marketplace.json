@@ -1,0 +1,13 @@
+{
+  "name": "pandoscope",
+  "owner": {
+    "name": "Pandoscope"
+  },
+  "plugins": [
+    {
+      "name": "pandoscope",
+      "source": "./",
+      "description": "Skills wrapping the pandoscope CLI — stamp and run a Pandoscope-powered project as a self-improving software factory."
+    }
+  ]
+}

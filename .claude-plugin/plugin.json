@@ -1,0 +1,8 @@
+{
+  "name": "pandoscope",
+  "description": "Skills wrapping the pandoscope CLI — stamp and run a Pandoscope-powered project as a self-improving software factory.",
+  "version": "0.1.0",
+  "author": {
+    "name": "Pandoscope"
+  }
+}

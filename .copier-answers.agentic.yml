@@ -1,0 +1,19 @@
+# Changes here will be overwritten by Copier; NEVER EDIT MANUALLY
+_commit: v4.3.2-6-gf382999
+_src_path: https://github.com/pandoscope/agentic-engineering-template
+agentic_actions_runner: ubuntu-latest
+agentic_disambiguate_roots: ''
+agentic_disambiguate_version: 0.3.0
+agentic_forge: github
+agentic_language: en
+agentic_precommit: prek
+agentic_project_description: 'Agentic engineering instrument: high-level commands
+    that let any AI agent run a Pandoscope-powered project as a self-improving software
+    factory. It stamps templates, installs skills, orchestrates build, review, and
+    memory, and hardens itself by turning every failure into a regression test.'
+agentic_project_kind: code
+agentic_project_name: Pandoscope
+agentic_project_slug: pandoscope
+agentic_repo_owner: pandoscope
+agentic_subtemplate: template
+agentic_tracker_cli: ghx

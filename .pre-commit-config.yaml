@@ -1,0 +1,60 @@
+# See https://pre-commit.com for more information
+#
+# Vendored paths are excluded: they are template output, byte-pinned
+# upstream, and a fix applied here would be overwritten by the next
+# update. `scripts/ci/` joins the skills directories for that reason —
+# a consumer with stricter lint rules than the template's own would
+# otherwise fail on code it cannot change.
+exclude: "CHANGELOG.md|.copier-answers.agentic.yml|.all-contributorsrc|\\.agents/skills|\\.claude/skills|scripts/ci/"
+default_stages: [pre-commit]
+default_install_hook_types: [pre-commit, commit-msg]
+
+ci:
+  autofix_commit_msg: "chore(pre-commit.ci): auto fixes"
+  autoupdate_commit_msg: "chore(pre-commit.ci): pre-commit autoupdate"
+
+repos:
+  - repo: https://github.com/alessandrojcm/commitlint-pre-commit-hook
+    rev: v9.24.0
+    hooks:
+      - id: commitlint
+        stages: [commit-msg]
+        additional_dependencies: ["@commitlint/config-conventional"]
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: check-json
+  - repo: https://github.com/DavidAnson/markdownlint-cli2
+    rev: v0.22.0
+    hooks:
+      - id: markdownlint-cli2
+  - repo: https://github.com/adrienverge/yamllint
+    rev: v1.37.1
+    hooks:
+      - id: yamllint
+        args: [--strict]
+  - repo: https://github.com/rhysd/actionlint
+    rev: v1.7.7
+    hooks:
+      # Lint GitHub Actions workflows under .github/workflows/.
+      - id: actionlint
+  # English-only: codespell's dictionaries flag ordinary words in other
+  # languages en masse, so the hook is gated on the content language.
+  - repo: https://github.com/codespell-project/codespell
+    rev: v2.4.2
+    hooks:
+      - id: codespell
+  - repo: local
+    hooks:
+      # Glossary lint, template-owned so repos don't need a colliding
+      # core.hooksPath setup. Pinned: disambiguate is pre-alpha and breaks
+      # between releases; the pin comes from agentic_disambiguate_version.
+      # Roots come from the agentic_disambiguate_roots answer: prek has no
+      # repo-owned env file to feed DISAMBIGUATE_ROOTS through, so answer
+      # data is the only place roots survive `copier update` unpatched.
+      - id: disambiguate-lint
+        name: disambiguate --lint
+        entry: uvx disambiguate==0.3.0 --lint
+        language: system
+        files: ^docs/glossary/
+        pass_filenames: false

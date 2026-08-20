@@ -1,0 +1,35 @@
+{
+  "name": "pandoscope",
+  "version": "0.1.0",
+  "description": "Agentic engineering instrument: high-level commands to run a Pandoscope-powered project as a self-improving software factory. npm launcher for the PyPI implementation.",
+  "license": "MIT",
+  "bin": {
+    "pandoscope": "bin/pandoscope.js"
+  },
+  "files": [
+    "bin",
+    "README.md"
+  ],
+  "dependencies": {
+    "uv": ">=0.8"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/pandoscope/pandoscope.git",
+    "directory": "npm"
+  },
+  "homepage": "https://github.com/pandoscope/pandoscope#readme",
+  "bugs": {
+    "url": "https://github.com/pandoscope/pandoscope/issues"
+  },
+  "keywords": [
+    "agentic-engineering",
+    "copier",
+    "scaffold",
+    "template",
+    "claude-code"
+  ]
+}

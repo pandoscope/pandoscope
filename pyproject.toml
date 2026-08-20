@@ -1,0 +1,63 @@
+[build-system]
+build-backend = "hatchling.build"
+requires = [ "hatchling>=1.27" ]
+
+[project]
+name = "pandoscope"
+version = "0.1.0"
+description = "Agentic engineering instrument: high-level commands to run a Pandoscope-powered project as a self-improving software factory."
+readme = "README.md"
+license = "MIT"
+authors = [
+  { name = "Pandoscope" },
+]
+requires-python = ">=3.12"
+classifiers = [
+  "Development Status :: 2 - Pre-Alpha",
+  "Intended Audience :: Developers",
+  "Natural Language :: English",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Topic :: Software Development :: Build Tools",
+]
+dependencies = [
+  "copier>=9",
+  "copier-template-extensions>=0.3",
+]
+urls."Bug Tracker" = "https://github.com/pandoscope/pandoscope/issues"
+urls.repository = "https://github.com/pandoscope/pandoscope"
+scripts.pandoscope = "pandoscope.cli:main"
+
+[dependency-groups]
+dev = [
+  "mypy>=1.8,<2",
+  "pytest==9.*",
+  "ruff>=0.6",
+]
+
+[tool.hatch]
+build.targets.sdist.include = [
+  "src/pandoscope",
+  "README.md",
+  "LICENSE",
+]
+build.targets.wheel.packages = [ "src/pandoscope" ]
+
+[tool.ruff]
+line-length = 88
+lint.select = [ "B", "C4", "D", "E", "F", "I", "RUF", "S", "UP", "W" ]
+lint.ignore = [ "D100", "D104", "D107", "D203", "D212", "D401" ]
+lint.per-file-ignores."tests/**/*" = [ "D100", "D101", "D102", "D103", "D104", "S101" ]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+files = [ "src", "tests" ]
+
+[tool.pytest]
+ini_options.minversion = "9.0"
+ini_options.pythonpath = [ "src" ]
+ini_options.testpaths = [ "tests" ]
