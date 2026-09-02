@@ -67,7 +67,7 @@ jobs:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
 
       # Every review thread opened by a human needs a PR-author reply
-      # carrying a full commit URL verified against this PR's commits,
+      # naming a commit (URL or sha) verified against this PR's commits,
       # or a line starting `No commit:` followed by
       # the reason (the marker is rendered from reference-keywords.json,
       # the single source). Resolving a thread is not answering it (#143).

@@ -78,6 +78,16 @@ repos:
         entry: bash -c 'p=$(printf %s "${PUSH_BLOCKLIST:-}" | tr -d "\r\n" | sed "s/=[^|]*//g;s/||*/|/g;s/^|//;s/|$//"); [ -z "$p" ] || ! grep -IilE -- "$p" "$@"' --
         language: system
         stages: [commit-msg]
+      # Branch discipline (skills#147): a claude/* branch must match
+      # the vendored branch_pattern — shortcode-qualified ticket
+      # tokens, then the slug — or the ticket gate's branch half
+      # silently never fires on it.
+      - id: branch-name
+        name: branch name matches the ticket gate's branch_pattern
+        entry: scripts/check-branch-name.sh
+        language: script
+        pass_filenames: false
+        always_run: true
       - id: disambiguate-lint
         name: disambiguate --lint
         entry: uvx disambiguate==0.3.0 --lint

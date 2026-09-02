@@ -15,6 +15,8 @@ One subcommand per job in ci-ok.yml:
              place, so a superseded red stops blocking merge (#190) —
              gate-rerun.yml's job, not ci-ok.yml's
   leaks      no PUSH_BLOCKLIST value appears on any surface this PR
+  payload    no PUSH_BLOCKLIST value in the one item an issue or
+             comment event just published (#208; not a gate)
              publishes: title, body, commit messages, commit author
              and committer names/emails, the branch name, the diff,
              the PR's own comment and review threads, and the bodies
@@ -176,7 +178,14 @@ def ticket_violations(body, branch, labels, author, config):
     named = re.match(config["branch_pattern"], branch or "")
     if named:
         in_body = {re.search(r"#(\d+)$", ref).group(1) for _, ref in found}
-        for number in sorted(set(named.group(1).split("-")) - in_body, key=int):
+        # A token may carry a lowercase repo shortcode before its
+        # number (skills#147: one branch name for a cross-repo arc);
+        # the ticket number is the token's trailing digit run, so
+        # d10e76 names ticket 76, never 10.
+        in_branch = {
+            re.search(r"(\d+)$", token).group(1) for token in named.group(1).split("-")
+        }
+        for number in sorted(in_branch - in_body, key=int):
             problems.append(
                 f"the branch names ticket {number} but the body never "
                 f"references #{number} with a canonical keyword"
@@ -334,18 +343,22 @@ def review_violations(
     what to do next, not a human who already knows which comment they
     left.
 
-    Answered: a full commit URL under `base_url` whose sha is one of
-    this PR's own commits — a pasted-but-wrong link fails, and a bare
-    hash fails by design — or a line starting exactly with the central
-    file's `no_commit_marker`. A thread the reviewer RESOLVED is off
+    Answered: the reply names a commit that is one of this PR's own —
+    as a commit URL under `base_url`, the PR's own /commits/<sha> URL,
+    or a bare sha of seven or more hex digits; the gate already holds
+    the PR's shas, so any spelling it can match is proof enough and
+    demanding one spelling only cost a round-trip (#205). A sha not on
+    the PR fails whatever wraps it. Or a line starting exactly with the
+    central file's `no_commit_marker`. A thread the reviewer RESOLVED is off
     the worklist regardless: resolution is the reviewer's own sign-off
     that nothing more is needed, and demanding a reply on top of it
     gated pandoscope/skills#30 on wording nobody was waiting for
     (agentic-engineering-template#166).
     """
-    url_re = re.compile(
-        re.escape(base_url) + r"/[\w.-]+/[\w.-]+/commit/([0-9a-f]{7,40})\b"
-    )
+    # Any hex run of 7-40 digits is a candidate; only a prefix of one of
+    # the PR's own shas answers, so hex-looking prose cannot pass by
+    # accident and a pasted-but-wrong sha still fails.
+    sha_re = re.compile(r"\b([0-9a-f]{7,40})\b")
     problems = []
     for comments in threads:
         first = comments[0]
@@ -361,7 +374,7 @@ def review_violations(
             body = reply.get("body") or ""
             linked = any(
                 any(sha.startswith(match.group(1)) for sha in pr_shas)
-                for match in url_re.finditer(body)
+                for match in sha_re.finditer(body)
             )
             marked = any(line.strip().startswith(marker) for line in body.splitlines())
             if linked or marked:
@@ -376,8 +389,10 @@ def review_violations(
             problems.append(
                 f'unanswered review thread by {opener} at {where}: "{quote}"'
                 + (f" ({link})" if link else "")
-                + f" — reply with a commit URL on this PR or a '{marker} <why>'"
-                " line, or the reviewer resolves the thread"
+                + " — reply naming a commit on this PR (its URL or sha; a sha"
+                " not on the PR fails, and amending the commit invalidates"
+                f" the reference), or a '{marker} <why>' line, or the reviewer"
+                " resolves the thread"
             )
     return problems
 
@@ -962,6 +977,48 @@ def run_leaks():
     return 1 if problems else 0
 
 
+# ------------------------------------------------------------ payload
+
+
+def payload_surfaces(event):
+    """The one item an issue/comment event just published, labeled.
+
+    The event-driven net (#208) reads nothing but the event: an
+    issue's title and body on `issues`, a comment's body on
+    `issue_comment` (PR conversation comments included) and
+    `pull_request_review_comment`. No repo walk, no API listing —
+    layer 3 owns the full history; this catches the item that just
+    went public, minutes instead of a day.
+    """
+    comment = event.get("comment")
+    if comment:
+        label = f"comment {comment.get('html_url')}"
+        if comment.get("path"):
+            label += f" on {comment['path']}"
+        return [(label, comment.get("body"))]
+    issue = event.get("issue") or event.get("pull_request") or {}
+    where = issue.get("html_url")
+    return [
+        (f"issue {where} title", issue.get("title")),
+        (f"issue {where} body", issue.get("body")),
+    ]
+
+
+def run_payload():
+    values = parse_blocklist(os.environ.get("PUSH_BLOCKLIST"))
+    if not values:
+        print("::warning::PUSH_BLOCKLIST is empty — the denylist layer is inactive")
+        return 0
+    with open(os.environ["GITHUB_EVENT_PATH"], encoding="utf-8") as handle:
+        event = json.load(handle)
+    problems = leak_violations(payload_surfaces(event), values)
+    for problem in problems:
+        print(f"::error::{problem}")
+    if not problems:
+        print("No blocklisted string in the item this event published.")
+    return 1 if problems else 0
+
+
 def main():
     verb = sys.argv[1] if len(sys.argv) > 1 else ""
     runners = {
@@ -971,6 +1028,7 @@ def main():
         "aggregate": run_aggregate,
         "rerun": run_rerun,
         "leaks": run_leaks,
+        "payload": run_payload,
     }
     if verb not in runners:
         print(f"usage: check_gate.py {{{'|'.join(runners)}}}", file=sys.stderr)
