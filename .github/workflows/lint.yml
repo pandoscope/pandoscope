@@ -62,6 +62,12 @@ jobs:
             --answers-file "$answers_file" \
             --defaults --trust --skip-tasks --vcs-ref "$stamped"
 
+          # The recopy re-delivers every shared glossary term, including
+          # the ones this repo's stamp pruned as unlinked (#67). Prune
+          # again, with the same script the update ran, so the diff
+          # judges the converged state, not the raw render (#203).
+          bash scripts/ci/prune_glossary.sh || true
+
           # CLAUDE.md invites local Learnings ("new non-obvious
           # findings go in this file") and copier update three-way
           # merges them, so local content there is sanctioned, not
