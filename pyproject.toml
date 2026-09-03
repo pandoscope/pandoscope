@@ -26,6 +26,7 @@ classifiers = [
 dependencies = [
   "copier>=9",
   "copier-template-extensions>=0.3",
+  "pyyaml>=6",
 ]
 urls."Bug Tracker" = "https://github.com/pandoscope/pandoscope/issues"
 urls.repository = "https://github.com/pandoscope/pandoscope"
@@ -36,6 +37,7 @@ dev = [
   "mypy>=1.8,<2",
   "pytest==9.*",
   "ruff>=0.6",
+  "types-pyyaml>=6.0.12.20260815",
 ]
 
 [tool.hatch]

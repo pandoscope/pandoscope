@@ -44,6 +44,20 @@ def build_parser() -> argparse.ArgumentParser:
     stamp_parser.add_argument(
         "--vcs-ref", default=None, help="template branch, tag, or commit"
     )
+    compose_parser = subparsers.add_parser(
+        "compose",
+        help="compose the session reinset from a SessionStart hook (skills#179)",
+    )
+    compose_parser.add_argument(
+        "--session-root",
+        default=None,
+        help="directory holding the session's clones (default: $SESSION_ROOT, else .)",
+    )
+    compose_parser.add_argument(
+        "--prompt-file",
+        default=None,
+        help="file holding the session's initial prompt, '-' for stdin",
+    )
     return parser
 
 
@@ -61,4 +75,6 @@ def main(argv: list[str] | None = None) -> int:
             defaults=args.defaults,
             vcs_ref=args.vcs_ref,
         )
+    if args.command == "compose":
+        raise NotImplementedError
     return 0
