@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+
 UNKNOWN = "unknown"
 
 
@@ -12,4 +14,7 @@ def principal_id(email: str | None, salt: str | None) -> str:
     Returns ``unknown`` when either input is missing: an id is never
     guessed, and an unsalted id would be a dictionary-attackable email.
     """
-    raise NotImplementedError
+    if not email or not salt:
+        return UNKNOWN
+    digest = hashlib.sha256(salt.encode() + email.lower().encode()).hexdigest()
+    return "p-" + digest[:12]

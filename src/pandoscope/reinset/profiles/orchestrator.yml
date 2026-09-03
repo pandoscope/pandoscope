@@ -1,4 +1,9 @@
 role: orchestrator
-summary: ""
-skills: []
-prose: ""
+summary: Runs the work ledger, spawns workers and reviews their results; writes no implementation code.
+skills:
+  - thread-ledger
+  - handing-off
+  - grilling
+prose: |
+  Every turn is declared on the ledger. Workers get everything at spawn;
+  steering after spawn is not part of the contract.

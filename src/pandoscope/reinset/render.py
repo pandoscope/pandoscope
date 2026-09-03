@@ -8,6 +8,16 @@ from typing import Any
 from pandoscope.reinset.profiles import Profile
 
 MARKER = "<!-- managedBy: pandoscope compose -->"
+UNCONFIGURED = (
+    "SESSION UNCONFIGURED: no intent reference reached this session, so no "
+    "role is set and nothing is installed. There is no default role. Tell "
+    "the user at the start of your reply."
+)
+DECLARATION = (
+    "To run as orchestrator, start a fresh session with REINSET_REF set to "
+    "an intent reference (<repo>@<sha>:<path>) whose file declares "
+    "`role: orchestrator`."
+)
 
 
 class UnmanagedTargetError(Exception):
@@ -23,7 +33,36 @@ def render(answers: dict[str, Any], profile: Profile, errors: list[str]) -> str:
     carries the UNCONFIGURED notice and the one-line orchestrator
     declaration, nothing else.
     """
-    raise NotImplementedError
+    lines: list[str] = []
+    for error in errors:
+        lines.append(f"COMPOSER ERROR: {error}")
+    for mismatch in answers.get("mismatches", []):
+        lines.append(
+            f"MISMATCH {mismatch['key']}: passed={mismatch['passed']} "
+            f"detected={mismatch['detected']} resolved_to={mismatch['resolved_to']}"
+        )
+    if lines:
+        lines.append("")
+    if profile.role == "general":
+        lines += ["# UNCONFIGURED", "", UNCONFIGURED, "", DECLARATION, ""]
+        return "\n".join(lines)
+    lines += [
+        f"# Role: {profile.role}",
+        "",
+        f"Profile: {profile.path} (layer: {profile.layer}).",
+    ]
+    summary = profile.data.get("summary")
+    if summary:
+        lines += ["", str(summary)]
+    skills = profile.data.get("skills") or []
+    if skills:
+        lines += ["", "## Skills", ""]
+        lines += [f"- {skill}" for skill in skills]
+    prose = profile.data.get("prose")
+    if prose:
+        lines += ["", str(prose).rstrip()]
+    lines.append("")
+    return "\n".join(lines)
 
 
 def write_render(target: Path, text: str) -> None:
@@ -32,4 +71,11 @@ def write_render(target: Path, text: str) -> None:
 
     Raises UnmanagedTargetError when ``target`` exists without the marker.
     """
-    raise NotImplementedError
+    if target.exists() and MARKER not in target.read_text():
+        msg = (
+            f"{target} exists and is not managed by pandoscope compose "
+            "— not overwriting"
+        )
+        raise UnmanagedTargetError(msg)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(f"{MARKER}\n{text}")
