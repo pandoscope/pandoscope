@@ -38,6 +38,26 @@ pandoscope stamp my-project \
   --defaults
 ```
 
+### `pandoscope compose`
+
+Compose the session-time reinset from a SessionStart hook, per the
+session answers spec
+([skills#179](https://github.com/pandoscope/skills/issues/179)): detect
+the harness facts, receive the intent reference (`REINSET_REF`, then the
+`reinset:` line in the Routine's `routine-fire-payload` block of the
+prompt passed via `--prompt-file`), resolve the intent file at its exact
+commit, compare both sides, write the answers file at `$REINSET_ANSWERS`
+(default `~/.claude/reinset/<session_id>.yml`) and render
+`~/.claude/CLAUDE.md` from the role's profile. Profiles ship under
+`src/pandoscope/reinset/profiles/`; a same-named file under
+`meta/reinset/profiles/` in the session root replaces one whole. Without
+a reference the render is the loud UNCONFIGURED state. Never run it from
+a model turn: the hook is the caller.
+
+```sh
+SESSION_ROOT=/home/user pandoscope compose --prompt-file prompt.txt
+```
+
 More commands land as the tool grows.
 
 ## Glossary

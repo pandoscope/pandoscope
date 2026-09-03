@@ -33,3 +33,17 @@ def test_stamp_collects_repeated_data() -> None:
 def test_command_is_required() -> None:
     with pytest.raises(SystemExit):
         build_parser().parse_args([])
+
+
+def test_compose_defaults() -> None:
+    args = build_parser().parse_args(["compose"])
+    assert args.session_root is None
+    assert args.prompt_file is None
+
+
+def test_compose_reads_root_and_prompt_file() -> None:
+    args = build_parser().parse_args(
+        ["compose", "--session-root", "/s", "--prompt-file", "-"]
+    )
+    assert args.session_root == "/s"
+    assert args.prompt_file == "-"

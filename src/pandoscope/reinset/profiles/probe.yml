@@ -1,0 +1,5 @@
+role: probe
+summary: Measures one channel and writes one result file; no forge writes, no other work.
+skills: []
+prose: |
+  Never read, print or store a session id, email, uuid, token or store URL.

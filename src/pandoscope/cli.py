@@ -3,8 +3,12 @@
 from __future__ import annotations
 
 import argparse
+import os
+import sys
+from pathlib import Path
 
 from pandoscope import __version__
+from pandoscope.reinset.compose import Composition, compose
 from pandoscope.stamp import TEMPLATE_URL, parse_data, stamp
 
 
@@ -44,6 +48,20 @@ def build_parser() -> argparse.ArgumentParser:
     stamp_parser.add_argument(
         "--vcs-ref", default=None, help="template branch, tag, or commit"
     )
+    compose_parser = subparsers.add_parser(
+        "compose",
+        help="compose the session reinset from a SessionStart hook (skills#179)",
+    )
+    compose_parser.add_argument(
+        "--session-root",
+        default=None,
+        help="directory holding the session's clones (default: $SESSION_ROOT, else .)",
+    )
+    compose_parser.add_argument(
+        "--prompt-file",
+        default=None,
+        help="file holding the session's initial prompt, '-' for stdin",
+    )
     return parser
 
 
@@ -61,4 +79,24 @@ def main(argv: list[str] | None = None) -> int:
             defaults=args.defaults,
             vcs_ref=args.vcs_ref,
         )
+    if args.command == "compose":
+        print(run_compose(args.session_root, args.prompt_file).render_text, end="")
     return 0
+
+
+def run_compose(session_root: str | None, prompt_file: str | None) -> Composition:
+    """
+    Compose from the process environment.
+
+    ``session_root`` falls back to ``$SESSION_ROOT``, then the working
+    directory; ``prompt_file`` is read whole, ``-`` meaning stdin.
+    Returns the composition; raises what the composer raises.
+    """
+    root = Path(session_root or os.environ.get("SESSION_ROOT") or ".").resolve()
+    prompt = None
+    if prompt_file == "-":
+        prompt = sys.stdin.read()
+    elif prompt_file is not None:
+        prompt = Path(prompt_file).read_text()
+    path_dirs = [Path(entry) for entry in os.environ.get("PATH", "").split(os.pathsep)]
+    return compose(os.environ, root, Path.home(), prompt, path_dirs)
