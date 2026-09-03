@@ -95,3 +95,19 @@ def test_write_render_refuses_an_unmanaged_file(tmp_path: Path) -> None:
     with pytest.raises(UnmanagedTargetError, match=str(target)):
         write_render(target, "render\n")
     assert target.read_text() == "hand-written user instructions\n"
+
+
+def test_declared_general_is_configured_and_installs_nothing() -> None:
+    # Measured 2026-09-03 (role test r0a4): a reference declaring
+    # `role: general` rendered the unconfigured notice, which says no
+    # reference arrived. A declared general is a configured session
+    # that installs nothing; the render must say that, not deny the
+    # reference.
+    declared = answers("general")
+    declared["passed"] = {"spawn_id": "spawn-r0a4", "role": "general"}
+    text = render(declared, GENERAL, [])
+    assert "UNCONFIGURED" not in text
+    assert "no intent reference" not in text
+    assert "Role: general" in text
+    assert "nothing is installed" in text
+    assert "skill" not in text.lower()

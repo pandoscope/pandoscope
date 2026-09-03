@@ -20,6 +20,12 @@ DECLARATION = (
 )
 
 
+DECLARED_GENERAL = (
+    "Role: general, declared by the intent reference. This session is "
+    "configured and nothing is installed beyond this render."
+)
+
+
 class UnmanagedTargetError(Exception):
     """The render target exists and was not written by the composer."""
 
@@ -44,7 +50,12 @@ def render(answers: dict[str, Any], profile: Profile, errors: list[str]) -> str:
     if lines:
         lines.append("")
     if profile.role == "general":
-        lines += ["# UNCONFIGURED", "", UNCONFIGURED, "", DECLARATION, ""]
+        # D15 either way: nothing installed. Declared general (a reference
+        # arrived) is configured; no reference is the loud state.
+        if answers.get("passed") is not None:
+            lines += ["# Role: general", "", DECLARED_GENERAL, ""]
+        else:
+            lines += ["# UNCONFIGURED", "", UNCONFIGURED, "", DECLARATION, ""]
         return "\n".join(lines)
     lines += [
         f"# Role: {profile.role}",
