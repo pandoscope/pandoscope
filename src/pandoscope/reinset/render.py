@@ -20,6 +20,11 @@ DECLARATION = (
 )
 
 
+WAITING = (
+    "SESSION WAITING: this session was spawned and its intent reference "
+    "arrives with the first prompt, one step after SessionStart. No role is "
+    "set yet and nothing is installed; the next compose pass renders the role."
+)
 DECLARED_GENERAL = (
     "Role: general, declared by the intent reference. This session is "
     "configured and nothing is installed beyond this render."
@@ -54,6 +59,10 @@ def render(answers: dict[str, Any], profile: Profile, errors: list[str]) -> str:
         # arrived) is configured; no reference is the loud state.
         if answers.get("passed") is not None:
             lines += ["# Role: general", "", DECLARED_GENERAL, ""]
+        elif _waiting_for_reference(answers, errors):
+            # D21: a spawned session's reference is known to arrive with
+            # the first prompt, so its SessionStart pass waits.
+            lines += ["# WAITING", "", WAITING, ""]
         else:
             lines += ["# UNCONFIGURED", "", UNCONFIGURED, "", DECLARATION, ""]
         return "\n".join(lines)
@@ -74,6 +83,11 @@ def render(answers: dict[str, Any], profile: Profile, errors: list[str]) -> str:
         lines += ["", str(prose).rstrip()]
     lines.append("")
     return "\n".join(lines)
+
+
+def _waiting_for_reference(answers: dict[str, Any], errors: list[str]) -> bool:
+    spawned = bool(answers.get("detected", {}).get("spawned"))
+    return spawned and answers.get("reference") is None and not errors
 
 
 def write_render(target: Path, text: str) -> None:
