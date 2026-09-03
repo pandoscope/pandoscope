@@ -58,6 +58,23 @@ a model turn: the hook is the caller.
 SESSION_ROOT=/home/user pandoscope compose --prompt-file prompt.txt
 ```
 
+### `pandoscope spawn --role ROLE --task-file FILE`
+
+Spawn a worker session (the CCoW sender of
+[skills#179](https://github.com/pandoscope/skills/issues/179)): mint a
+spawn id, write `intents/<spawn-id>.yml` to session-memory main with the
+caller's principal id as `spawner` (read from `$REINSET_ANSWERS`, never
+guessed) and fire the spawn Routine named by `REINSET_SPAWN_ROUTINE`
+with the `reinset:` reference line followed by the task. The fire token
+comes from `REINSET_SPAWN_TOKEN` and travels only in the request header.
+`--dry-run` renders the intent and touches nothing. Prints the spawn id,
+the reference and the minted session URL.
+
+```sh
+pandoscope spawn --role implementer --task-file task.md \
+  --thread per-session-agent-config --ticket pandoscope/skills#179
+```
+
 More commands land as the tool grows.
 
 ## Glossary
