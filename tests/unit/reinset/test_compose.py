@@ -147,3 +147,22 @@ def test_unmanaged_claude_md_is_refused(
     with pytest.raises(UnmanagedTargetError):
         compose(ENV_RUN5_UI, session_root, home, None, path_dirs)
     assert (home / ".claude" / "CLAUDE.md").read_text() == "hand-written\n"
+
+
+def test_reference_declaring_general_renders_declared_general(
+    session_root: Path,
+    home: Path,
+    path_dirs: list[Path],
+    commit_intent: Callable[[str, str], str],
+) -> None:
+    sha = commit_intent(
+        "intents/spawn-r0a4.yml", INTENT_IMPLEMENTER.replace("implementer", "general")
+    )
+    env = {
+        **ENV_RUN7_FIRED,
+        "REINSET_REF": f"session-memory@{sha}:intents/spawn-r0a4.yml",
+    }
+    result = compose(env, session_root, home, None, path_dirs)
+    assert result.answers["resolved"]["role"] == "general"
+    assert "UNCONFIGURED" not in result.render_text
+    assert "Role: general" in result.render_text
