@@ -62,6 +62,24 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="file holding the session's initial prompt, '-' for stdin",
     )
+    spawn_parser = subparsers.add_parser(
+        "spawn", help="spawn a worker session with an intent reference (skills#179)"
+    )
+    spawn_parser.add_argument("--role", required=True, help="the child's role")
+    spawn_parser.add_argument(
+        "--task-file", required=True, help="file holding the task text, '-' for stdin"
+    )
+    spawn_parser.add_argument("--thread", default=None, help="work-ledger thread")
+    spawn_parser.add_argument(
+        "--ticket", action="append", default=[], help="owner/repo#n (repeatable)"
+    )
+    spawn_parser.add_argument("--principal", default=None, help="principal id")
+    spawn_parser.add_argument("--dojo", action="store_true")
+    spawn_parser.add_argument("--debug", action="store_true")
+    spawn_parser.add_argument("--session-root", default=None)
+    spawn_parser.add_argument(
+        "--dry-run", action="store_true", help="mint and render, write and fire nothing"
+    )
     return parser
 
 
@@ -81,6 +99,8 @@ def main(argv: list[str] | None = None) -> int:
         )
     if args.command == "compose":
         print(run_compose(args.session_root, args.prompt_file).render_text, end="")
+    if args.command == "spawn":
+        raise NotImplementedError
     return 0
 
 
