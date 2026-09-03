@@ -5,10 +5,15 @@ from __future__ import annotations
 import argparse
 import os
 import sys
+import urllib.error
+import urllib.request
 from pathlib import Path
 
+import yaml
+
 from pandoscope import __version__
-from pandoscope.reinset.compose import Composition, compose
+from pandoscope.reinset.compose import ANSWERS_ENV, Composition, compose
+from pandoscope.reinset.sender import Spawned, spawn
 from pandoscope.stamp import TEMPLATE_URL, parse_data, stamp
 
 
@@ -100,8 +105,55 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "compose":
         print(run_compose(args.session_root, args.prompt_file).render_text, end="")
     if args.command == "spawn":
-        raise NotImplementedError
+        result = run_spawn(args)
+        print(f"{result.spawn_id} {result.reference}")
+        if result.session_url:
+            print(result.session_url)
     return 0
+
+
+def run_spawn(args: argparse.Namespace) -> Spawned:
+    """
+    Spawn from the process environment and the caller's answers file.
+
+    Reads ``$REINSET_ANSWERS`` for the spawner identity, the task from
+    ``--task-file`` (``-`` for stdin). Returns the spawn result; raises
+    SpawnError from the sender.
+    """
+    root = Path(args.session_root or os.environ.get("SESSION_ROOT") or ".").resolve()
+    answers_path = os.environ.get(ANSWERS_ENV)
+    answers = None
+    if answers_path and Path(answers_path).is_file():
+        answers = yaml.safe_load(Path(answers_path).read_text())
+    task = (
+        sys.stdin.read() if args.task_file == "-" else Path(args.task_file).read_text()
+    )
+    fields = {
+        "role": args.role,
+        "principal": args.principal,
+        "thread": args.thread,
+        "tickets": args.ticket,
+        "dojo": args.dojo,
+        "debug": args.debug,
+    }
+    return spawn(
+        os.environ, root, answers, fields, task, http_post, dry_run=args.dry_run
+    )
+
+
+def http_post(url: str, headers: dict[str, str], data: bytes) -> tuple[int, bytes]:
+    """POST ``data`` to ``url``; returns (status, body) without raising on 4xx/5xx."""
+    if not url.startswith("https://"):
+        msg = f"refusing a non-https fire URL: {url}"
+        raise ValueError(msg)
+    request = urllib.request.Request(  # noqa: S310 — https checked above
+        url, data=data, headers=headers, method="POST"
+    )
+    try:
+        with urllib.request.urlopen(request) as response:  # noqa: S310 — https literal
+            return response.status, response.read()
+    except urllib.error.HTTPError as error:
+        return error.code, error.read()
 
 
 def run_compose(session_root: str | None, prompt_file: str | None) -> Composition:
