@@ -47,3 +47,22 @@ def test_compose_reads_root_and_prompt_file() -> None:
     )
     assert args.session_root == "/s"
     assert args.prompt_file == "-"
+
+
+def test_spawn_arguments() -> None:
+    args = build_parser().parse_args(
+        [
+            "spawn",
+            "--role",
+            "probe",
+            "--task-file",
+            "-",
+            "--ticket",
+            "a/b#1",
+            "--dry-run",
+        ]
+    )
+    assert args.role == "probe"
+    assert args.task_file == "-"
+    assert args.ticket == ["a/b#1"]
+    assert args.dry_run is True
