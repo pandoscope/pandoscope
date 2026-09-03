@@ -166,3 +166,23 @@ def test_reference_declaring_general_renders_declared_general(
     assert result.answers["resolved"]["role"] == "general"
     assert "UNCONFIGURED" not in result.render_text
     assert "Role: general" in result.render_text
+
+
+def test_fired_session_without_reference_renders_waiting(
+    session_root: Path, home: Path, path_dirs: list[Path]
+) -> None:
+    result = compose(ENV_RUN7_FIRED, session_root, home, None, path_dirs)
+    assert "WAITING" in result.render_text
+    assert "UNCONFIGURED" not in result.render_text
+    assert result.answers["resolved"]["role"] == "general"
+
+
+def test_fired_session_with_a_bad_reference_shouts(
+    session_root: Path, home: Path, path_dirs: list[Path]
+) -> None:
+    # A reference that arrived and failed is a composer error, not a
+    # wait: the loud path stays.
+    env = {**ENV_RUN7_FIRED, "REINSET_REF": "session-memory@main:intents/x.yml"}
+    result = compose(env, session_root, home, None, path_dirs)
+    assert "COMPOSER ERROR" in result.render_text
+    assert "UNCONFIGURED" in result.render_text

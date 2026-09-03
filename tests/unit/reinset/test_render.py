@@ -111,3 +111,22 @@ def test_declared_general_is_configured_and_installs_nothing() -> None:
     assert "Role: general" in text
     assert "nothing is installed" in text
     assert "skill" not in text.lower()
+
+
+def test_spawned_session_without_reference_waits_instead_of_shouting() -> None:
+    # D21 (2026-09-03): a spawned session's reference arrives with the
+    # first prompt, one step after SessionStart. Its SessionStart pass
+    # renders a waiting state, not the loud notice.
+    waiting = answers("general")
+    waiting["detected"] = {"harness": "claude-code", "spawned": True}
+    text = render(waiting, GENERAL, [])
+    assert "UNCONFIGURED" not in text
+    assert "WAITING" in text
+    assert "first prompt" in text
+    assert "skill" not in text.lower()
+
+
+def test_unspawned_session_without_reference_still_shouts() -> None:
+    plain = answers("general")
+    plain["detected"] = {"harness": "claude-code", "spawned": False}
+    assert "UNCONFIGURED" in render(plain, GENERAL, [])
