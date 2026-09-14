@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
@@ -270,3 +271,34 @@ def test_a_session_without_an_order_prunes_what_a_role_left(
     # what an earlier role left (D15).
     compose(ENV_RUN5_UI, session_root, home, path_dirs)
     assert not (home / ".claude" / "skills" / "handing-off").exists()
+
+
+def test_role_hooks_render_beside_the_answers(
+    session_root: Path, home: Path, path_dirs: list[Path]
+) -> None:
+    # The shipped implementer profile carries the handing-off hooks.
+    for name in ("thread-ledger", "handing-off"):
+        _skill(session_root, name)
+    for script in ("guard.sh", "verify.sh"):
+        (session_root / "skills" / "original" / "handing-off" / script).write_text(
+            "#!/bin/bash\n"
+        )
+    write_pass_and_order(session_root, IMPLEMENTER_ORDER)
+    hooks_path = home / "elsewhere" / "hooks.json"
+    env = {**ENV_RUN7_FIRED, **WAYBILL_FIRE, "REINSET_HOOKS": str(hooks_path)}
+    result = compose(env, session_root, home, path_dirs)
+    assert result.errors == []
+    assert result.hooks_path == hooks_path
+    hooks = json.loads(hooks_path.read_text())
+    guard = str(home / ".claude" / "skills" / "handing-off" / "guard.sh")
+    assert hooks["PreCompact"] == [{"command": guard}]
+    assert hooks["SessionStart"][0]["matcher"] == "compact"
+    assert result.answers["hooks"] == hooks
+
+
+def test_unconfigured_session_renders_no_hooks(
+    session_root: Path, home: Path, path_dirs: list[Path]
+) -> None:
+    result = compose(ENV_RUN5_UI, session_root, home, path_dirs)
+    assert result.hooks_path == home / ".claude" / "reinset" / "hooks.json"
+    assert json.loads(result.hooks_path.read_text()) == {}
