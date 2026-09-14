@@ -184,6 +184,7 @@ def test_no_order_writes_a_null_order(
         "order",
         "errors",
         "installed",
+        "hooks",
     ]
 
 
@@ -235,6 +236,10 @@ def test_role_install_follows_the_profile(
     # The shipped implementer profile names thread-ledger and handing-off.
     for name in ("thread-ledger", "handing-off", "grilling"):
         _skill(session_root, name)
+    for script in ("guard.sh", "verify.sh"):
+        (session_root / "skills" / "original" / "handing-off" / script).write_text(
+            "#!/bin/bash\n"
+        )
     write_pass_and_order(session_root, IMPLEMENTER_ORDER)
     env = {**ENV_RUN7_FIRED, **WAYBILL_FIRE}
     result = compose(env, session_root, home, path_dirs)

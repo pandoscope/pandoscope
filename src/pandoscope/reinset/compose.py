@@ -10,14 +10,16 @@ from typing import Any
 import yaml
 
 from pandoscope.reinset.detect import detect
-from pandoscope.reinset.principal import UNKNOWN
+from pandoscope.reinset.hooks import render_hooks
 from pandoscope.reinset.install import install_bundle
+from pandoscope.reinset.principal import UNKNOWN
 from pandoscope.reinset.profiles import load_profile
 from pandoscope.reinset.receive import Order, OrderError, find_order
 from pandoscope.reinset.render import render, write_render
 from pandoscope.reinset.review import ReviewError, hydrate
 
 ANSWERS_ENV = "REINSET_ANSWERS"
+HOOKS_ENV = "REINSET_HOOKS"
 
 
 @dataclass
@@ -26,6 +28,7 @@ class Composition:
 
     answers: dict[str, Any]
     answers_path: Path
+    hooks_path: Path
     render_path: Path
     render_text: str
     errors: list[str] = field(default_factory=list)
@@ -51,7 +54,7 @@ def compose(
     because the session must hear them.
     They are an order that does not validate against the schema,
     any review error from hydrating the task
-    and a bundle skill with no source.
+    and a bundle skill or hook with no source.
     The render step raises UnmanagedTargetError.
     """
     detected = detect(env, session_root, home, path_dirs)
@@ -95,13 +98,15 @@ def compose(
     profile = load_profile(resolved["role"], session_root)
     # The composer runs once, at SessionStart: every pass is a fresh
     # session and may remove what an earlier role left (D2, D15).
-    report = install_bundle(
-        profile, session_root, home, detected["repos"], prune=True
-    )
+    report = install_bundle(profile, session_root, home, detected["repos"], prune=True)
     errors += report.errors
     answers["installed"] = report.installed
+    hooks_path = Path(env.get(HOOKS_ENV) or home / ".claude" / "reinset" / "hooks.json")
+    hooks, hook_errors = render_hooks(profile, home, hooks_path)
+    errors += hook_errors
+    answers["hooks"] = hooks
     answers_path.write_text(yaml.safe_dump(answers, sort_keys=False))
     text = render(answers, profile, errors, task=task)
     render_path = home / ".claude" / "CLAUDE.md"
     write_render(render_path, text)
-    return Composition(answers, answers_path, render_path, text, errors)
+    return Composition(answers, answers_path, hooks_path, render_path, text, errors)
