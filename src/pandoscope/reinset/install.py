@@ -1,14 +1,32 @@
-"""Install the role's bundle: the profile's skills, rendered into ~/.claude/skills."""
+"""
+Install the role's bundle: the profile's skills, rendered into ~/.claude/skills.
+
+The profile names skills; nothing before this step put them where the
+harness reads them (skills#179 §4, PANDO#5's unspecified "skills"
+subcommand). Each installed skill is a render like CLAUDE.md: copied
+whole from its source, marked, replaced whole on the next pass, and
+never touched when the marker is absent. The general profile names no
+skill, so an unconfigured SessionStart installs nothing and removes
+what an earlier role left (D15); a pass inside a running session only
+adds (D2).
+"""
 
 from __future__ import annotations
 
+import shutil
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+import yaml
+
 from pandoscope.reinset.profiles import Profile
 
 MARKER_FILE = ".pandoscope-compose"
+META_OVERRIDE = Path("meta") / "reinset" / "skills"
+SKILLS_KIND = "skills"
+SKILLS_LAYERS = ("original", "derived")
+VENDORED = Path(".agents") / "skills"
 
 
 @dataclass
@@ -20,9 +38,44 @@ class InstallReport:
     errors: list[str] = field(default_factory=list)
 
 
-def find_skill(name: str, session_root: Path, repos: list[dict[str, Any]]) -> Path | None:
+def _layers(name: str, session_root: Path, repos: list[dict[str, Any]]) -> list[Path]:
+    """Candidate source directories for ``name``, highest precedence first."""
+    layers = [session_root / META_OVERRIDE / name]
+    clones = [Path(repo["path"]) for repo in repos]
+    for repo in repos:
+        if repo.get("kind") == SKILLS_KIND:
+            layers += [Path(repo["path"]) / layer / name for layer in SKILLS_LAYERS]
+    layers += [clone / VENDORED / name for clone in clones]
+    return layers
+
+
+def find_skill(
+    name: str, session_root: Path, repos: list[dict[str, Any]]
+) -> Path | None:
     """Return the source directory for ``name``, or None when no layer has it."""
-    raise NotImplementedError
+    for candidate in _layers(name, session_root, repos):
+        if (candidate / "SKILL.md").is_file():
+            return candidate
+    return None
+
+
+def _managed(target: Path) -> bool:
+    return (target / MARKER_FILE).is_file()
+
+
+def _copy(source: Path, target: Path, profile: Profile) -> None:
+    if target.exists():
+        shutil.rmtree(target)
+    shutil.copytree(source, target)
+    for script in target.rglob("*.sh"):
+        script.chmod(script.stat().st_mode | 0o111)
+    marker = {
+        "managedBy": "pandoscope compose",
+        "role": profile.role,
+        "layer": profile.layer,
+        "source": str(source),
+    }
+    (target / MARKER_FILE).write_text(yaml.safe_dump(marker, sort_keys=False))
 
 
 def install_bundle(
@@ -33,5 +86,35 @@ def install_bundle(
     *,
     prune: bool,
 ) -> InstallReport:
-    """Render the profile's skills into ``home/.claude/skills``."""
-    raise NotImplementedError
+    """
+    Render the profile's skills into ``home/.claude/skills``.
+
+    Returns the report. A skill with no source, or a target directory
+    without the marker, is an error in the report and the skill is
+    skipped; nothing raises. With ``prune`` every marked directory the
+    profile does not name is removed.
+    """
+    report = InstallReport()
+    skills_dir = home / ".claude" / "skills"
+    wanted = [str(name) for name in profile.data.get("skills") or []]
+    for name in wanted:
+        source = find_skill(name, session_root, repos)
+        if source is None:
+            searched = ", ".join(str(p) for p in _layers(name, session_root, repos))
+            report.errors.append(f"skill {name!r} has no source; searched {searched}")
+            continue
+        target = skills_dir / name
+        if target.exists() and not _managed(target):
+            report.errors.append(
+                f"{target} exists and is not managed by pandoscope compose "
+                "— not overwriting"
+            )
+            continue
+        _copy(source, target, profile)
+        report.installed.append(name)
+    if prune and skills_dir.is_dir():
+        for entry in sorted(skills_dir.iterdir()):
+            if entry.is_dir() and _managed(entry) and entry.name not in wanted:
+                shutil.rmtree(entry)
+                report.removed.append(entry.name)
+    return report

@@ -68,10 +68,11 @@ orientation sentence. Every Routine saves the same sentence. It tells
 the model that the hooks composed its role and task into `CLAUDE.md`.
 Never run the composer from a model turn: the hook is the caller.
 
-The composer writes four keys to the answers file: `detected`
+The composer writes five keys to the answers file: `detected`
 (harness facts), `resolved` (harness, environment, role, principal,
 model), `order` (path, role, pass, tier, pull request number, tickets;
-null without an order) and `errors`.
+null without an order), `errors` and `installed` (the skills the
+role's bundle copied into `~/.claude/skills`).
 
 The composer validates the order against a strict schema
 (`src/pandoscope/reinset/schemas/order.json`). The schema rejects
