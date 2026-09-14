@@ -73,6 +73,8 @@ def write_pass_and_order(session_root: Path, order: str | None) -> None:
     target = session_root / "skills" / "original" / "thread-ledger" / "review"
     target.mkdir(parents=True)
     (target / "spec-fidelity.md").write_text(REVIEW_PROMPT_FILE)
+    # The reviewer profile names thread-ledger; the bundle installs it.
+    (target.parent / "SKILL.md").write_text("---\nname: thread-ledger\n---\n")
     if order is not None:
         orders = session_root / "waybill" / "orders"
         orders.mkdir(parents=True)
@@ -175,7 +177,13 @@ def test_no_order_writes_a_null_order(
 ) -> None:
     result = compose(ENV_RUN5_UI, session_root, home, path_dirs)
     assert result.answers["order"] is None
-    assert list(result.answers) == ["detected", "resolved", "order", "errors"]
+    assert list(result.answers) == [
+        "detected",
+        "resolved",
+        "order",
+        "errors",
+        "installed",
+    ]
 
 
 def test_a_fired_session_without_an_order_shouts(
@@ -243,7 +251,7 @@ def test_missing_bundle_skill_is_a_composer_error(
     env = {**ENV_RUN7_FIRED, **WAYBILL_FIRE}
     result = compose(env, session_root, home, path_dirs)
     assert result.answers["resolved"]["role"] == "implementer"
-    assert any("thread-ledger" in error for error in result.errors)
+    assert any("handing-off" in error for error in result.errors)
     assert "COMPOSER ERROR" in result.render_text
     assert result.answers["errors"] == result.errors
 

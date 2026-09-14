@@ -11,6 +11,7 @@ import yaml
 
 from pandoscope.reinset.detect import detect
 from pandoscope.reinset.principal import UNKNOWN
+from pandoscope.reinset.install import install_bundle
 from pandoscope.reinset.profiles import load_profile
 from pandoscope.reinset.receive import Order, OrderError, find_order
 from pandoscope.reinset.render import render, write_render
@@ -48,8 +49,9 @@ def compose(
     and renders the loud UNCONFIGURED state.
     The composer renders its own errors and never raises them,
     because the session must hear them.
-    They are an order that does not validate against the schema
-    and any review error from hydrating the task.
+    They are an order that does not validate against the schema,
+    any review error from hydrating the task
+    and a bundle skill with no source.
     The render step raises UnmanagedTargetError.
     """
     detected = detect(env, session_root, home, path_dirs)
@@ -90,8 +92,15 @@ def compose(
         or home / ".claude" / "reinset" / f"{detected['session_id']}.yml"
     )
     answers_path.parent.mkdir(parents=True, exist_ok=True)
-    answers_path.write_text(yaml.safe_dump(answers, sort_keys=False))
     profile = load_profile(resolved["role"], session_root)
+    # The composer runs once, at SessionStart: every pass is a fresh
+    # session and may remove what an earlier role left (D2, D15).
+    report = install_bundle(
+        profile, session_root, home, detected["repos"], prune=True
+    )
+    errors += report.errors
+    answers["installed"] = report.installed
+    answers_path.write_text(yaml.safe_dump(answers, sort_keys=False))
     text = render(answers, profile, errors, task=task)
     render_path = home / ".claude" / "CLAUDE.md"
     write_render(render_path, text)

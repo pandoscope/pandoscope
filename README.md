@@ -81,8 +81,9 @@ Never run the composer from a model turn: the hook is the caller.
 The composer writes the following keys to the answers file:
 `detected` (harness facts),
 `resolved` (harness, environment, role, principal, model),
-`order` (path, role, pass, model tier, pull request number, tickets; null without an order)
-and `errors`.
+`order` (path, role, pass, model tier, pull request number, tickets; null without an order),
+`errors`
+and `installed` (the skills the role's bundle copied into `~/.claude/skills`).
 
 The composer validates the order against a strict schema
 (`src/pandoscope/reinset/schemas/order.json`). The schema rejects
