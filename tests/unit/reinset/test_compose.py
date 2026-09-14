@@ -207,3 +207,56 @@ def test_an_order_declaring_general_renders_declared_general(
     assert result.answers["resolved"]["role"] == "general"
     assert "UNCONFIGURED" not in result.render_text
     assert "Role: general" in result.render_text
+
+
+def _skill(session_root: Path, name: str) -> None:
+    skill = session_root / "skills" / "original" / name
+    skill.mkdir(parents=True)
+    (skill / "SKILL.md").write_text(f"---\nname: {name}\n---\n")
+
+
+IMPLEMENTER_ORDER = (
+    "id: probe-4\nrole: implementer\npull_request: pandoscope/aet#262\ntickets: []\n"
+)
+
+
+def test_role_install_follows_the_profile(
+    session_root: Path, home: Path, path_dirs: list[Path]
+) -> None:
+    # The shipped implementer profile names thread-ledger and handing-off.
+    for name in ("thread-ledger", "handing-off", "grilling"):
+        _skill(session_root, name)
+    write_pass_and_order(session_root, IMPLEMENTER_ORDER)
+    env = {**ENV_RUN7_FIRED, **WAYBILL_FIRE}
+    result = compose(env, session_root, home, path_dirs)
+    assert result.errors == []
+    assert result.answers["installed"] == ["thread-ledger", "handing-off"]
+    assert (home / ".claude" / "skills" / "handing-off" / "SKILL.md").is_file()
+    assert not (home / ".claude" / "skills" / "grilling").exists()
+    assert "- handing-off" in result.render_text
+
+
+def test_missing_bundle_skill_is_a_composer_error(
+    session_root: Path, home: Path, path_dirs: list[Path]
+) -> None:
+    write_pass_and_order(session_root, IMPLEMENTER_ORDER)
+    env = {**ENV_RUN7_FIRED, **WAYBILL_FIRE}
+    result = compose(env, session_root, home, path_dirs)
+    assert result.answers["resolved"]["role"] == "implementer"
+    assert any("thread-ledger" in error for error in result.errors)
+    assert "COMPOSER ERROR" in result.render_text
+    assert result.answers["errors"] == result.errors
+
+
+def test_a_session_without_an_order_prunes_what_a_role_left(
+    session_root: Path, home: Path, path_dirs: list[Path]
+) -> None:
+    for name in ("thread-ledger", "handing-off"):
+        _skill(session_root, name)
+    write_pass_and_order(session_root, IMPLEMENTER_ORDER)
+    compose({**ENV_RUN7_FIRED, **WAYBILL_FIRE}, session_root, home, path_dirs)
+    assert (home / ".claude" / "skills" / "handing-off").is_dir()
+    # A fresh SessionStart with no order composes general and prunes
+    # what an earlier role left (D15).
+    compose(ENV_RUN5_UI, session_root, home, path_dirs)
+    assert not (home / ".claude" / "skills" / "handing-off").exists()
