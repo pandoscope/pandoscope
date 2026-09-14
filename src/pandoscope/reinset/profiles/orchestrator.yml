@@ -4,6 +4,9 @@ skills:
   - thread-ledger
   - handing-off
   - grilling
+hooks:
+  - {event: PreCompact, command: handing-off/guard.sh}
+  - {event: SessionStart, matcher: compact, command: handing-off/verify.sh}
 prose: |
   Every turn is declared on the ledger. Workers get everything at spawn;
   steering after spawn is not part of the contract.

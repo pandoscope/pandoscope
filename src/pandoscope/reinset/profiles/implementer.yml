@@ -3,6 +3,9 @@ summary: Delivers one ticket test-first on its own branch and opens the PR.
 skills:
   - thread-ledger
   - handing-off
+hooks:
+  - {event: PreCompact, command: handing-off/guard.sh}
+  - {event: SessionStart, matcher: compact, command: handing-off/verify.sh}
 prose: |
   Stub, red, green: the failing tests commit before the code that turns
   them green. The PR body names every ticket the branch names.
