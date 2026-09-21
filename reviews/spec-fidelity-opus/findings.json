@@ -1,0 +1,26 @@
+{
+  "pr": "pandoscope/pandoscope#26",
+  "head": "071749775bbd597044ed17b4ee080508f13d32a9",
+  "pass": "spec-fidelity",
+  "tier": "opus",
+  "findings": [
+    {
+      "file": "src/pandoscope/reinset/receive.py",
+      "line": 62,
+      "rule": "A prompt that opens with the review driver's marker, `PANDO-REVIEW: «pass» tier=«tier»` on a line of its own, is now the composer's third receiver.",
+      "input": "A prompt whose first line is ordinary user text and whose fifth line is the marker, e.g. \"Please check the routine prompt I saved:\\n\\n```text\\nPANDO-REVIEW: spec-fidelity tier=opus\\n```\\n\" — the prompt does not open with the marker, yet find_review returns Review(\"spec-fidelity\", \"opus\", None), compose sets resolved[\"role\"] = \"reviewer\" and renders the pass file's prompt block as the session's task.",
+      "tier": "hard",
+      "confidence": 78,
+      "finding": "find_review uses _REVIEW.search with re.MULTILINE, so any line of the prompt that carries the marker makes the session a review session, while the specification makes only a prompt that opens with the marker the third receiver."
+    },
+    {
+      "file": "src/pandoscope/reinset/receive.py",
+      "line": 27,
+      "rule": "`«n»` filled from whatever names the pull request in the prompt: a `/pull/«n»` URL, `owner/repo#n`, a JSON `number` field, or the words \"pull request\" followed by a number.",
+      "input": "A fire payload that names the pull request by a JSON field and cites an unrelated ticket, e.g. \"PANDO-REVIEW: spec-fidelity tier=opus\\n\\n<routine-fire-payload>\\n{\\\"number\\\": 26, \\\"body\\\": \\\"ADVANCES pandoscope/skills#195\\\"}\\n</routine-fire-payload>\\n\" — the owner/repo#n pattern is tried before the JSON `number` pattern and matches `pandoscope/skills#195`, so the composer fills `<n>` with 195 and the rendered task tells the reviewer to review pull request 195, fetch `pull/195/head` and push `claude/review-spec-fidelity-opus-pr195`.",
+      "tier": "judgment",
+      "confidence": 62,
+      "finding": "The `owner/repo#n` pattern matches any repo-qualified issue or pull request reference anywhere in the prompt, so a citation that does not name the pull request under review silently wins over a later form that does."
+    }
+  ]
+}
