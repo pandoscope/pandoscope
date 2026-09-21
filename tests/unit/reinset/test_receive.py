@@ -2,7 +2,13 @@ from __future__ import annotations
 
 import pytest
 
-from pandoscope.reinset.receive import Reference, find_reference, parse_reference
+from pandoscope.reinset.receive import (
+    Reference,
+    Review,
+    find_reference,
+    find_review,
+    parse_reference,
+)
 
 SHA = "6fe6a8566617e0538f7bc8aaa8b33cea605d50f0"
 REF = f"session-memory@{SHA}:intents/spawn-0c99.yml"
@@ -65,3 +71,54 @@ def test_reinset_line_outside_the_payload_block_is_not_a_channel() -> None:
 def test_no_channel_is_none() -> None:
     assert find_reference({}, None) is None
     assert find_reference({"REINSET_REF": ""}, "hello") is None
+
+
+# A review session's first message (skills#195): the marker line opens
+# the Routine's saved prompt; the fire payload names the pull request.
+REVIEW_PROMPT = """\
+PANDO-REVIEW: spec-fidelity tier=opus
+
+<routine-fire-payload>
+{"repository": "pandoscope/agentic-engineering-template",
+ "pull_request": {"number": 261, "head": "517125a"}}
+</routine-fire-payload>
+"""
+
+
+def test_review_marker_is_read_from_the_prompt() -> None:
+    review = find_review(REVIEW_PROMPT)
+    assert review == Review("spec-fidelity", "opus", 261)
+
+
+@pytest.mark.parametrize(
+    ("text", "number"),
+    [
+        ("PANDO-REVIEW: spec-fidelity tier=sonnet\nsee pandoscope/meta#152", 152),
+        ("PANDO-REVIEW: spec-fidelity tier=sonnet\nhttps://x.test/o/r/pull/262", 262),
+        ("PANDO-REVIEW: spec-fidelity tier=sonnet\nPull request: #7.", 7),
+        ("PANDO-REVIEW: spec-fidelity tier=sonnet\nnothing names one", None),
+    ],
+)
+def test_review_pull_request_number_comes_from_the_prompt(
+    text: str, number: int | None
+) -> None:
+    review = find_review(text)
+    assert review is not None
+    assert review.number == number
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "PANDO-REVIEW: spec-fidelity tier=Opus\n",  # the driver's tier is lowercase
+        "note: PANDO-REVIEW: spec-fidelity tier=opus\n",  # not on its own line
+        "PANDO-REVIEW: spec-fidelity\n",  # no tier
+        "",
+    ],
+)
+def test_other_prompts_carry_no_review(text: str) -> None:
+    assert find_review(text) is None
+
+
+def test_no_prompt_carries_no_review() -> None:
+    assert find_review(None) is None

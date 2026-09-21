@@ -130,3 +130,12 @@ def test_unspawned_session_without_reference_still_shouts() -> None:
     plain = answers("general")
     plain["detected"] = {"harness": "claude-code", "spawned": False}
     assert "UNCONFIGURED" in render(plain, GENERAL, [])
+
+
+def test_a_task_is_rendered_after_the_profile() -> None:
+    reviewer = Profile(
+        "reviewer", "pandoscope", Path("reviewer.yml"), {"role": "reviewer"}
+    )
+    text = render(answers("reviewer"), reviewer, [], task="Review it.\n")
+    assert text.endswith("## Task\n\nReview it.\n")
+    assert text.index("# Role: reviewer") < text.index("## Task")

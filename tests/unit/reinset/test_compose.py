@@ -186,3 +186,61 @@ def test_fired_session_with_a_bad_reference_shouts(
     result = compose(env, session_root, home, None, path_dirs)
     assert "COMPOSER ERROR" in result.render_text
     assert "UNCONFIGURED" in result.render_text
+
+
+REVIEW_PROMPT_FILE = """\
+```text
+PANDO-REVIEW: spec-fidelity tier=<tier>
+
+Review pull request <n> as tier <tier>.
+```
+"""
+
+
+def test_review_marker_composes_the_reviewer_with_the_pass_task(
+    session_root: Path, home: Path, path_dirs: list[Path]
+) -> None:
+    target = session_root / "skills" / "original" / "thread-ledger" / "review"
+    target.mkdir(parents=True)
+    (target / "spec-fidelity.md").write_text(REVIEW_PROMPT_FILE)
+    prompt = "PANDO-REVIEW: spec-fidelity tier=sonnet\n\nsee pandoscope/aet#262\n"
+    result = compose(ENV_RUN7_FIRED, session_root, home, prompt, path_dirs)
+    assert result.answers["resolved"]["role"] == "reviewer"
+    assert result.answers["review"] == {
+        "pass": "spec-fidelity",
+        "tier": "sonnet",
+        "pull_request": 262,
+    }
+    assert result.errors == []
+    assert "# Role: reviewer" in result.render_text
+    assert "Review pull request 262 as tier sonnet." in result.render_text
+    assert "PANDO-REVIEW" not in result.render_text
+    assert "UNCONFIGURED" not in result.render_text
+
+
+def test_review_marker_without_the_pass_file_is_a_composer_error(
+    session_root: Path, home: Path, path_dirs: list[Path]
+) -> None:
+    prompt = "PANDO-REVIEW: spec-fidelity tier=sonnet\n"
+    result = compose(ENV_RUN7_FIRED, session_root, home, prompt, path_dirs)
+    assert len(result.errors) == 1
+    assert "spec-fidelity.md" in result.errors[0]
+    assert result.answers["resolved"]["role"] == "general"
+    assert "COMPOSER ERROR" in result.render_text
+
+
+def test_a_reference_wins_over_a_review_marker(
+    session_root: Path,
+    home: Path,
+    path_dirs: list[Path],
+    commit_intent: Callable[[str, str], str],
+) -> None:
+    sha = commit_intent("intents/spawn-7b2d.yml", INTENT_IMPLEMENTER)
+    env = {
+        **ENV_RUN7_FIRED,
+        "REINSET_REF": f"session-memory@{sha}:intents/spawn-7b2d.yml",
+    }
+    prompt = "PANDO-REVIEW: spec-fidelity tier=sonnet\n"
+    result = compose(env, session_root, home, prompt, path_dirs)
+    assert result.answers["resolved"]["role"] == "implementer"
+    assert "review" not in result.answers
