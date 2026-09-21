@@ -51,7 +51,15 @@ commit, compare both sides, write the answers file at `$REINSET_ANSWERS`
 `~/.claude/CLAUDE.md` from the role's profile. Profiles ship under
 `src/pandoscope/reinset/profiles/`; a same-named file under
 `meta/reinset/profiles/` in the session root replaces one whole. Without
-a reference the render is the loud UNCONFIGURED state. Never run it from
+a reference the render is the loud UNCONFIGURED state. A prompt that
+opens with the review driver's marker, `PANDO-REVIEW: <pass> tier=<tier>`
+on a line of its own
+([skills#195](https://github.com/pandoscope/skills/issues/195)), is the
+third receiver: it composes the reviewer role and renders the pass
+file's prompt block from `skills/original/thread-ledger/review/<pass>.md`
+as the task, `<tier>` and `<n>` (the pull request number named
+anywhere in the prompt) filled in — a Routine's saved prompt is the
+marker line alone. A reference wins over the marker. Never run it from
 a model turn: the hook is the caller.
 
 ```sh
