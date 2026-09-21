@@ -35,14 +35,20 @@ class UnmanagedTargetError(Exception):
     """The render target exists and was not written by the composer."""
 
 
-def render(answers: dict[str, Any], profile: Profile, errors: list[str]) -> str:
+def render(
+    answers: dict[str, Any],
+    profile: Profile,
+    errors: list[str],
+    task: str | None = None,
+) -> str:
     """
     Return the CLAUDE.md text for the composed session.
 
     Names the role and the winning profile layer, lists the profile's
-    skills, prints every composer error and every mismatch. ``general``
-    carries the UNCONFIGURED notice and the one-line orchestrator
-    declaration, nothing else.
+    skills, prints every composer error and every mismatch, and ends
+    with the session's task when one was composed. ``general`` carries
+    the UNCONFIGURED notice and the one-line orchestrator declaration,
+    nothing else.
     """
     lines: list[str] = []
     for error in errors:
@@ -81,6 +87,8 @@ def render(answers: dict[str, Any], profile: Profile, errors: list[str]) -> str:
     prose = profile.data.get("prose")
     if prose:
         lines += ["", str(prose).rstrip()]
+    if task:
+        lines += ["", "## Task", "", task.rstrip()]
     lines.append("")
     return "\n".join(lines)
 

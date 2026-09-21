@@ -13,8 +13,9 @@ from pandoscope.reinset.compare import compare
 from pandoscope.reinset.detect import detect
 from pandoscope.reinset.intent import IntentError, resolve_intent
 from pandoscope.reinset.profiles import load_profile
-from pandoscope.reinset.receive import find_reference, parse_reference
+from pandoscope.reinset.receive import find_reference, find_review, parse_reference
 from pandoscope.reinset.render import render, write_render
+from pandoscope.reinset.review import ReviewError, review_task
 
 ANSWERS_ENV = "REINSET_ANSWERS"
 
@@ -62,6 +63,22 @@ def compose(
         "reference": reference,
         "errors": errors,
     }
+    # The review marker (skills#195) is the third receiver: it declares
+    # the reviewer role and its task, and yields to a reference.
+    task: str | None = None
+    review = find_review(prompt) if reference is None else None
+    if review is not None:
+        try:
+            task = review_task(session_root, review)
+        except ReviewError as error:
+            errors.append(str(error))
+        else:
+            resolved["role"] = "reviewer"
+            answers["review"] = {
+                "pass": review.pass_,
+                "tier": review.tier,
+                "pull_request": review.number,
+            }
     answers_path = Path(
         env.get(ANSWERS_ENV)
         or home / ".claude" / "reinset" / f"{detected['session_id']}.yml"
@@ -69,7 +86,7 @@ def compose(
     answers_path.parent.mkdir(parents=True, exist_ok=True)
     answers_path.write_text(yaml.safe_dump(answers, sort_keys=False))
     profile = load_profile(resolved["role"], session_root)
-    text = render(answers, profile, errors)
+    text = render(answers, profile, errors, task=task)
     render_path = home / ".claude" / "CLAUDE.md"
     write_render(render_path, text)
     return Composition(answers, answers_path, render_path, text, errors)
