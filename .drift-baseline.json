@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "findings": [
+    "README.md:wrong-alias:reinset",
+    "docs/glossary/org.md:term-case:pandoscope",
+    "docs/glossary/org.md:unlinked-term:pandoscope",
+    "docs/releasing.md:unlinked-term:org"
+  ]
+}
