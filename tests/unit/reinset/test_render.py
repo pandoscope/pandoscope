@@ -24,25 +24,18 @@ IMPLEMENTER = Profile(
 )
 
 
-def answers(
-    role: str, mismatches: list[dict[str, Any]] | None = None
-) -> dict[str, Any]:
+def answers(role: str) -> dict[str, Any]:
     return {
         "detected": {"harness": "claude-code"},
-        "passed": None,
         "resolved": {"role": role},
-        "mismatches": mismatches or [],
+        "order": None,
     }
 
 
 def test_general_is_the_loud_unconfigured_state() -> None:
     text = render(answers("general"), GENERAL, [])
     assert "UNCONFIGURED" in text
-    # The one concession (D15): one line that declares orchestrator.
-    declaration = [line for line in text.splitlines() if "REINSET_REF" in line]
-    assert len(declaration) == 1
-    assert "orchestrator" in declaration[0]
-    # Nothing else is installed.
+    # Nothing is installed (D15).
     assert "skill" not in text.lower()
     assert not text.lstrip().startswith("# Role")
 
@@ -58,25 +51,11 @@ def test_role_render_names_role_layer_and_skills() -> None:
 
 
 def test_composer_errors_are_rendered_loudly() -> None:
-    error = "reinset reference names no role (session-memory@abc:intents/x.yml)"
+    error = "order waybill/orders/x.yml is off the schema: role: 'x' is not one of"
     text = render(answers("general"), GENERAL, [error])
     assert "COMPOSER ERROR" in text
     assert error in text
     assert "UNCONFIGURED" in text
-
-
-def test_mismatches_are_rendered() -> None:
-    mismatch = {
-        "key": "origin",
-        "passed": "spawner",
-        "detected": "principal",
-        "resolved_to": "spawner",
-    }
-    text = render(answers("implementer", [mismatch]), IMPLEMENTER, [])
-    assert "MISMATCH" in text
-    assert "origin" in text
-    assert "passed=spawner" in text
-    assert "detected=principal" in text
 
 
 def test_write_render_puts_the_marker_first_and_rewrites_whole(tmp_path: Path) -> None:
@@ -97,36 +76,35 @@ def test_write_render_refuses_an_unmanaged_file(tmp_path: Path) -> None:
     assert target.read_text() == "hand-written user instructions\n"
 
 
-def test_declared_general_is_configured_and_installs_nothing() -> None:
-    # Measured 2026-09-03 (role test r0a4): a reference declaring
-    # `role: general` rendered the unconfigured notice, which says no
-    # reference arrived. A declared general is a configured session
-    # that installs nothing; the render must say that, not deny the
-    # reference.
+def test_a_task_is_rendered_after_the_profile() -> None:
+    reviewer = Profile(
+        "reviewer", "pandoscope", Path("reviewer.yml"), {"role": "reviewer"}
+    )
+    text = render(answers("reviewer"), reviewer, [], task="Review it.\n")
+    assert text.endswith("## Task\n\nReview it.\n")
+    assert text.index("# Role: reviewer") < text.index("## Task")
+
+
+def test_the_unconfigured_declaration_points_at_the_order() -> None:
+    text = render(answers("general"), GENERAL, [])
+    assert "REINSET_REF" not in text
+    declaration = [line for line in text.splitlines() if "order/" in line]
+    assert len(declaration) == 1
+    assert "waybill" in declaration[0]
+
+
+def test_general_declared_by_an_order_is_configured() -> None:
     declared = answers("general")
-    declared["passed"] = {"spawn_id": "spawn-r0a4", "role": "general"}
+    declared["order"] = {"role": "general", "pull_request": 1}
     text = render(declared, GENERAL, [])
     assert "UNCONFIGURED" not in text
-    assert "no intent reference" not in text
     assert "Role: general" in text
     assert "nothing is installed" in text
-    assert "skill" not in text.lower()
 
 
-def test_spawned_session_without_reference_waits_instead_of_shouting() -> None:
-    # D21 (2026-09-03): a spawned session's reference arrives with the
-    # first prompt, one step after SessionStart. Its SessionStart pass
-    # renders a waiting state, not the loud notice.
-    waiting = answers("general")
-    waiting["detected"] = {"harness": "claude-code", "spawned": True}
-    text = render(waiting, GENERAL, [])
-    assert "UNCONFIGURED" not in text
-    assert "WAITING" in text
-    assert "first prompt" in text
-    assert "skill" not in text.lower()
-
-
-def test_unspawned_session_without_reference_still_shouts() -> None:
-    plain = answers("general")
-    plain["detected"] = {"harness": "claude-code", "spawned": False}
-    assert "UNCONFIGURED" in render(plain, GENERAL, [])
+def test_a_fired_session_without_an_order_shouts() -> None:
+    fired = answers("general")
+    fired["detected"] = {"harness": "claude-code", "spawned": True}
+    text = render(fired, GENERAL, [])
+    assert "WAITING" not in text
+    assert "UNCONFIGURED" in text
