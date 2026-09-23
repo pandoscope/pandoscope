@@ -1,4 +1,4 @@
-"""The composer entry point: detect, receive, resolve, compare, write, render."""
+"""The composer entry point: detect, receive the order, write, render."""
 
 from __future__ import annotations
 
@@ -9,12 +9,12 @@ from typing import Any
 
 import yaml
 
-from pandoscope.reinset.compare import compare
 from pandoscope.reinset.detect import detect
-from pandoscope.reinset.intent import IntentError, resolve_intent
+from pandoscope.reinset.principal import UNKNOWN
 from pandoscope.reinset.profiles import load_profile
-from pandoscope.reinset.receive import find_reference, parse_reference
+from pandoscope.reinset.receive import Order, OrderError, find_order
 from pandoscope.reinset.render import render, write_render
+from pandoscope.reinset.review import ReviewError, review_task
 
 ANSWERS_ENV = "REINSET_ANSWERS"
 
@@ -34,32 +34,55 @@ def compose(
     env: Mapping[str, str],
     session_root: Path,
     home: Path,
-    prompt: str | None,
     path_dirs: list[Path],
 ) -> Composition:
     """
     Run one composition and write the answers file and the render.
 
-    Returns the composition. Composer errors (a reference without a role,
-    an unresolvable reference) are rendered, never raised: the session
-    must hear them. Raises UnmanagedTargetError from the render step.
+    The waybill order is the only receiver (skills#195, waybill#1). It
+    arrives when the Routine fires from an order branch of the waybill
+    repository.
+    The order names the role, the pull request, the tickets, and for a
+    reviewer the pass and tier. Without an order the composer sets the
+    role general and renders the loud UNCONFIGURED state. The composer
+    renders its own errors (an order off the schema, a missing pass
+    file) and never raises them: the session must hear them. The
+    render step raises UnmanagedTargetError.
     """
     detected = detect(env, session_root, home, path_dirs)
-    reference = find_reference(env, prompt)
     errors: list[str] = []
-    passed: dict[str, Any] | None = None
-    if reference is not None:
-        try:
-            passed = resolve_intent(parse_reference(reference), session_root)
-        except (ValueError, IntentError) as error:
-            errors.append(str(error))
-    resolved, mismatches = compare(detected, passed)
-    answers = {
+    task: str | None = None
+    order: Order | None = None
+    try:
+        order = find_order(env, session_root)
+        if order is not None and order.role == "reviewer":
+            assert order.pass_ and order.tier  # noqa: S101 — the schema requires both
+            task = review_task(
+                session_root, order.pass_, order.tier, order.pull_request
+            )
+    except (OrderError, ReviewError) as error:
+        errors.append(str(error))
+        order = None
+    resolved = {
+        "harness": detected.get("harness", UNKNOWN),
+        "environment": detected.get("environment", UNKNOWN),
+        "role": order.role if order is not None else "general",
+        "principal": detected.get("identity", UNKNOWN),
+        "model": detected.get("model", {}).get("served", UNKNOWN),
+    }
+    answers: dict[str, Any] = {
         "detected": detected,
-        "passed": passed,
         "resolved": resolved,
-        "mismatches": mismatches,
-        "reference": reference,
+        "order": None
+        if order is None
+        else {
+            "path": str(order.path.relative_to(session_root)),
+            "role": order.role,
+            "pass": order.pass_,
+            "tier": order.tier,
+            "pull_request": order.pull_request,
+            "tickets": order.tickets,
+        },
         "errors": errors,
     }
     answers_path = Path(
@@ -69,7 +92,7 @@ def compose(
     answers_path.parent.mkdir(parents=True, exist_ok=True)
     answers_path.write_text(yaml.safe_dump(answers, sort_keys=False))
     profile = load_profile(resolved["role"], session_root)
-    text = render(answers, profile, errors)
+    text = render(answers, profile, errors, task=task)
     render_path = home / ".claude" / "CLAUDE.md"
     write_render(render_path, text)
     return Composition(answers, answers_path, render_path, text, errors)

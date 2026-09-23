@@ -3,12 +3,11 @@
 from __future__ import annotations
 
 import subprocess
-from collections.abc import Callable
 from pathlib import Path
 
 import pytest
 
-# Measured 2026-09-03 (skills#179 §3.1, intents/ on session-memory main).
+# Measured 2026-09-03 (skills#179 §3.1).
 # Values that are ids, emails or URLs are stand-ins: the dumps record
 # them as <set>. Run 7 is a Routine-fired session, run 5 a UI-created one.
 MEASURED_COMMON = {
@@ -26,25 +25,6 @@ MEASURED_COMMON = {
 ENV_RUN7_FIRED = {**MEASURED_COMMON, "CLAUDE_CODE_ENTRYPOINT": "remote_trigger"}
 ENV_RUN5_UI = {**MEASURED_COMMON, "CLAUDE_CODE_ENTRYPOINT": "remote"}
 ORG_SALT = "fixture-org-salt"
-
-INTENT_IMPLEMENTER = """\
-spawn_id: spawn-7b2d
-spawner: p-4c1e9a7b02d3
-origin: spawner
-role: implementer
-thread: per-session-agent-config
-tickets: [pandoscope/skills#130]
-dojo: false
-debug: false
-overrides: []
-"""
-
-INTENT_NO_ROLE = """\
-spawn_id: spawn-7b2e
-spawner: p-4c1e9a7b02d3
-origin: spawner
-thread: per-session-agent-config
-"""
 
 
 def git(cwd: Path, *args: str) -> str:
@@ -80,22 +60,6 @@ def session_root(tmp_path: Path) -> Path:
             "agentic_forge: github\n"
         )
     return root
-
-
-@pytest.fixture
-def commit_intent(session_root: Path) -> Callable[[str, str], str]:
-    """Commit an intent file to the session-memory clone; returns the sha."""
-
-    def _commit(path: str, text: str) -> str:
-        store = session_root / "session-memory"
-        target = store / path
-        target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(text)
-        git(store, "add", "-A")
-        git(store, "commit", "-q", "-m", f"intent: {path}")
-        return git(store, "rev-parse", "HEAD")
-
-    return _commit
 
 
 @pytest.fixture

@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from pandoscope.reinset.intent import ROLES
+from pandoscope.reinset.order import ROLES
 from pandoscope.reinset.profiles import SHIPPED, load_profile
 
 

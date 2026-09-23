@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import importlib
+
 import pytest
 
 from pandoscope.cli import build_parser
@@ -38,31 +40,19 @@ def test_command_is_required() -> None:
 def test_compose_defaults() -> None:
     args = build_parser().parse_args(["compose"])
     assert args.session_root is None
-    assert args.prompt_file is None
 
 
-def test_compose_reads_root_and_prompt_file() -> None:
-    args = build_parser().parse_args(
-        ["compose", "--session-root", "/s", "--prompt-file", "-"]
-    )
-    assert args.session_root == "/s"
-    assert args.prompt_file == "-"
+def test_compose_takes_no_prompt_file() -> None:
+    with pytest.raises(SystemExit):
+        build_parser().parse_args(["compose", "--prompt-file", "-"])
 
 
-def test_spawn_arguments() -> None:
-    args = build_parser().parse_args(
-        [
-            "spawn",
-            "--role",
-            "probe",
-            "--task-file",
-            "-",
-            "--ticket",
-            "a/b#1",
-            "--dry-run",
-        ]
-    )
-    assert args.role == "probe"
-    assert args.task_file == "-"
-    assert args.ticket == ["a/b#1"]
-    assert args.dry_run is True
+def test_spawn_is_gone_with_the_intent_channel() -> None:
+    with pytest.raises(SystemExit):
+        build_parser().parse_args(["spawn", "--role", "probe", "--task-file", "-"])
+
+
+@pytest.mark.parametrize("module", ["intent", "sender", "compare"])
+def test_the_intent_modules_are_gone(module: str) -> None:
+    with pytest.raises(ModuleNotFoundError):
+        importlib.import_module(f"pandoscope.reinset.{module}")

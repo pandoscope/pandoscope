@@ -9,25 +9,18 @@ from pandoscope.reinset.profiles import Profile
 
 MARKER = "<!-- managedBy: pandoscope compose -->"
 UNCONFIGURED = (
-    "SESSION UNCONFIGURED: no intent reference reached this session, so no "
-    "role is set and nothing is installed. There is no default role. Tell "
-    "the user at the start of your reply."
+    "SESSION UNCONFIGURED: no waybill order reached this session. The "
+    "composer set no role and installed nothing. There is no default role. "
+    "Tell the user at the start of your reply."
 )
 DECLARATION = (
-    "To run as orchestrator, start a fresh session with REINSET_REF set to "
-    "an intent reference (<repo>@<sha>:<path>) whose file declares "
-    "`role: orchestrator`."
-)
-
-
-WAITING = (
-    "SESSION WAITING: this session was spawned and its intent reference "
-    "arrives with the first prompt, one step after SessionStart. No role is "
-    "set yet and nothing is installed; the next compose pass renders the role."
+    "To run with a role, open a pull request on the waybill repository from "
+    "a branch order/<name>. Declare the role in orders/<name>.yml. The "
+    "Routine then fires the session from that order."
 )
 DECLARED_GENERAL = (
-    "Role: general, declared by the intent reference. This session is "
-    "configured and nothing is installed beyond this render."
+    "Role: general, declared by the waybill order. The session is "
+    "configured; nothing is installed beyond this render."
 )
 
 
@@ -35,34 +28,29 @@ class UnmanagedTargetError(Exception):
     """The render target exists and was not written by the composer."""
 
 
-def render(answers: dict[str, Any], profile: Profile, errors: list[str]) -> str:
+def render(
+    answers: dict[str, Any],
+    profile: Profile,
+    errors: list[str],
+    task: str | None = None,
+) -> str:
     """
     Return the CLAUDE.md text for the composed session.
 
-    Names the role and the winning profile layer, lists the profile's
-    skills, prints every composer error and every mismatch. ``general``
-    carries the UNCONFIGURED notice and the one-line orchestrator
+    The text names the role and the winning profile layer. It lists
+    the profile's skills. It prints every composer error. It ends with
+    the session's task when the composer composed one. For ``general``
+    the text carries the UNCONFIGURED notice or the one-line general
     declaration, nothing else.
     """
-    lines: list[str] = []
-    for error in errors:
-        lines.append(f"COMPOSER ERROR: {error}")
-    for mismatch in answers.get("mismatches", []):
-        lines.append(
-            f"MISMATCH {mismatch['key']}: passed={mismatch['passed']} "
-            f"detected={mismatch['detected']} resolved_to={mismatch['resolved_to']}"
-        )
+    lines: list[str] = [f"COMPOSER ERROR: {error}" for error in errors]
     if lines:
         lines.append("")
     if profile.role == "general":
-        # D15 either way: nothing installed. Declared general (a reference
-        # arrived) is configured; no reference is the loud state.
-        if answers.get("passed") is not None:
+        # D15 either way: nothing installed. An order that declares
+        # general configures the session. No order is the loud state.
+        if answers.get("order") is not None:
             lines += ["# Role: general", "", DECLARED_GENERAL, ""]
-        elif _waiting_for_reference(answers, errors):
-            # D21: a spawned session's reference is known to arrive with
-            # the first prompt, so its SessionStart pass waits.
-            lines += ["# WAITING", "", WAITING, ""]
         else:
             lines += ["# UNCONFIGURED", "", UNCONFIGURED, "", DECLARATION, ""]
         return "\n".join(lines)
@@ -81,13 +69,10 @@ def render(answers: dict[str, Any], profile: Profile, errors: list[str]) -> str:
     prose = profile.data.get("prose")
     if prose:
         lines += ["", str(prose).rstrip()]
+    if task:
+        lines += ["", "## Task", "", task.rstrip()]
     lines.append("")
     return "\n".join(lines)
-
-
-def _waiting_for_reference(answers: dict[str, Any], errors: list[str]) -> bool:
-    spawned = bool(answers.get("detected", {}).get("spawned"))
-    return spawned and answers.get("reference") is None and not errors
 
 
 def write_render(target: Path, text: str) -> None:
