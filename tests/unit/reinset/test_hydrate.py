@@ -45,8 +45,8 @@ def review_branch_on(session_root: Path, head: str) -> None:
 
 
 def test_pull_refs_takes_the_orders_base(session_root: Path) -> None:
-    # Measured 2026-09-24: review branches built on an older head tied as
-    # the nearest branch, and the composer refused the order.
+    # A review branch built on the pull request head is not its base.
+    # The order's base holds against it (measured 2026-09-24).
     head = pr_clone(session_root, "aet", 262)
     review_branch_on(session_root, head)
     assert pull_refs(session_root / "aet", 262, "feature") == ("feature", head)
