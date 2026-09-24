@@ -1,0 +1,26 @@
+{
+  "pr": "pandoscope/pandoscope#31",
+  "head": "fbd729b5d2f03d25ac9a3296458c0e7384df487a",
+  "pass": "spec-fidelity",
+  "tier": "opus",
+  "findings": [
+    {
+      "file": "src/pandoscope/reinset/review.py",
+      "line": 82,
+      "rule": "The clone of the reviewed pull request's repository supplies `base` and `head`.",
+      "input": "An order with `pull_request: acme/meta#5` in a session whose `meta` directory is a clone of pandoscope/meta",
+      "tier": "judgment",
+      "confidence": 40,
+      "finding": "hydrate picks the clone by the last path segment of the order's repo alone and never checks that its origin is that repository, so another repository of the same name supplies base and head from its own `pull/5/head` with no composer error."
+    },
+    {
+      "file": "src/pandoscope/reinset/review.py",
+      "line": 96,
+      "rule": "Those seven are the only placeholders.",
+      "input": "A pass file whose prose contains `git push origin <branch>` or an HTML `<details>` tag",
+      "tier": "judgment",
+      "confidence": 35,
+      "finding": "The `<([a-z][a-z-]*)>` pattern treats every lowercase angle-bracketed word as a placeholder, so text that is not one of the seven placeholders fails the whole task with a composer error."
+    }
+  ]
+}
