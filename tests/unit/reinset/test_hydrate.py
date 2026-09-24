@@ -120,6 +120,17 @@ def test_pass_file_without_a_prompt_block_is_a_review_error(
         hydrate(session_root, order)
 
 
+@pytest.mark.xfail(strict=True, reason="red: the prompt is the whole pass file")
+def test_the_whole_pass_file_is_the_task(session_root: Path) -> None:
+    pr_clone(session_root, "aet", 262)
+    write(session_root, "# Task\n\nReview <repo>#<n>.\n\n```sh\ngit fetch\n```\n")
+    order = find_order(FIRE, session_root)
+    assert order is not None
+    assert hydrate(session_root, order) == (
+        "# Task\n\nReview pandoscope/aet#262.\n\n```sh\ngit fetch\n```\n"
+    )
+
+
 def test_pull_refs_finds_main_after_main_moved_on(session_root: Path) -> None:
     head = pr_clone(session_root, "aet", 262, on_main=True)
     assert pull_refs(session_root / "aet", 262) == ("main", head)
