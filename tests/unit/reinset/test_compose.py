@@ -9,7 +9,7 @@ from pandoscope.reinset.compose import compose
 from pandoscope.reinset.principal import principal_id
 from pandoscope.reinset.render import MARKER, UnmanagedTargetError
 
-from .conftest import ENV_RUN5_UI, ENV_RUN7_FIRED, ORG_SALT
+from .conftest import ENV_RUN5_UI, ENV_RUN7_FIRED, ORG_SALT, pr_clone
 
 
 def test_no_order_writes_answers_and_renders_general(
@@ -54,9 +54,8 @@ def test_unmanaged_claude_md_is_refused(
 
 REVIEW_PROMPT_FILE = """\
 ```text
-PANDO-REVIEW: spec-fidelity tier=<tier>
-
 Review pull request <n> as tier <tier>.
+Base <base>, head <head>.
 ```
 """
 
@@ -85,6 +84,7 @@ def write_pass_and_order(session_root: Path, order: str | None) -> None:
 def test_a_waybill_order_composes_the_reviewer(
     session_root: Path, home: Path, path_dirs: list[Path]
 ) -> None:
+    head = pr_clone(session_root, "aet", 262)
     write_pass_and_order(
         session_root,
         "id: probe-4\nrole: reviewer\npass: spec-fidelity\ntier: sonnet\n"
@@ -104,7 +104,7 @@ def test_a_waybill_order_composes_the_reviewer(
     assert result.errors == []
     assert "# Role: reviewer" in result.render_text
     assert "Review pull request 262 as tier sonnet." in result.render_text
-    assert "PANDO-REVIEW" not in result.render_text
+    assert f"Base feature, head {head}." in result.render_text
     assert "UNCONFIGURED" not in result.render_text
 
 
