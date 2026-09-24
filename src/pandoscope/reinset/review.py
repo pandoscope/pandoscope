@@ -4,6 +4,10 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from pandoscope.reinset.receive import Order
 
 PASS_DIR = Path("skills") / "original" / "thread-ledger" / "review"
 _BLOCK = re.compile(r"^```text\n(?P<body>.*?)^```", re.MULTILINE | re.DOTALL)
@@ -35,3 +39,26 @@ def review_task(session_root: Path, pass_: str, tier: str, number: int) -> str:
         raise ReviewError(msg)
     task = _MARKER_LINE.sub("", block.group("body"), count=1)
     return task.replace("<tier>", tier).replace("<n>", str(number))
+
+
+def pull_refs(clone: Path, number: int) -> tuple[str, str]:
+    """
+    Return the base branch and head sha of pull request ``number``, read from ``clone``.
+
+    Fetches ``pull/<n>/head`` and every branch of ``origin``. The base
+    is the branch the head sits closest above. Raises ReviewError when
+    the clone is missing, the fetch fails or the base is ambiguous.
+    """
+    raise NotImplementedError
+
+
+def hydrate(session_root: Path, order: Order) -> str:
+    """
+    Return the reviewer's task: the pass file's prompt block, every placeholder filled.
+
+    Fills ``<repo>``, ``<n>``, ``<pass>``, ``<tier>``, ``<tickets>``
+    from the order and ``<base>``, ``<head>`` from the clone of the
+    pull request's repository under the session root. Raises
+    ReviewError on a placeholder left unfilled.
+    """
+    raise NotImplementedError
