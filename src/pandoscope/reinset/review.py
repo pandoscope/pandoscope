@@ -1,4 +1,4 @@
-"""The reviewer's task: the pass file's prompt block, hydrated from order and clone."""
+"""The reviewer's task: the pass file, hydrated from order and clone."""
 
 from __future__ import annotations
 
@@ -11,7 +11,6 @@ if TYPE_CHECKING:
     from pandoscope.reinset.receive import Order
 
 PASS_DIR = Path("skills") / "original" / "thread-ledger" / "review"
-_BLOCK = re.compile(r"^```text\n(?P<body>.*?)^```", re.MULTILINE | re.DOTALL)
 _PLACEHOLDER = re.compile(r"<([a-z][a-z-]*)>")
 
 
@@ -68,7 +67,7 @@ def _default_branch(clone: Path) -> str:
 
 def hydrate(session_root: Path, order: Order) -> str:
     """
-    Return the reviewer's task: the pass file's prompt block, every placeholder filled.
+    Return the reviewer's task: the whole pass file, every placeholder filled.
 
     Fills ``<repo>``, ``<n>``, ``<pass>``, ``<tier>``, ``<tickets>``
     from the order and ``<base>``, ``<head>`` from the clone of the
@@ -79,10 +78,6 @@ def hydrate(session_root: Path, order: Order) -> str:
     path = session_root / PASS_DIR / f"{order.pass_}.md"
     if not path.is_file():
         msg = f"no review pass file at {path}"
-        raise ReviewError(msg)
-    block = _BLOCK.search(path.read_text())
-    if block is None:
-        msg = f"{path} holds no fenced text block to use as the prompt"
         raise ReviewError(msg)
     base, head = pull_refs(
         session_root / order.repo.rsplit("/", 1)[-1], order.pull_request, order.base
@@ -97,7 +92,7 @@ def hydrate(session_root: Path, order: Order) -> str:
         "tickets": ", ".join(order.tickets) or "none",
     }
     task = _PLACEHOLDER.sub(
-        lambda m: values.get(m.group(1), m.group(0)), block.group("body")
+        lambda m: values.get(m.group(1), m.group(0)), path.read_text()
     )
     left = sorted(set(_PLACEHOLDER.findall(task)))
     if left:

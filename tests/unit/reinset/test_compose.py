@@ -53,10 +53,8 @@ def test_unmanaged_claude_md_is_refused(
 
 
 REVIEW_PROMPT_FILE = """\
-```text
 Review pull request <n> as tier <tier>.
 Base <base>, head <head>.
-```
 """
 
 
