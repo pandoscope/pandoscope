@@ -88,7 +88,7 @@ def test_a_waybill_order_composes_the_reviewer(
     write_pass_and_order(
         session_root,
         "id: probe-4\nrole: reviewer\npass: spec-fidelity\ntier: sonnet\n"
-        "pull_request: pandoscope/aet#262\ntickets: []\n",
+        "pull_request: pandoscope/aet#262\nbase: feature\ntickets: []\n",
     )
     env = {**ENV_RUN7_FIRED, **WAYBILL_FIRE}
     result = compose(env, session_root, home, path_dirs)

@@ -7,7 +7,7 @@ import pytest
 from pandoscope.reinset.receive import find_order
 from pandoscope.reinset.review import ReviewError, hydrate, pull_refs
 
-from .conftest import pr_clone
+from .conftest import commit, git, pr_clone
 
 PROMPT = """\
 ```text
@@ -18,7 +18,7 @@ Tickets: <tickets>.
 
 ORDER = (
     "id: probe-4\nrole: reviewer\npass: spec-fidelity\ntier: opus\n"
-    "pull_request: pandoscope/aet#262\n"
+    "pull_request: pandoscope/aet#262\nbase: feature\n"
     "tickets: [pandoscope/skills#179, pandoscope/aet#261]\n"
 )
 
@@ -37,9 +37,37 @@ def write(session_root: Path, prompt: str = PROMPT, order: str = ORDER) -> None:
     (orders / "probe-4.yml").write_text(order)
 
 
-def test_pull_refs_reads_the_stacked_base_and_the_head(session_root: Path) -> None:
+def review_branch_on(session_root: Path, head: str) -> None:
+    """Push a branch built on the pull request head, as a reviewer does."""
+    work = session_root.parent / "aet-origin-work"
+    git(work, "switch", "-q", "-c", "claude/review-x-pr262", head)
+    commit(work, "findings")
+    git(work, "push", "-q", str(session_root.parent / "aet-origin.git"), "HEAD")
+    git(work, "switch", "-q", "main")
+
+
+@pytest.mark.xfail(strict=True)
+def test_pull_refs_takes_the_orders_base(session_root: Path) -> None:
+    # A review branch built on the pull request head is not its base.
+    # The order's base holds against it (measured 2026-09-24).
     head = pr_clone(session_root, "aet", 262)
-    assert pull_refs(session_root / "aet", 262) == ("feature", head)
+    review_branch_on(session_root, head)
+    assert pull_refs(session_root / "aet", 262, "feature") == ("feature", head)
+
+
+@pytest.mark.xfail(strict=True)
+def test_pull_refs_without_a_base_takes_the_default_branch(
+    session_root: Path,
+) -> None:
+    head = pr_clone(session_root, "aet", 262)
+    assert pull_refs(session_root / "aet", 262) == ("main", head)
+
+
+@pytest.mark.xfail(strict=True)
+def test_an_unknown_base_is_a_review_error(session_root: Path) -> None:
+    pr_clone(session_root, "aet", 262)
+    with pytest.raises(ReviewError, match="nope"):
+        pull_refs(session_root / "aet", 262, "nope")
 
 
 def test_pull_refs_without_the_clone_is_a_review_error(session_root: Path) -> None:
