@@ -29,10 +29,12 @@ def pull_refs(clone: Path, number: int, base: str | None = None) -> tuple[str, s
     if not (clone / ".git").exists():
         msg = f"no clone of the pull request's repository at {clone}"
         raise ReviewError(msg)
-    # DECISION: git does not record a pull request's base; the forge
-    # does. A branch built on the pull request looks like a stacked
-    # base from the head, so no heuristic separates them (measured
-    # 2026-09-24). The order names the base; without it, the default.
+    # DECISION: the forge records a pull request's base; git does not.
+    # Seen from the head, a branch built on the pull request
+    # and a stacked base look the same,
+    # so no heuristic tells them apart (measured 2026-09-24).
+    # The order names the base.
+    # An order without one gets the remote's default branch.
     ref = f"pull/{number}/head"
     try:
         base = base or _default_branch(clone)
