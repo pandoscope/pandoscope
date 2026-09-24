@@ -14,7 +14,7 @@ from pandoscope.reinset.principal import UNKNOWN
 from pandoscope.reinset.profiles import load_profile
 from pandoscope.reinset.receive import Order, OrderError, find_order
 from pandoscope.reinset.render import render, write_render
-from pandoscope.reinset.review import ReviewError, review_task
+from pandoscope.reinset.review import ReviewError, hydrate
 
 ANSWERS_ENV = "REINSET_ANSWERS"
 
@@ -56,10 +56,7 @@ def compose(
     try:
         order = find_order(env, session_root)
         if order is not None and order.role == "reviewer":
-            assert order.pass_ and order.tier  # noqa: S101 — the schema requires both
-            task = review_task(
-                session_root, order.pass_, order.tier, order.pull_request
-            )
+            task = hydrate(session_root, order)
     except (OrderError, ReviewError) as error:
         errors.append(str(error))
         order = None

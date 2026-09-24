@@ -90,14 +90,17 @@ def commit(cwd: Path, name: str) -> str:
     return git(cwd, "rev-parse", "HEAD")
 
 
-def pr_clone(session_root: Path, name: str, number: int) -> str:
+def pr_clone(
+    session_root: Path, name: str, number: int, *, on_main: bool = False
+) -> str:
     """
     Clone a repository whose pull request ``number`` stacks on ``feature``.
 
     The origin holds ``main``, ``feature`` one commit above it, a stale
     ``old`` below ``main``, and ``refs/pull/<n>/head`` one commit above
     ``feature``. The clone lands at ``<session_root>/<name>``. Returns
-    the head sha.
+    the head sha. With ``on_main`` the pull request forks from ``main``
+    instead, ``main`` then moves on, and ``feature`` merges into it.
     """
     work = session_root.parent / f"{name}-origin-work"
     work.mkdir()
@@ -109,11 +112,19 @@ def pr_clone(session_root: Path, name: str, number: int) -> str:
     commit(work, "main-2")
     git(work, "switch", "-q", "-c", "feature")
     commit(work, "feature-1")
+    if on_main:
+        git(work, "switch", "-q", "-c", "pr", "main")
     head = commit(work, "pr-1")
     git(work, "update-ref", f"refs/pull/{number}/head", head)
     git(work, "reset", "-q", "--hard", "HEAD~1")
     git(work, "switch", "-q", "main")
+    if on_main:
+        git(work, "branch", "-q", "-D", "pr")
+        commit(work, "main-3")
+        git(work, "merge", "-q", "--no-edit", "feature")
     origin = session_root.parent / f"{name}-origin.git"
     git(session_root.parent, "clone", "-q", "--mirror", str(work), str(origin))
     git(session_root, "clone", "-q", str(origin), name)
+    # A session clone carries no origin/HEAD (measured 2026-09-24).
+    git(session_root / name, "remote", "set-head", "origin", "-d")
     return head
