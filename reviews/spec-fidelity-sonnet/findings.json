@@ -1,0 +1,35 @@
+{
+  "pr": "pandoscope/pandoscope#22",
+  "head": "e32474f64df60182734c74e3709c4abb0bd2d42b",
+  "pass": "spec-fidelity",
+  "tier": "sonnet",
+  "findings": [
+    {
+      "file": "src/pandoscope/reinset/hooks.py",
+      "line": 48,
+      "rule": "`render_hooks` resolves each to the installed script and writes `$REINSET_HOOKS` (default `~/.claude/reinset/hooks.json`).",
+      "input": "Implementer order; `~/.claude/skills/handing-off/` exists without the `.pandoscope-compose` marker and holds a hand-written `guard.sh` (or: a marked `handing-off` copy from an earlier session exists and this session's clones have no `handing-off` source).",
+      "tier": "judgment",
+      "confidence": 70,
+      "finding": "install_bundle refuses (or cannot source) handing-off and leaves it out of `installed`, yet render_hooks only checks the profile's skill list and `path.is_file()`, so hooks.json points PreCompact and SessionStart/compact at a script the bundle did not install."
+    },
+    {
+      "file": "src/pandoscope/reinset/hooks.py",
+      "line": 41,
+      "rule": "An entry outside the bundle, missing on disk or on an unknown event is a composer error.",
+      "input": "Profile hook `{event: PreCompact, command: handing-off/../../../../usr/local/bin/x.sh}` with handing-off in the role's skills and the target file present.",
+      "tier": "hard",
+      "confidence": 60,
+      "finding": "The bundle check only compares the text before the first `/` with the skill list, so a command whose script part climbs out of `~/.claude/skills/handing-off` renders as a hook on a file outside the bundle instead of a composer error."
+    },
+    {
+      "file": "src/pandoscope/reinset/install.py",
+      "line": 87,
+      "rule": "The prompt pass and its add-only rule are gone.",
+      "input": "`install_bundle(profile, session_root, home, repos, prune=False)` after an earlier pass installed `grilling` for a role that no longer names it (tests/unit/reinset/test_install.py:142).",
+      "tier": "judgment",
+      "confidence": 55,
+      "finding": "The change keeps the add-only mode as a `prune=False` path, documents it as live behaviour (\"a pass inside a running session only adds (D2)\", install.py:10) and pins it with a test, although the body states the prompt pass and its add-only rule are removed."
+    }
+  ]
+}
