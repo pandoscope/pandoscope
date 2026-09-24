@@ -3,8 +3,6 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-import pytest
-
 from pandoscope.reinset.hooks import render_hooks
 from pandoscope.reinset.profiles import Profile
 
@@ -97,7 +95,6 @@ def test_a_profile_without_hooks_renders_an_empty_file(home: Path) -> None:
     assert json.loads(target.read_text()) == {}
 
 
-@pytest.mark.xfail(strict=True)
 def test_a_hook_script_escaping_its_skill_is_an_error(home: Path) -> None:
     installed(home, "handing-off", "guard.sh")
     installed(home, "grilling", "check.sh")

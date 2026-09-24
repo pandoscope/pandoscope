@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
 import yaml
 
 from pandoscope.reinset.install import MARKER_FILE, find_skill, install_bundle
@@ -171,7 +170,6 @@ def test_general_with_prune_leaves_no_managed_skill(
     assert not (home / ".claude" / "skills" / "handing-off").exists()
 
 
-@pytest.mark.xfail(strict=True)
 def test_the_skills_clone_is_found_by_slug_whatever_its_kind(
     session_root: Path,
 ) -> None:
