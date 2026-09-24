@@ -80,3 +80,40 @@ def path_dirs(tmp_path: Path) -> list[Path]:
         tool.write_text("#!/bin/sh\n")
         tool.chmod(0o755)
     return [bin_dir]
+
+
+def commit(cwd: Path, name: str) -> str:
+    """Commit one new file in ``cwd`` and return the commit sha."""
+    (cwd / name).write_text(f"{name}\n")
+    git(cwd, "add", "-A")
+    git(cwd, "commit", "-q", "-m", f"chore: {name}")
+    return git(cwd, "rev-parse", "HEAD")
+
+
+def pr_clone(session_root: Path, name: str, number: int) -> str:
+    """
+    Clone a repository whose pull request ``number`` stacks on ``feature``.
+
+    The origin holds ``main``, ``feature`` one commit above it, a stale
+    ``old`` below ``main``, and ``refs/pull/<n>/head`` one commit above
+    ``feature``. The clone lands at ``<session_root>/<name>``. Returns
+    the head sha.
+    """
+    work = session_root.parent / f"{name}-origin-work"
+    work.mkdir()
+    git(work, "init", "-q", "-b", "main")
+    git(work, "config", "user.email", "test@example.test")
+    git(work, "config", "user.name", "test")
+    commit(work, "seed")
+    git(work, "branch", "old")
+    commit(work, "main-2")
+    git(work, "switch", "-q", "-c", "feature")
+    commit(work, "feature-1")
+    head = commit(work, "pr-1")
+    git(work, "update-ref", f"refs/pull/{number}/head", head)
+    git(work, "reset", "-q", "--hard", "HEAD~1")
+    git(work, "switch", "-q", "main")
+    origin = session_root.parent / f"{name}-origin.git"
+    git(session_root.parent, "clone", "-q", "--mirror", str(work), str(origin))
+    git(session_root, "clone", "-q", str(origin), name)
+    return head
