@@ -307,3 +307,20 @@ def test_unconfigured_session_renders_no_hooks(
     result = compose(ENV_RUN5_UI, session_root, home, path_dirs)
     assert result.hooks_path == home / ".claude" / "reinset" / "hooks.json"
     assert json.loads(result.hooks_path.read_text()) == {}
+
+
+@pytest.mark.xfail(strict=True)
+def test_another_harness_installs_no_claude_code_bundle(
+    session_root: Path, home: Path, path_dirs: list[Path]
+) -> None:
+    # resolved.harness selects the skill format (skills#179 §4). Only
+    # Claude Code's is known; any other harness gets no bundle, loudly.
+    for name in ("thread-ledger", "handing-off"):
+        _skill(session_root, name)
+    write_pass_and_order(session_root, IMPLEMENTER_ORDER)
+    env = {"CLAUDE_CODE_SESSION_ID": "sess-other-0001", **WAYBILL_FIRE}
+    result = compose(env, session_root, home, path_dirs)
+    assert result.answers["resolved"]["harness"] != "claude-code"
+    assert not (home / ".claude" / "skills" / "handing-off").exists()
+    assert result.answers["installed"] == []
+    assert any("harness" in error for error in result.errors)

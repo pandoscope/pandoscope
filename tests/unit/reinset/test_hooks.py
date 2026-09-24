@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from pandoscope.reinset.hooks import render_hooks
 from pandoscope.reinset.profiles import Profile
 
@@ -93,3 +95,21 @@ def test_a_profile_without_hooks_renders_an_empty_file(home: Path) -> None:
     rendered, errors = render_hooks(profile([]), home, target)
     assert (rendered, errors) == ({}, [])
     assert json.loads(target.read_text()) == {}
+
+
+@pytest.mark.xfail(strict=True)
+def test_a_hook_script_escaping_its_skill_is_an_error(home: Path) -> None:
+    installed(home, "handing-off", "guard.sh")
+    installed(home, "grilling", "check.sh")
+    target = home / ".claude" / "reinset" / "hooks.json"
+    rendered, errors = render_hooks(
+        profile(
+            [{"event": "PreCompact", "command": "handing-off/../grilling/check.sh"}],
+            "handing-off",
+        ),
+        home,
+        target,
+    )
+    assert rendered == {}
+    assert len(errors) == 1
+    assert "outside" in errors[0]
