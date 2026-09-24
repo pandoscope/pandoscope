@@ -12,6 +12,7 @@
     "pass": {"type": "string", "pattern": "^[a-z0-9-]+$"},
     "tier": {"type": "string", "pattern": "^[a-z0-9-]+$"},
     "pull_request": {"$ref": "#/$defs/ticket"},
+    "base": {"type": "string", "pattern": "^[^\\s~^:?*\\[\\\\]+$"},
     "checkouts": {
       "type": "object",
       "propertyNames": {"pattern": "^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$"},

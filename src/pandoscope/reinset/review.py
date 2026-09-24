@@ -19,7 +19,7 @@ class ReviewError(Exception):
     """An order whose pass file cannot become a task."""
 
 
-def pull_refs(clone: Path, number: int) -> tuple[str, str]:
+def pull_refs(clone: Path, number: int, base: str | None = None) -> tuple[str, str]:
     """
     Return the base branch and head sha of pull request ``number``, read from ``clone``.
 
