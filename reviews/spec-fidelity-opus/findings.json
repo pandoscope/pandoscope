@@ -1,0 +1,44 @@
+{
+  "pr": "pandoscope/pandoscope#22",
+  "head": "e32474f64df60182734c74e3709c4abb0bd2d42b",
+  "pass": "spec-fidelity",
+  "tier": "opus",
+  "findings": [
+    {
+      "file": "src/pandoscope/reinset/install.py",
+      "line": 46,
+      "rule": "It looks in `meta/reinset/skills/<name>` first, then the skills clone's `original/` and `derived/`, then a clone's vendored `.agents/skills/<name>`.",
+      "input": "The real skills clone at /home/user/skills, whose .copier-answers.agentic.yml (main) carries agentic_project_slug: skills and agentic_project_kind: code, with original/thread-ledger/SKILL.md and original/handing-off/SKILL.md present; an implementer order.",
+      "tier": "hard",
+      "confidence": 85,
+      "finding": "_layers treats a clone as the skills clone only when detected kind == \"skills\", but the actual skills clone declares kind code, so original/ and derived/ are never searched and thread-ledger and handing-off (vendored nowhere) become COMPOSER ERRORs, as do the implementer and orchestrator handing-off hooks; the tests pass only because the conftest fixture stamps kind: skills."
+    },
+    {
+      "file": "src/pandoscope/reinset/hooks.py",
+      "line": 48,
+      "rule": "`render_hooks` resolves each to the installed script and writes `$REINSET_HOOKS` (default `~/.claude/reinset/hooks.json`).",
+      "input": "An implementer order where ~/.claude/skills/handing-off exists without the .pandoscope-compose marker (install refuses it with a COMPOSER ERROR and leaves it out of `installed`) but contains guard.sh and verify.sh; likewise a marked handing-off left by an earlier session when this session's pass finds no source for it.",
+      "tier": "judgment",
+      "confidence": 60,
+      "finding": "render_hooks checks only that ~/.claude/skills/<skill>/<script> is a file, not that this pass installed the skill, so it registers hooks pointing at a directory the install step refused or at a stale copy it did not install, instead of treating the entry as not installed."
+    },
+    {
+      "file": "src/pandoscope/reinset/hooks.py",
+      "line": 41,
+      "rule": "An entry outside the bundle, missing on disk or on an unknown event is a composer error.",
+      "input": "A profile (for example a meta override under meta/reinset/profiles/) with skills [handing-off] and hooks [{event: PreCompact, command: handing-off/../grilling/check.sh}] where ~/.claude/skills/grilling/check.sh exists.",
+      "tier": "judgment",
+      "confidence": 40,
+      "finding": "The command is split only at the first '/', so a script path with '..' passes the bundle check on its first segment and renders a hook to a script outside the named skill and outside the bundle without a composer error."
+    },
+    {
+      "file": "src/pandoscope/reinset/install.py",
+      "line": 98,
+      "rule": "`resolved.harness` selects the entry file (CLAUDE.md for claude-code, AGENTS.md otherwise) and the skill format.",
+      "input": "A session whose detector yields harness codex or unknown with an implementer order.",
+      "tier": "judgment",
+      "confidence": 30,
+      "finding": "install_bundle and render_hooks ignore resolved.harness and always write Claude Code's ~/.claude/skills layout and ~/.claude/reinset/hooks.json, so the harness does not select the skill format."
+    }
+  ]
+}
