@@ -10,10 +10,8 @@ from pandoscope.reinset.review import ReviewError, hydrate, pull_refs
 from .conftest import commit, git, pr_clone
 
 PROMPT = """\
-```text
 Review <repo>#<n> (<pass>, tier <tier>): base <base>, head <head>.
 Tickets: <tickets>.
-```
 """
 
 ORDER = (
@@ -94,7 +92,7 @@ def test_hydrate_fills_every_placeholder_from_order_and_clone(
 
 def test_an_unfilled_placeholder_is_a_review_error(session_root: Path) -> None:
     pr_clone(session_root, "aet", 262)
-    write(session_root, "```text\nReview <n> by <deadline>.\n```\n")
+    write(session_root, "Review <n> by <deadline>.\n")
     order = find_order(FIRE, session_root)
     assert order is not None
     with pytest.raises(ReviewError, match="<deadline>"):
@@ -110,17 +108,6 @@ def test_missing_pass_file_is_a_review_error(session_root: Path) -> None:
         hydrate(session_root, order)
 
 
-def test_pass_file_without_a_prompt_block_is_a_review_error(
-    session_root: Path,
-) -> None:
-    write(session_root, "# No block here\n")
-    order = find_order(FIRE, session_root)
-    assert order is not None
-    with pytest.raises(ReviewError, match=r"text block"):
-        hydrate(session_root, order)
-
-
-@pytest.mark.xfail(strict=True, reason="red: the prompt is the whole pass file")
 def test_the_whole_pass_file_is_the_task(session_root: Path) -> None:
     pr_clone(session_root, "aet", 262)
     write(session_root, "# Task\n\nReview <repo>#<n>.\n\n```sh\ngit fetch\n```\n")
