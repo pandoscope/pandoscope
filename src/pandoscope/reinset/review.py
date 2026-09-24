@@ -23,58 +23,44 @@ def pull_refs(clone: Path, number: int, base: str | None = None) -> tuple[str, s
     """
     Return the base branch and head sha of pull request ``number``, read from ``clone``.
 
-    Fetches ``pull/<n>/head`` and every branch of ``origin``. The base
-    is the branch the head sits closest above. Raises ReviewError when
-    the clone is missing, the fetch fails or the base is ambiguous.
+    The base is ``base`` when the order names it, else the remote's
+    default branch. Fetches that branch and ``pull/<n>/head``. Raises
+    ReviewError when the clone is missing or a fetch fails.
     """
     if not (clone / ".git").exists():
         msg = f"no clone of the pull request's repository at {clone}"
         raise ReviewError(msg)
+    # DECISION: git does not record a pull request's base; the forge
+    # does. A branch built on the pull request looks like a stacked
+    # base from the head, so no heuristic separates them (measured
+    # 2026-09-24). The order names the base; without it, the default.
     ref = f"pull/{number}/head"
     try:
-        _git(clone, "fetch", "-q", "origin", "+refs/heads/*:refs/remotes/origin/*")
+        base = base or _default_branch(clone)
+        _git(
+            clone,
+            "fetch",
+            "-q",
+            "origin",
+            f"+refs/heads/{base}:refs/remotes/origin/{base}",
+        )
         _git(clone, "fetch", "-q", "origin", ref)
         head = _git(clone, "rev-parse", "FETCH_HEAD")
-        bases = _nearest_branches(clone, head)
     except subprocess.CalledProcessError as error:
-        msg = f"cannot read {ref} from {clone}: {error.stderr.strip()}"
+        msg = (
+            f"cannot read {ref} with base {base!r} from {clone}: {error.stderr.strip()}"
+        )
         raise ReviewError(msg) from error
-    if len(bases) != 1:
-        found = ", ".join(bases) or "none"
-        msg = f"the base of {ref} in {clone} is not one branch: {found}"
-        raise ReviewError(msg)
-    return bases[0], head
+    return base, head
 
 
-def _nearest_branches(clone: Path, head: str) -> list[str]:
-    # DECISION: the base is the branch whose merge base with the head
-    # leaves the fewest head commits above it. Git does not record a
-    # pull request's base; the forge does. The nearest branch equals it
-    # for a stacked pull request and for one on a main that moved on. A
-    # tie goes to the default branch (a merged branch ties main), else
-    # it stays a tie, and the caller reports it: never a guess.
-    distance: dict[str, int] = {}
-    listing = _git(
-        clone, "for-each-ref", "--format=%(refname:lstrip=3)", "refs/remotes/origin/"
-    )
-    for branch in listing.split():
-        if branch == "HEAD":
-            continue
-        tip = f"refs/remotes/origin/{branch}"
-        if _git(clone, "rev-parse", tip) == head:
-            continue
-        fork = _git(clone, "merge-base", tip, head)
-        distance[branch] = int(_git(clone, "rev-list", "--count", f"{fork}..{head}"))
-    if not distance:
-        return []
-    nearest = min(distance.values())
-    bases = sorted(b for b, d in distance.items() if d == nearest)
-    if len(bases) == 1:
-        return bases
+def _default_branch(clone: Path) -> str:
     # A session clone carries no origin/HEAD; the remote names its default.
     symref = _git(clone, "ls-remote", "--symref", "origin", "HEAD").split()
-    default = symref[1].removeprefix("refs/heads/") if symref[:1] == ["ref:"] else ""
-    return [default] if default in bases else bases
+    if symref[:1] != ["ref:"]:
+        msg = f"the remote of {clone} names no default branch"
+        raise ReviewError(msg)
+    return symref[1].removeprefix("refs/heads/")
 
 
 def hydrate(session_root: Path, order: Order) -> str:
@@ -96,7 +82,7 @@ def hydrate(session_root: Path, order: Order) -> str:
         msg = f"{path} holds no fenced text block to use as the prompt"
         raise ReviewError(msg)
     base, head = pull_refs(
-        session_root / order.repo.rsplit("/", 1)[-1], order.pull_request
+        session_root / order.repo.rsplit("/", 1)[-1], order.pull_request, order.base
     )
     values = {
         "repo": order.repo,

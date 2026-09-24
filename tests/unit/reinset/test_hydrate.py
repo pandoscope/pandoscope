@@ -46,7 +46,6 @@ def review_branch_on(session_root: Path, head: str) -> None:
     git(work, "switch", "-q", "main")
 
 
-@pytest.mark.xfail(strict=True)
 def test_pull_refs_takes_the_orders_base(session_root: Path) -> None:
     # Measured 2026-09-24: review branches built on an older head tied as
     # the nearest branch, and the composer refused the order.
@@ -55,7 +54,6 @@ def test_pull_refs_takes_the_orders_base(session_root: Path) -> None:
     assert pull_refs(session_root / "aet", 262, "feature") == ("feature", head)
 
 
-@pytest.mark.xfail(strict=True)
 def test_pull_refs_without_a_base_takes_the_default_branch(
     session_root: Path,
 ) -> None:
@@ -63,7 +61,6 @@ def test_pull_refs_without_a_base_takes_the_default_branch(
     assert pull_refs(session_root / "aet", 262) == ("main", head)
 
 
-@pytest.mark.xfail(strict=True)
 def test_an_unknown_base_is_a_review_error(session_root: Path) -> None:
     pr_clone(session_root, "aet", 262)
     with pytest.raises(ReviewError, match="nope"):
