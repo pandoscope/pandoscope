@@ -309,7 +309,6 @@ def test_unconfigured_session_renders_no_hooks(
     assert json.loads(result.hooks_path.read_text()) == {}
 
 
-@pytest.mark.xfail(strict=True)
 def test_another_harness_installs_no_claude_code_bundle(
     session_root: Path, home: Path, path_dirs: list[Path]
 ) -> None:

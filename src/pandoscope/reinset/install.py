@@ -24,7 +24,7 @@ from pandoscope.reinset.profiles import Profile
 
 MARKER_FILE = ".pandoscope-compose"
 META_OVERRIDE = Path("meta") / "reinset" / "skills"
-SKILLS_KIND = "skills"
+SKILLS_SLUG = "skills"
 SKILLS_LAYERS = ("original", "derived")
 VENDORED = Path(".agents") / "skills"
 
@@ -43,7 +43,9 @@ def _layers(name: str, session_root: Path, repos: list[dict[str, Any]]) -> list[
     layers = [session_root / META_OVERRIDE / name]
     clones = [Path(repo["path"]) for repo in repos]
     for repo in repos:
-        if repo.get("kind") == SKILLS_KIND:
+        # The skills clone declares kind code (measured 2026-09-24): its
+        # slug names it, not its kind.
+        if repo.get("slug") == SKILLS_SLUG:
             layers += [Path(repo["path"]) / layer / name for layer in SKILLS_LAYERS]
     layers += [clone / VENDORED / name for clone in clones]
     return layers

@@ -46,6 +46,9 @@ def render_hooks(
             errors.append(f"hook {command!r}: {skill!r} is not in the role's bundle")
             continue
         path = skills_dir / skill / script
+        if not path.resolve().is_relative_to((skills_dir / skill).resolve()):
+            errors.append(f"hook {command!r}: the script lies outside {skill!r}")
+            continue
         if not script or not path.is_file():
             errors.append(f"hook {command!r}: {path} is not installed")
             continue
