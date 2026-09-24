@@ -38,6 +38,7 @@ class Order:
     role: str
     repo: str
     pull_request: int
+    base: str | None
     pass_: str | None
     tier: str | None
     tickets: list[str]
@@ -78,6 +79,7 @@ def find_order(env: Mapping[str, str], session_root: Path) -> Order | None:
         data["role"],
         match.group("repo"),
         int(match.group("n")),
+        data.get("base"),
         data.get("pass"),
         data.get("tier"),
         list(data["tickets"]),
