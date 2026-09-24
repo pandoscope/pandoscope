@@ -1,0 +1,17 @@
+{
+  "pr": "pandoscope/pandoscope#22",
+  "head": "d0e4762b03e2df135b8a0f21b81b7fd27c38065b",
+  "pass": "spec-fidelity",
+  "tier": "sonnet-r3",
+  "findings": [
+    {
+      "file": "src/pandoscope/reinset/compose.py",
+      "line": 116,
+      "rule": "Claude Code's is the only one known, so any other harness installs no bundle and gets a composer error that names the harness.",
+      "input": "compose() with resolved.harness != \"claude-code\" (e.g. CLAUDECODE unset) and a profile with no skills and no hooks, such as the shipped general.yml (skills: []) that a no-order session resolves to by default",
+      "tier": "hard",
+      "confidence": 65,
+      "finding": "The composer only appends the \"harness ... has no known skill format\" error when the profile declares skills or hooks, so a non-Claude-Code harness resolving to a bundle-less profile (general, probe) installs no bundle and produces no composer error at all, contrary to the unconditional rule that any other harness gets a composer error naming the harness."
+    }
+  ]
+}
