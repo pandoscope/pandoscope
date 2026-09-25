@@ -275,3 +275,14 @@ def test_candidates_without_the_prose_check_is_a_review_error(
     assert order is not None
     with pytest.raises(ReviewError, match=r"check\.sh"):
         hydrate(session_root, order)
+
+
+@pytest.mark.xfail(strict=True)
+def test_candidates_keep_only_lines_the_pull_request_adds(session_root: Path) -> None:
+    # A hit on a line the pull request did not touch is not its prose.
+    pr_clone(session_root, "aet", 262)
+    write(session_root, "Candidates:\n{{ candidates }}\n")
+    stub_check(session_root, 'echo "$2:1: H new: x"\necho "$2:2: H old: y"')
+    order = find_order(FIRE, session_root)
+    assert order is not None
+    assert hydrate(session_root, order) == "Candidates:\npr-1:1: H new: x\n"
