@@ -118,6 +118,24 @@ def test_the_whole_pass_file_is_the_task(session_root: Path) -> None:
     )
 
 
+@pytest.mark.xfail(strict=True)
+def test_a_clone_of_another_repository_is_a_review_error(session_root: Path) -> None:
+    # Found by the opus review of pandoscope#31 (F001).
+    pr_clone(session_root, "aet", 262)
+    git(
+        session_root / "aet",
+        "remote",
+        "set-url",
+        "origin",
+        "https://github.com/acme/aet",
+    )
+    write(session_root)
+    order = find_order(FIRE, session_root)
+    assert order is not None
+    with pytest.raises(ReviewError, match="acme/aet"):
+        hydrate(session_root, order)
+
+
 def test_pull_refs_finds_main_after_main_moved_on(session_root: Path) -> None:
     head = pr_clone(session_root, "aet", 262, on_main=True)
     assert pull_refs(session_root / "aet", 262) == ("main", head)

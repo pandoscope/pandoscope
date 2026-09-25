@@ -127,6 +127,11 @@ def pr_clone(
     origin = session_root.parent / f"{name}-origin.git"
     git(session_root.parent, "clone", "-q", "--mirror", str(work), str(origin))
     git(session_root, "clone", "-q", str(origin), name)
+    # The clone names its forge repository, as a session clone does;
+    # git fetches from the local mirror in its place.
+    forge = f"https://github.com/pandoscope/{name}"
+    git(session_root / name, "remote", "set-url", "origin", forge)
+    git(session_root / name, "config", f"url.{origin}.insteadOf", forge)
     # A session clone carries no origin/HEAD (measured 2026-09-24).
     git(session_root / name, "remote", "set-head", "origin", "-d")
     return head
