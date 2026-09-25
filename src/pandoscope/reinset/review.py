@@ -117,6 +117,15 @@ def hydrate(session_root: Path, order: Order) -> str:
     if clone.is_dir():
         _check_origin(clone, order.repo)
     base, head = pull_refs(clone, order.pull_request, order.base)
+    # The reviewer runs no git steps (skills#224).
+    # The files on disk are the head,
+    # on the branch that the driver publishes at Stop.
+    branch = f"claude/review-{order.pass_}-{order.model_tier}-pr{order.pull_request}"
+    try:
+        _git(clone, "switch", "-q", "-C", branch, head)
+    except subprocess.CalledProcessError as error:
+        msg = f"cannot switch {clone} to {branch} at {head}: {error.stderr.strip()}"
+        raise ReviewError(msg) from error
     values = {
         "repo": order.repo,
         "n": str(order.pull_request),
@@ -125,6 +134,7 @@ def hydrate(session_root: Path, order: Order) -> str:
         "base": base,
         "head": head,
         "tickets": ", ".join(order.tickets) or "none",
+        "branch": branch,
     }
     schema = session_root / PASS_DIR / "findings.schema.json"
     if schema.is_file():

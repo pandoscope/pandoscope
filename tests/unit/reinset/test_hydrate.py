@@ -201,7 +201,6 @@ def test_findings_contract_renders_the_schema_in_plain_terms(
     )
 
 
-@pytest.mark.xfail(strict=True)
 def test_hydrate_switches_the_clone_to_the_review_branch_at_the_head(
     session_root: Path,
 ) -> None:
