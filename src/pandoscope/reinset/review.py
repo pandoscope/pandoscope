@@ -105,7 +105,8 @@ def prose_candidates(check: Path, clone: Path, base: str, head: str) -> str:
 
     Runs the check once per file the pull request adds or changes,
     on the file at ``head`` in ``clone``,
-    and returns the hit lines, or ``none`` when there are none.
+    and returns the hits on lines the pull request adds,
+    or ``none`` when there are none.
     Raises ReviewError when the check is missing or fails to run.
     """
     if not check.is_file():
@@ -128,12 +129,22 @@ def prose_candidates(check: Path, clone: Path, base: str, head: str) -> str:
         if run.returncode not in (0, 1):
             msg = f"{check} failed on {path}: {run.stderr.strip()}"
             raise ReviewError(msg)
-        hits += [
-            line.removeprefix("./")
-            for line in run.stdout.splitlines()
-            if re.match(r"\S+:\d+: [FH] ", line)
-        ]
+        added = _added_lines(clone, base, head, path)
+        for line in run.stdout.splitlines():
+            hit = re.match(r"\./(.+?):(\d+): [FH] ", line)
+            if hit and int(hit[2]) in added:
+                hits.append(line.removeprefix("./"))
     return "\n".join(hits) or "none"
+
+
+def _added_lines(clone: Path, base: str, head: str, path: str) -> set[int]:
+    """The line numbers at ``head`` that the pull request adds to ``path``."""
+    diff = _git(clone, "diff", "-U0", f"origin/{base}...{head}", "--", path)
+    added: set[int] = set()
+    for start, count in re.findall(r"^@@ -\S+ \+(\d+)(?:,(\d+))? @@", diff, re.M):
+        first = int(start)
+        added.update(range(first, first + int(count or 1)))
+    return added
 
 
 def _check_origin(clone: Path, repo: str) -> None:

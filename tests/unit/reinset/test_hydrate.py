@@ -277,7 +277,6 @@ def test_candidates_without_the_prose_check_is_a_review_error(
         hydrate(session_root, order)
 
 
-@pytest.mark.xfail(strict=True)
 def test_candidates_keep_only_lines_the_pull_request_adds(session_root: Path) -> None:
     # A hit on a line the pull request did not touch is not its prose.
     pr_clone(session_root, "aet", 262)
