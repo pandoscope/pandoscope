@@ -182,7 +182,6 @@ SCHEMA = {
 }
 
 
-@pytest.mark.xfail(strict=True)
 def test_findings_contract_renders_the_schema_in_plain_terms(
     session_root: Path,
 ) -> None:

@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import json
 import subprocess
 from pathlib import Path
+from typing import Any
 
 import jinja2
 
@@ -63,6 +65,25 @@ def _default_branch(clone: Path) -> str:
     return symref[1].removeprefix("refs/heads/")
 
 
+def findings_contract(schema: dict[str, Any], indent: str = "") -> str:
+    """Render a findings JSON schema as a Markdown field list (skills#225)."""
+    lines = []
+    for key, prop in schema.get("properties", {}).items():
+        kind = (
+            " or ".join(f"`{v}`" for v in prop["enum"])
+            if "enum" in prop
+            else prop.get("type", "value")
+        )
+        line = f"{indent}- `{key}` ({kind}): {prop.get('description', '')}"
+        items = prop.get("items", {})
+        if items.get("properties"):
+            lines.append(line + ". Each item:")
+            lines.append(findings_contract(items, indent + "  "))
+        else:
+            lines.append(line)
+    return "\n".join(lines)
+
+
 def _check_origin(clone: Path, repo: str) -> None:
     """Raise ReviewError unless the clone's origin is the forge repository ``repo``."""
     try:
@@ -105,6 +126,9 @@ def hydrate(session_root: Path, order: Order) -> str:
         "head": head,
         "tickets": ", ".join(order.tickets) or "none",
     }
+    schema = session_root / PASS_DIR / "findings.schema.json"
+    if schema.is_file():
+        values["findings_contract"] = findings_contract(json.loads(schema.read_text()))
     # DECISION: the pass file is a Jinja template.
     # Markup in angle brackets stays text,
     # and StrictUndefined keeps a misspelled variable an error
