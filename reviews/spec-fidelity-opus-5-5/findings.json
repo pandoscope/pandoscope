@@ -1,0 +1,17 @@
+{
+  "pr": "pandoscope/pandoscope#36",
+  "head": "b4a93c1c070fb6b461d880727624412f14cc0c38",
+  "pass": "spec-fidelity",
+  "model_tier": "opus-5-5",
+  "findings": [
+    {
+      "file": "src/pandoscope/reinset/review.py",
+      "line": 224,
+      "rule": "At session start it runs `check.sh` over the PR's changed files, from the skills checkout at the order's ref.",
+      "input": "A session root whose skills clone is on a different commit from the ref the order names; hydrate runs session_root/skills/original/writing-prose/check.sh as it is on disk, and the Order carries no skills ref that is checked or switched to",
+      "finding_basis": "judged",
+      "confidence": 40,
+      "finding": "The composer runs whatever check.sh the skills clone holds, without pinning or checking it against the order's ref, so the candidates are not guaranteed to come from the skills checkout at the order's ref."
+    }
+  ]
+}
