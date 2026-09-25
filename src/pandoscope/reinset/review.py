@@ -104,8 +104,11 @@ def hydrate(session_root: Path, order: Order) -> str:
     Renders ``repo``, ``n``, ``pass``, ``model_tier`` and ``tickets`` from the order,
     and ``base`` and ``head`` from the clone of the pull request's repository
     under the session root.
+    Switches that clone to the review ``branch`` at the head.
+    Renders ``findings_contract`` from the findings schema beside the pass file.
     Raises ReviewError when the pass file, the clone or a ref is missing,
     when the clone belongs to another repository,
+    when the switch fails,
     and when the template does not render, as on an undefined variable.
     """
     assert order.pass_ and order.model_tier  # noqa: S101 — the schema requires both
