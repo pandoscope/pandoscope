@@ -220,3 +220,62 @@ def test_hydrate_switches_the_clone_to_the_review_branch_at_the_head(
 def test_pull_refs_finds_main_after_main_moved_on(session_root: Path) -> None:
     head = pr_clone(session_root, "aet", 262, on_main=True)
     assert pull_refs(session_root / "aet", 262) == ("main", head)
+
+
+def stub_check(session_root: Path, body: str) -> None:
+    """Install a writing-prose check.sh that runs ``body``, as the skills clone does."""
+    check = session_root / "skills" / "original" / "writing-prose" / "check.sh"
+    check.parent.mkdir(parents=True)
+    check.write_text(f"#!/usr/bin/env bash\n{body}\n")
+
+
+@pytest.mark.xfail(strict=True)
+def test_candidates_are_the_prose_check_hits_on_the_changed_files(
+    session_root: Path,
+) -> None:
+    # The composer runs the check; the reviewer never executes it (skills#220).
+    pr_clone(session_root, "aet", 262)
+    write(session_root, "Candidates:\n{{ candidates }}\n")
+    stub_check(
+        session_root,
+        'echo "$2:1: H hedging: cut it ($1)"\necho "M rule to judge"\nexit 1',
+    )
+    order = find_order(FIRE, session_root)
+    assert order is not None
+    assert hydrate(session_root, order) == (
+        "Candidates:\npr-1:1: H hedging: cut it (comment)\n"
+    )
+
+
+@pytest.mark.xfail(strict=True)
+def test_no_candidates_render_none(session_root: Path) -> None:
+    pr_clone(session_root, "aet", 262)
+    write(session_root, "Candidates: {{ candidates }}\n")
+    stub_check(session_root, "exit 0")
+    order = find_order(FIRE, session_root)
+    assert order is not None
+    assert hydrate(session_root, order) == "Candidates: none\n"
+
+
+@pytest.mark.xfail(strict=True)
+def test_a_failing_prose_check_is_a_review_error(session_root: Path) -> None:
+    # A crashed check must not read as no candidates.
+    pr_clone(session_root, "aet", 262)
+    write(session_root, "Candidates: {{ candidates }}\n")
+    stub_check(session_root, "echo broken >&2\nexit 2")
+    order = find_order(FIRE, session_root)
+    assert order is not None
+    with pytest.raises(ReviewError, match="broken"):
+        hydrate(session_root, order)
+
+
+@pytest.mark.xfail(strict=True)
+def test_candidates_without_the_prose_check_is_a_review_error(
+    session_root: Path,
+) -> None:
+    pr_clone(session_root, "aet", 262)
+    write(session_root, "Candidates: {{ candidates }}\n")
+    order = find_order(FIRE, session_root)
+    assert order is not None
+    with pytest.raises(ReviewError, match=r"check\.sh"):
+        hydrate(session_root, order)
