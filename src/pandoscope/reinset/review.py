@@ -82,12 +82,14 @@ def hydrate(session_root: Path, order: Order) -> str:
     """
     Return the reviewer's task: the whole pass file, rendered.
 
-    Renders ``repo``, ``n``, ``pass``, ``tier``, ``tickets``
-    from the order and ``<base>``, ``<head>`` from the clone of the
-    pull request's repository under the session root. Raises
-    ReviewError on an undefined variable.
+    Renders ``repo``, ``n``, ``pass``, ``model_tier`` and ``tickets`` from the order,
+    and ``base`` and ``head`` from the clone of the pull request's repository
+    under the session root.
+    Raises ReviewError when the pass file, the clone or a ref is missing,
+    when the clone belongs to another repository,
+    and when the template does not render, as on an undefined variable.
     """
-    assert order.pass_ and order.tier  # noqa: S101 — the schema requires both
+    assert order.pass_ and order.model_tier  # noqa: S101 — the schema requires both
     path = session_root / PASS_DIR / f"{order.pass_}.md"
     if not path.is_file():
         msg = f"no review pass file at {path}"
@@ -100,7 +102,7 @@ def hydrate(session_root: Path, order: Order) -> str:
         "repo": order.repo,
         "n": str(order.pull_request),
         "pass": order.pass_,
-        "tier": order.tier,
+        "model_tier": order.model_tier,
         "base": base,
         "head": head,
         "tickets": ", ".join(order.tickets) or "none",

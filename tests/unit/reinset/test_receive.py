@@ -23,7 +23,7 @@ ORDER = """\
 id: probe-4
 role: reviewer
 pass: spec-fidelity
-tier: opus
+model-tier: opus
 pull_request: pandoscope/pandoscope#26
 checkouts:
   pandoscope/skills: claude/sk195-review-driver
@@ -44,7 +44,7 @@ def test_the_order_is_read_from_the_fired_branch(session_root: Path) -> None:
     assert order is not None
     assert order.pull_request == 26
     assert order.data["role"] == "reviewer"
-    assert (order.role, order.pass_, order.tier) == (
+    assert (order.role, order.pass_, order.model_tier) == (
         "reviewer",
         "spec-fidelity",
         "opus",
@@ -82,7 +82,7 @@ def test_an_order_off_the_schema_raises_naming_every_field(session_root: Path) -
     # tier in caps gets a composer error, not a half-read order.
     write_order(
         session_root,
-        "id: probe-4\nrole: reviewer\npass: spec-fidelity\ntier: Opus\n"
+        "id: probe-4\nrole: reviewer\npass: spec-fidelity\nmodel-tier: Opus\n"
         "pull_request: pandoscope/pandoscope#26\ntickets: []\npull-request: x\n",
     )
     with pytest.raises(OrderError) as raised:

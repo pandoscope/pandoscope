@@ -10,7 +10,7 @@
     "id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
     "role": {"enum": ["orchestrator", "implementer", "reviewer", "general", "probe"]},
     "pass": {"type": "string", "pattern": "^[a-z0-9-]+$"},
-    "tier": {"type": "string", "pattern": "^[a-z0-9-]+$"},
+    "model-tier": {"type": "string", "pattern": "^[a-z0-9-]+$"},
     "pull_request": {"$ref": "#/$defs/ticket"},
     "base": {"type": "string", "pattern": "^[^\\s~^:?*\\[\\\\]+$"},
     "checkouts": {
@@ -22,8 +22,8 @@
     "result": {"type": "string", "minLength": 1}
   },
   "if": {"properties": {"role": {"const": "reviewer"}}},
-  "then": {"required": ["pass", "tier"]},
-  "else": {"not": {"anyOf": [{"required": ["pass"]}, {"required": ["tier"]}]}},
+  "then": {"required": ["pass", "model-tier"]},
+  "else": {"not": {"anyOf": [{"required": ["pass"]}, {"required": ["model-tier"]}]}},
   "$defs": {
     "ticket": {"type": "string", "pattern": "^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+#[0-9]+$"}
   }

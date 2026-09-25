@@ -53,7 +53,7 @@ def test_unmanaged_claude_md_is_refused(
 
 
 REVIEW_PROMPT_FILE = """\
-Review pull request {{ n }} as tier {{ tier }}.
+Review pull request {{ n }} as tier {{ model_tier }}.
 Base {{ base }}, head {{ head }}.
 """
 
@@ -85,7 +85,7 @@ def test_a_waybill_order_composes_the_reviewer(
     head = pr_clone(session_root, "aet", 262)
     write_pass_and_order(
         session_root,
-        "id: probe-4\nrole: reviewer\npass: spec-fidelity\ntier: sonnet\n"
+        "id: probe-4\nrole: reviewer\npass: spec-fidelity\nmodel-tier: sonnet\n"
         "pull_request: pandoscope/aet#262\nbase: feature\ntickets: []\n",
     )
     env = {**ENV_RUN7_FIRED, **WAYBILL_FIRE}
@@ -95,7 +95,7 @@ def test_a_waybill_order_composes_the_reviewer(
         "path": "waybill/orders/probe-4.yml",
         "role": "reviewer",
         "pass": "spec-fidelity",
-        "tier": "sonnet",
+        "model-tier": "sonnet",
         "pull_request": 262,
         "tickets": [],
     }
@@ -139,7 +139,7 @@ def test_an_order_without_the_pass_file_is_a_composer_error(
     orders = session_root / "waybill" / "orders"
     orders.mkdir(parents=True)
     (orders / "probe-4.yml").write_text(
-        "id: probe-4\nrole: reviewer\npass: spec-fidelity\ntier: sonnet\n"
+        "id: probe-4\nrole: reviewer\npass: spec-fidelity\nmodel-tier: sonnet\n"
         "pull_request: pandoscope/aet#262\ntickets: []\n"
     )
     env = {**ENV_RUN7_FIRED, **WAYBILL_FIRE}

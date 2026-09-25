@@ -42,12 +42,15 @@ def compose(
     The waybill order is the only receiver (skills#195, waybill#1). It
     arrives when the Routine fires from an order branch of the waybill
     repository.
-    The order names the role, the pull request, the tickets, and for a
-    reviewer the pass and tier. Without an order the composer sets the
-    role general and renders the loud UNCONFIGURED state. The composer
-    renders its own errors (an order off the schema, a missing pass
-    file) and never raises them: the session must hear them. The
-    render step raises UnmanagedTargetError.
+    The order names the role, the pull request, the tickets,
+    and for a reviewer the pass and model tier.
+    Without an order the composer sets the role general
+    and renders the loud UNCONFIGURED state.
+    The composer renders its own errors and never raises them,
+    because the session must hear them.
+    They are an order that does not validate against the schema
+    and any review error from hydrating the task.
+    The render step raises UnmanagedTargetError.
     """
     detected = detect(env, session_root, home, path_dirs)
     errors: list[str] = []
@@ -76,7 +79,7 @@ def compose(
             "path": str(order.path.relative_to(session_root)),
             "role": order.role,
             "pass": order.pass_,
-            "tier": order.tier,
+            "model-tier": order.model_tier,
             "pull_request": order.pull_request,
             "tickets": order.tickets,
         },

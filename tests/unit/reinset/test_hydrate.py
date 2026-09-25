@@ -10,13 +10,13 @@ from pandoscope.reinset.review import ReviewError, hydrate, pull_refs
 from .conftest import commit, git, pr_clone
 
 PROMPT = """\
-Review {{ repo }}#{{ n }} ({{ pass }}, tier {{ tier }}):
+Review {{ repo }}#{{ n }} ({{ pass }}, tier {{ model_tier }}):
 base {{ base }}, head {{ head }}.
 Tickets: {{ tickets }}.
 """
 
 ORDER = (
-    "id: probe-4\nrole: reviewer\npass: spec-fidelity\ntier: opus\n"
+    "id: probe-4\nrole: reviewer\npass: spec-fidelity\nmodel-tier: opus\n"
     "pull_request: pandoscope/aet#262\nbase: feature\n"
     "tickets: [pandoscope/skills#179, pandoscope/aet#261]\n"
 )

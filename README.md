@@ -58,11 +58,13 @@ harness sets `CCR_TRIGGER_REPO` and `CCR_TRIGGER_HEAD_REF` in the
 environment. It also checks out the pull request head. The checkout
 puts `waybill/orders/<name>.yml` on disk. That file names the role,
 the pull request under work, the tickets, and for a reviewer the pass
-and tier. The composer reads that file and sets the role. For a
+and model tier. The composer reads that file and sets the role. For a
 reviewer it appends the review task to
-`CLAUDE.md`. It takes the task text from the prompt block in
-`skills/original/thread-ledger/review/<pass>.md`. It fills in `<tier>`
-and `<n>`. Without an order the composer sets the role general and
+`CLAUDE.md`.
+The task is the whole of `skills/original/thread-ledger/review/<pass>.md`.
+The composer renders it as a Jinja template from the order and the pull request's clone.
+An undefined variable is a composer error.
+Without an order the composer sets the role general and
 renders the loud UNCONFIGURED state. The Routine's saved prompt is one
 orientation sentence. Every Routine saves the same sentence. It tells
 the model that the hooks composed its role and task into `CLAUDE.md`.
@@ -70,7 +72,7 @@ Never run the composer from a model turn: the hook is the caller.
 
 The composer writes four keys to the answers file: `detected`
 (harness facts), `resolved` (harness, environment, role, principal,
-model), `order` (path, role, pass, tier, pull request number, tickets;
+model), `order` (path, role, pass, model tier, pull request number, tickets;
 null without an order) and `errors`.
 
 The composer validates the order against a strict schema
@@ -79,7 +81,7 @@ unknown keys. It requires `role`. It requires `id` to equal the file
 name. It takes `pull_request` as `owner/repo#n`. It takes `tickets`
 as a list of the same form. It takes `checkouts` as a map from
 `owner/repo` to a ref. For a reviewer it also requires `pass` and
-`tier`, both lowercase. When the order is off the schema, the
+`model-tier`, both lowercase. When the order is off the schema, the
 composer reports an error that names every violated field. The
 session therefore never runs on a half-read order.
 

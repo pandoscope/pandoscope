@@ -8,7 +8,7 @@ VALID = {
     "id": "review-spec-fidelity-opus-pr26",
     "role": "reviewer",
     "pass": "spec-fidelity",
-    "tier": "opus",
+    "model-tier": "opus",
     "pull_request": "pandoscope/pandoscope#26",
     "checkouts": {"pandoscope/skills": "claude/sk195-review-driver"},
     "tickets": ["pandoscope/skills#195"],
@@ -32,7 +32,7 @@ def test_result_is_the_one_optional_field() -> None:
     [
         ({"id": "other"}, "id"),  # must equal the file name
         ({"role": "auditor"}, "role"),
-        ({"tier": "Opus"}, "tier"),  # the driver's tier is lowercase
+        ({"model-tier": "Opus"}, "model-tier"),  # the driver's tier is lowercase
         ({"pass": "Spec Fidelity"}, "pass"),
         ({"pull_request": "26"}, "pull_request"),
         ({"pull_request": "pandoscope/pandoscope!26"}, "pull_request"),
@@ -58,17 +58,17 @@ def test_required_fields_are_named_when_missing(missing: str) -> None:
 
 
 def test_a_reviewer_needs_pass_and_tier_and_no_other_role_may_carry_them() -> None:
-    reviewer = {k: v for k, v in VALID.items() if k not in ("pass", "tier")}
+    reviewer = {k: v for k, v in VALID.items() if k not in ("pass", "model-tier")}
     assert any(
-        "pass" in v or "tier" in v
+        "pass" in v or "model-tier" in v
         for v in validate_order(reviewer, "review-spec-fidelity-opus-pr26")
     )
     implementer = {**VALID, "role": "implementer"}
     assert any(
-        "pass" in v or "tier" in v
+        "pass" in v or "model-tier" in v
         for v in validate_order(implementer, "review-spec-fidelity-opus-pr26")
     )
-    plain = {k: v for k, v in implementer.items() if k not in ("pass", "tier")}
+    plain = {k: v for k, v in implementer.items() if k not in ("pass", "model-tier")}
     assert validate_order(plain, "review-spec-fidelity-opus-pr26") == []
 
 
@@ -76,10 +76,11 @@ def test_a_non_mapping_is_one_violation() -> None:
     assert len(validate_order(["not", "a", "mapping"], "x")) == 1
 
 
-@pytest.mark.xfail(strict=True)
 def test_the_model_tier_is_named_model_tier() -> None:
     # `tier` also names a finding's grade (hard, judgment); the order's
     # field names the model tier.
-    order = {k: v for k, v in VALID.items() if k != "tier"}
+    order = {k: v for k, v in VALID.items() if k != "model-tier"}
     assert validate_order({**order, "model-tier": "opus"}, VALID["id"]) == []
-    assert any("tier" in v for v in validate_order(VALID, str(VALID["id"])))
+    assert any(
+        "tier" in v for v in validate_order({**order, "tier": "opus"}, str(VALID["id"]))
+    )

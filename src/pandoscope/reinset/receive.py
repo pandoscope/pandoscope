@@ -28,9 +28,11 @@ class Order:
     """
     The waybill order that the Routine fired from (waybill#1).
 
-    The order is the only receiver (ruling 2026-09-23, skills#195). It
-    names the role, the pull request under work, the tickets, and for
-    a reviewer the pass and tier. The Routine prompt carries no data.
+    The order is the only receiver (ruling 2026-09-23, skills#195).
+    It names the role, the pull request under work and the tickets.
+    For a reviewer it also names the pass and the model tier.
+    It may name the pull request's base.
+    The Routine prompt carries no data.
     """
 
     path: Path
@@ -40,7 +42,7 @@ class Order:
     pull_request: int
     base: str | None
     pass_: str | None
-    tier: str | None
+    model_tier: str | None
     tickets: list[str]
 
 
@@ -81,6 +83,6 @@ def find_order(env: Mapping[str, str], session_root: Path) -> Order | None:
         int(match.group("n")),
         data.get("base"),
         data.get("pass"),
-        data.get("tier"),
+        data.get("model-tier"),
         list(data["tickets"]),
     )
