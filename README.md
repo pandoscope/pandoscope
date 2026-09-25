@@ -81,7 +81,7 @@ unknown keys. It requires `role`. It requires `id` to equal the file
 name. It takes `pull_request` as `owner/repo#n`. It takes `tickets`
 as a list of the same form. It takes `checkouts` as a map from
 `owner/repo` to a ref. For a reviewer it also requires `pass` and
-`model-tier`, both lowercase. When the order is off the schema, the
+`model_tier`, both lowercase. When the order is off the schema, the
 composer reports an error that names every violated field. The
 session therefore never runs on a half-read order.
 

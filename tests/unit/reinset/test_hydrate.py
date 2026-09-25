@@ -16,7 +16,7 @@ Tickets: {{ tickets }}.
 """
 
 ORDER = (
-    "id: probe-4\nrole: reviewer\npass: spec-fidelity\nmodel-tier: opus\n"
+    "id: probe-4\nrole: reviewer\npass: spec-fidelity\nmodel_tier: opus\n"
     "pull_request: pandoscope/aet#262\nbase: feature\n"
     "tickets: [pandoscope/skills#179, pandoscope/aet#261]\n"
 )

@@ -83,6 +83,6 @@ def find_order(env: Mapping[str, str], session_root: Path) -> Order | None:
         int(match.group("n")),
         data.get("base"),
         data.get("pass"),
-        data.get("model-tier"),
+        data.get("model_tier"),
         list(data["tickets"]),
     )

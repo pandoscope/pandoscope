@@ -8,7 +8,7 @@ VALID = {
     "id": "review-spec-fidelity-opus-pr26",
     "role": "reviewer",
     "pass": "spec-fidelity",
-    "model-tier": "opus",
+    "model_tier": "opus",
     "pull_request": "pandoscope/pandoscope#26",
     "checkouts": {"pandoscope/skills": "claude/sk195-review-driver"},
     "tickets": ["pandoscope/skills#195"],
@@ -32,7 +32,7 @@ def test_result_is_the_one_optional_field() -> None:
     [
         ({"id": "other"}, "id"),  # must equal the file name
         ({"role": "auditor"}, "role"),
-        ({"model-tier": "Opus"}, "model-tier"),  # the driver's tier is lowercase
+        ({"model_tier": "Opus"}, "model_tier"),  # the model tier is lowercase
         ({"pass": "Spec Fidelity"}, "pass"),
         ({"pull_request": "26"}, "pull_request"),
         ({"pull_request": "pandoscope/pandoscope!26"}, "pull_request"),
@@ -57,18 +57,18 @@ def test_required_fields_are_named_when_missing(missing: str) -> None:
     assert any(missing in v for v in violations), violations
 
 
-def test_a_reviewer_needs_pass_and_tier_and_no_other_role_may_carry_them() -> None:
-    reviewer = {k: v for k, v in VALID.items() if k not in ("pass", "model-tier")}
+def test_only_a_reviewer_carries_pass_and_model_tier_and_it_needs_both() -> None:
+    reviewer = {k: v for k, v in VALID.items() if k not in ("pass", "model_tier")}
     assert any(
-        "pass" in v or "model-tier" in v
+        "pass" in v or "model_tier" in v
         for v in validate_order(reviewer, "review-spec-fidelity-opus-pr26")
     )
     implementer = {**VALID, "role": "implementer"}
     assert any(
-        "pass" in v or "model-tier" in v
+        "pass" in v or "model_tier" in v
         for v in validate_order(implementer, "review-spec-fidelity-opus-pr26")
     )
-    plain = {k: v for k, v in implementer.items() if k not in ("pass", "model-tier")}
+    plain = {k: v for k, v in implementer.items() if k not in ("pass", "model_tier")}
     assert validate_order(plain, "review-spec-fidelity-opus-pr26") == []
 
 
@@ -79,14 +79,13 @@ def test_a_non_mapping_is_one_violation() -> None:
 def test_the_model_tier_is_named_model_tier() -> None:
     # `tier` alone was ambiguous next to a finding's grade; the order's
     # field names the model tier.
-    order = {k: v for k, v in VALID.items() if k != "model-tier"}
-    assert validate_order({**order, "model-tier": "opus"}, VALID["id"]) == []
+    order = {k: v for k, v in VALID.items() if k != "model_tier"}
+    assert validate_order({**order, "model_tier": "opus"}, VALID["id"]) == []
     assert any(
         "tier" in v for v in validate_order({**order, "tier": "opus"}, str(VALID["id"]))
     )
 
 
-@pytest.mark.xfail(strict=True)
 def test_the_model_tier_key_is_snake_case_like_pull_request() -> None:
-    order = {k: v for k, v in VALID.items() if k != "model-tier"}
+    order = {k: v for k, v in VALID.items() if k != "model_tier"}
     assert validate_order({**order, "model_tier": "opus"}, str(VALID["id"])) == []

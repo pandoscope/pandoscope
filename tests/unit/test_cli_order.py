@@ -10,7 +10,7 @@ GOOD = """\
 id: review-spec-fidelity-opus-pr26
 role: reviewer
 pass: spec-fidelity
-model-tier: opus
+model_tier: opus
 pull_request: pandoscope/pandoscope#26
 tickets:
   - pandoscope/skills#195
@@ -33,7 +33,7 @@ def test_order_check_names_every_violation_and_fails(
     order = tmp_path / "orders" / "review-spec-fidelity-opus-pr26.yml"
     order.parent.mkdir()
     order.write_text(
-        GOOD.replace("model-tier: opus", "model-tier: Opus").replace(
+        GOOD.replace("model_tier: opus", "model_tier: Opus").replace(
             "id: review", "id: x-review"
         )
     )

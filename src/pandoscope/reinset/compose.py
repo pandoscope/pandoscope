@@ -79,7 +79,7 @@ def compose(
             "path": str(order.path.relative_to(session_root)),
             "role": order.role,
             "pass": order.pass_,
-            "model-tier": order.model_tier,
+            "model_tier": order.model_tier,
             "pull_request": order.pull_request,
             "tickets": order.tickets,
         },

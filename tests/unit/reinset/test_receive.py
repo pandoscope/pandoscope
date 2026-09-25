@@ -23,7 +23,7 @@ ORDER = """\
 id: probe-4
 role: reviewer
 pass: spec-fidelity
-model-tier: opus
+model_tier: opus
 pull_request: pandoscope/pandoscope#26
 checkouts:
   pandoscope/skills: claude/sk195-review-driver
@@ -78,11 +78,12 @@ def test_a_missing_or_malformed_order_file_raises(session_root: Path) -> None:
 
 
 def test_an_order_off_the_schema_raises_naming_every_field(session_root: Path) -> None:
-    # The schema is strict: a model that misspells a key or writes the
-    # tier in caps gets a composer error, not a half-read order.
+    # The schema is strict.
+    # A model that misspells a key or writes the model tier in caps
+    # gets a composer error, not a half-read order.
     write_order(
         session_root,
-        "id: probe-4\nrole: reviewer\npass: spec-fidelity\nmodel-tier: Opus\n"
+        "id: probe-4\nrole: reviewer\npass: spec-fidelity\nmodel_tier: Opus\n"
         "pull_request: pandoscope/pandoscope#26\ntickets: []\npull-request: x\n",
     )
     with pytest.raises(OrderError) as raised:
