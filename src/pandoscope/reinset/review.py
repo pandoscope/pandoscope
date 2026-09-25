@@ -4,12 +4,10 @@ from __future__ import annotations
 
 import subprocess
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 import jinja2
 
-if TYPE_CHECKING:
-    from pandoscope.reinset.receive import Order
+from pandoscope.reinset.receive import Order
 
 PASS_DIR = Path("skills") / "original" / "thread-ledger" / "review"
 
