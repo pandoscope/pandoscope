@@ -67,6 +67,10 @@ An undefined variable is a composer error.
 Before rendering,
 the composer switches that clone to the review branch `claude/review-<pass>-<model_tier>-pr<n>` at the pull request head.
 It renders `findings.schema.json`, beside the pass file, as the variable `findings_contract`.
+A pass file that uses the variable `candidates` gets the hits of the prose check on the lines the pull request adds, or `none`.
+The prose check is `skills/original/writing-prose/check.sh`.
+The composer runs the check.
+The reviewer never runs it.
 Without an order the composer sets the role general
 and renders the loud UNCONFIGURED state.
 The Routine's saved prompt is one orientation sentence.
