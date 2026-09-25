@@ -10,6 +10,8 @@ from typing import Any
 import yaml
 
 from pandoscope.reinset.detect import detect
+from pandoscope.reinset.hooks import render_hooks
+from pandoscope.reinset.install import install_bundle
 from pandoscope.reinset.principal import UNKNOWN
 from pandoscope.reinset.profiles import load_profile
 from pandoscope.reinset.receive import Order, OrderError, find_order
@@ -17,6 +19,8 @@ from pandoscope.reinset.render import render, write_render
 from pandoscope.reinset.review import ReviewError, hydrate
 
 ANSWERS_ENV = "REINSET_ANSWERS"
+CLAUDE_CODE = "claude-code"
+HOOKS_ENV = "REINSET_HOOKS"
 
 
 @dataclass
@@ -25,6 +29,7 @@ class Composition:
 
     answers: dict[str, Any]
     answers_path: Path
+    hooks_path: Path
     render_path: Path
     render_text: str
     errors: list[str] = field(default_factory=list)
@@ -48,8 +53,9 @@ def compose(
     and renders the loud UNCONFIGURED state.
     The composer renders its own errors and never raises them,
     because the session must hear them.
-    They are an order that does not validate against the schema
-    and any review error from hydrating the task.
+    They are an order that does not validate against the schema,
+    any review error from hydrating the task
+    and a bundle skill or hook with no source.
     The render step raises UnmanagedTargetError.
     """
     detected = detect(env, session_root, home, path_dirs)
@@ -90,9 +96,31 @@ def compose(
         or home / ".claude" / "reinset" / f"{detected['session_id']}.yml"
     )
     answers_path.parent.mkdir(parents=True, exist_ok=True)
-    answers_path.write_text(yaml.safe_dump(answers, sort_keys=False))
     profile = load_profile(resolved["role"], session_root)
+    # The composer runs once, at SessionStart.
+    # Every pass is a fresh session and may remove what an earlier role left (D2, D15).
+    hooks_path = Path(env.get(HOOKS_ENV) or home / ".claude" / "reinset" / "hooks.json")
+    # resolved.harness selects the skill format (skills#179 §4).
+    # Claude Code's is the only one known, so another harness gets no bundle.
+    if resolved["harness"] == CLAUDE_CODE:
+        report = install_bundle(
+            profile, session_root, home, detected["repos"], prune=True
+        )
+        errors += report.errors
+        answers["installed"] = report.installed
+        hooks, hook_errors = render_hooks(profile, home, hooks_path)
+        errors += hook_errors
+    else:
+        answers["installed"] = []
+        hooks = {}
+        if profile.data.get("skills") or profile.data.get("hooks"):
+            errors.append(
+                f"harness {resolved['harness']!r} has no known skill format; "
+                "the role's bundle is not installed"
+            )
+    answers["hooks"] = hooks
+    answers_path.write_text(yaml.safe_dump(answers, sort_keys=False))
     text = render(answers, profile, errors, task=task)
     render_path = home / ".claude" / "CLAUDE.md"
     write_render(render_path, text)
-    return Composition(answers, answers_path, render_path, text, errors)
+    return Composition(answers, answers_path, hooks_path, render_path, text, errors)

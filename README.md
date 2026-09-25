@@ -78,11 +78,27 @@ Every Routine saves the same sentence. It tells
 the model that the hooks composed its role and task into `CLAUDE.md`.
 Never run the composer from a model turn: the hook is the caller.
 
+The composer installs the role's bundle.
+It copies each skill that the profile names into `~/.claude/skills`.
+It looks in `meta/reinset/skills/<name>` first,
+then in the skills clone's `original/` and `derived/`,
+then in a clone's vendored `.agents/skills/<name>`.
+Each copy carries a marker file.
+The next pass replaces a marked copy whole.
+The composer refuses a directory without the marker.
+It removes marked skills that the role no longer names.
+It then renders the profile's hooks to `$REINSET_HOOKS` (default `~/.claude/reinset/hooks.json`).
+The CLI captures hook registration at startup,
+so the environment registers one dispatcher per event.
+The dispatcher reads this file at every fire.
+
 The composer writes the following keys to the answers file:
 `detected` (harness facts),
 `resolved` (harness, environment, role, principal, model),
-`order` (path, role, pass, model tier, pull request number, tickets; null without an order)
-and `errors`.
+`order` (path, role, pass, model tier, pull request number, tickets; null without an order),
+`errors`,
+`installed` (the skills the role's bundle copied)
+and `hooks` (the hooks rendered to `$REINSET_HOOKS`).
 
 The composer validates the order against a strict schema
 (`src/pandoscope/reinset/schemas/order.json`). The schema rejects
