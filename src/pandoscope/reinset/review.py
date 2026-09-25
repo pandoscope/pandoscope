@@ -174,7 +174,8 @@ def hydrate(session_root: Path, order: Order) -> str:
     Raises ReviewError when the pass file, the clone or a ref is missing,
     when the clone belongs to another repository,
     when the switch fails,
-    and when the template does not render, as on an undefined variable.
+    and when the template does not render,
+    as on an undefined variable or an include of a missing file.
     """
     assert order.pass_ and order.model_tier  # noqa: S101 — the schema requires both
     path = session_root / PASS_DIR / f"{order.pass_}.md"
@@ -211,8 +212,12 @@ def hydrate(session_root: Path, order: Order) -> str:
     # Markup in angle brackets stays text,
     # and StrictUndefined keeps a misspelled variable an error
     # (pandoscope#31 review, F002).
+    # The loader over the pass directory lets pass files include a shared file
+    # (skills#231).
     env = jinja2.Environment(  # noqa: S701 — the task is Markdown, not HTML
-        undefined=jinja2.StrictUndefined, keep_trailing_newline=True
+        loader=jinja2.FileSystemLoader(path.parent),
+        undefined=jinja2.StrictUndefined,
+        keep_trailing_newline=True,
     )
     try:
         template = env.parse(path.read_text())
@@ -224,7 +229,7 @@ def hydrate(session_root: Path, order: Order) -> str:
             values["candidates"] = prose_candidates(
                 session_root / PROSE_CHECK, clone, base, head
             )
-        task = env.from_string(path.read_text()).render(values)
+        task = env.get_template(path.name).render(values)
     except jinja2.TemplateError as error:
         msg = f"{path} does not render: {error}"
         raise ReviewError(msg) from error
