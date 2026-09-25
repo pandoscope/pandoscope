@@ -1,6 +1,6 @@
 {
   "name": "pandoscope",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Agentic engineering instrument: high-level commands to run a Pandoscope-powered project as a self-improving software factory. npm launcher for the PyPI implementation.",
   "license": "MIT",
   "bin": {
