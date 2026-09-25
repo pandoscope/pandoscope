@@ -201,6 +201,23 @@ def test_findings_contract_renders_the_schema_in_plain_terms(
     )
 
 
+@pytest.mark.xfail(strict=True)
+def test_hydrate_switches_the_clone_to_the_review_branch_at_the_head(
+    session_root: Path,
+) -> None:
+    # The reviewer runs no git steps (skills#224).
+    head = pr_clone(session_root, "aet", 262)
+    write(session_root)
+    order = find_order(FIRE, session_root)
+    assert order is not None
+    hydrate(session_root, order)
+    clone = session_root / "aet"
+    assert git(clone, "branch", "--show-current") == (
+        "claude/review-spec-fidelity-opus-pr262"
+    )
+    assert git(clone, "rev-parse", "HEAD") == head
+
+
 def test_pull_refs_finds_main_after_main_moved_on(session_root: Path) -> None:
     head = pr_clone(session_root, "aet", 262, on_main=True)
     assert pull_refs(session_root / "aet", 262) == ("main", head)
