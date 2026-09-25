@@ -118,7 +118,6 @@ def test_the_whole_pass_file_is_the_task(session_root: Path) -> None:
     )
 
 
-@pytest.mark.xfail(strict=True)
 def test_a_clone_of_another_repository_is_a_review_error(session_root: Path) -> None:
     # Found by the opus review of pandoscope#31 (F001).
     pr_clone(session_root, "aet", 262)

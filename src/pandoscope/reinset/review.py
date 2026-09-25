@@ -65,6 +65,19 @@ def _default_branch(clone: Path) -> str:
     return symref[1].removeprefix("refs/heads/")
 
 
+def _check_origin(clone: Path, repo: str) -> None:
+    """Raise ReviewError unless the clone's origin is the forge repository ``repo``."""
+    try:
+        url = _git(clone, "config", "--get", "remote.origin.url")
+    except subprocess.CalledProcessError:
+        url = ""
+    # Raw config, not `remote get-url`: an insteadOf rewrite is transport.
+    path = url.rstrip("/").removesuffix(".git").replace(":", "/")
+    if not path.lower().endswith("/" + repo.lower()):
+        msg = f"{clone} clones {url or 'no origin'}, not {repo}"
+        raise ReviewError(msg)
+
+
 def hydrate(session_root: Path, order: Order) -> str:
     """
     Return the reviewer's task: the whole pass file, every placeholder filled.
@@ -79,9 +92,10 @@ def hydrate(session_root: Path, order: Order) -> str:
     if not path.is_file():
         msg = f"no review pass file at {path}"
         raise ReviewError(msg)
-    base, head = pull_refs(
-        session_root / order.repo.rsplit("/", 1)[-1], order.pull_request, order.base
-    )
+    clone = session_root / order.repo.rsplit("/", 1)[-1]
+    if clone.is_dir():
+        _check_origin(clone, order.repo)
+    base, head = pull_refs(clone, order.pull_request, order.base)
     values = {
         "repo": order.repo,
         "n": str(order.pull_request),
