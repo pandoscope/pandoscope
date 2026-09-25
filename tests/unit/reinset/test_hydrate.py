@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
@@ -156,6 +157,49 @@ def test_an_undefined_template_variable_is_a_review_error(session_root: Path) ->
     assert order is not None
     with pytest.raises(ReviewError, match="tiker"):
         hydrate(session_root, order)
+
+
+SCHEMA = {
+    "type": "object",
+    "required": ["pr", "findings"],
+    "properties": {
+        "pr": {"type": "string", "description": "the pull request"},
+        "findings": {
+            "type": "array",
+            "description": "the findings, worst first",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "line": {"type": "integer", "description": "the line"},
+                    "finding_basis": {
+                        "enum": ["decided", "judged"],
+                        "description": "whether the rule settles it",
+                    },
+                },
+            },
+        },
+    },
+}
+
+
+@pytest.mark.xfail(strict=True)
+def test_findings_contract_renders_the_schema_in_plain_terms(
+    session_root: Path,
+) -> None:
+    # The schema is the one home of the findings contract (skills#225).
+    pr_clone(session_root, "aet", 262)
+    write(session_root, "Fields:\n\n{{ findings_contract }}\n")
+    review = session_root / "skills" / "original" / "thread-ledger" / "review"
+    (review / "findings.schema.json").write_text(json.dumps(SCHEMA))
+    order = find_order(FIRE, session_root)
+    assert order is not None
+    assert hydrate(session_root, order) == (
+        "Fields:\n\n"
+        "- `pr` (string): the pull request\n"
+        "- `findings` (array): the findings, worst first. Each item:\n"
+        "  - `line` (integer): the line\n"
+        "  - `finding_basis` (`decided` or `judged`): whether the rule settles it\n"
+    )
 
 
 def test_pull_refs_finds_main_after_main_moved_on(session_root: Path) -> None:
