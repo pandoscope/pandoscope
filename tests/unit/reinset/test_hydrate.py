@@ -135,6 +135,28 @@ def test_a_clone_of_another_repository_is_a_review_error(session_root: Path) -> 
         hydrate(session_root, order)
 
 
+@pytest.mark.xfail(strict=True)
+def test_the_task_is_a_jinja_template(session_root: Path) -> None:
+    # Found by the opus review of pandoscope#31 (F002):
+    # markup in angle brackets is text,
+    # and only a template variable is a placeholder.
+    pr_clone(session_root, "aet", 262)
+    write(session_root, "Review {{ repo }}#{{ n }}.<br> <details>\n")
+    order = find_order(FIRE, session_root)
+    assert order is not None
+    assert hydrate(session_root, order) == "Review pandoscope/aet#262.<br> <details>\n"
+
+
+@pytest.mark.xfail(strict=True)
+def test_an_undefined_template_variable_is_a_review_error(session_root: Path) -> None:
+    pr_clone(session_root, "aet", 262)
+    write(session_root, "Review {{ n }} with {{ tiker }}.\n")
+    order = find_order(FIRE, session_root)
+    assert order is not None
+    with pytest.raises(ReviewError, match="tiker"):
+        hydrate(session_root, order)
+
+
 def test_pull_refs_finds_main_after_main_moved_on(session_root: Path) -> None:
     head = pr_clone(session_root, "aet", 262, on_main=True)
     assert pull_refs(session_root / "aet", 262) == ("main", head)
