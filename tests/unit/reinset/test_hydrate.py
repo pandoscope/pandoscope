@@ -287,7 +287,6 @@ def test_candidates_keep_only_lines_the_pull_request_adds(session_root: Path) ->
     assert hydrate(session_root, order) == "Candidates:\npr-1:1: H new: x\n"
 
 
-@pytest.mark.xfail(strict=True)
 def test_a_pass_file_includes_a_file_beside_it(session_root: Path) -> None:
     head = pr_clone(session_root, "aet", 262)
     write(session_root, '{% include "_task.md" %}Then review.\n')
@@ -298,7 +297,6 @@ def test_a_pass_file_includes_a_file_beside_it(session_root: Path) -> None:
     assert hydrate(session_root, order) == f"Head {head}.\nThen review.\n"
 
 
-@pytest.mark.xfail(strict=True)
 def test_an_include_of_a_missing_file_is_a_review_error(session_root: Path) -> None:
     pr_clone(session_root, "aet", 262)
     write(session_root, '{% include "_nope.md" %}\n')
