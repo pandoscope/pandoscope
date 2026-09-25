@@ -84,3 +84,9 @@ def test_the_model_tier_is_named_model_tier() -> None:
     assert any(
         "tier" in v for v in validate_order({**order, "tier": "opus"}, str(VALID["id"]))
     )
+
+
+@pytest.mark.xfail(strict=True)
+def test_the_model_tier_key_is_snake_case_like_pull_request() -> None:
+    order = {k: v for k, v in VALID.items() if k != "model-tier"}
+    assert validate_order({**order, "model_tier": "opus"}, str(VALID["id"])) == []
