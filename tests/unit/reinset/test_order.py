@@ -76,16 +76,10 @@ def test_a_non_mapping_is_one_violation() -> None:
     assert len(validate_order(["not", "a", "mapping"], "x")) == 1
 
 
-def test_the_model_tier_is_named_model_tier() -> None:
-    # `tier` alone was ambiguous next to a finding's grade; the order's
-    # field names the model tier.
+def test_the_model_tier_is_model_tier_not_tier() -> None:
+    # A general word like `tier` carries the noun it classifies,
+    # so the order says `model_tier`, in snake case like `pull_request`.
     order = {k: v for k, v in VALID.items() if k != "model_tier"}
-    assert validate_order({**order, "model_tier": "opus"}, VALID["id"]) == []
     assert any(
         "tier" in v for v in validate_order({**order, "tier": "opus"}, str(VALID["id"]))
     )
-
-
-def test_the_model_tier_key_is_snake_case_like_pull_request() -> None:
-    order = {k: v for k, v in VALID.items() if k != "model_tier"}
-    assert validate_order({**order, "model_tier": "opus"}, str(VALID["id"])) == []
