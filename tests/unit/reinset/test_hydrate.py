@@ -229,7 +229,6 @@ def stub_check(session_root: Path, body: str) -> None:
     check.write_text(f"#!/usr/bin/env bash\n{body}\n")
 
 
-@pytest.mark.xfail(strict=True)
 def test_candidates_are_the_prose_check_hits_on_the_changed_files(
     session_root: Path,
 ) -> None:
@@ -247,7 +246,6 @@ def test_candidates_are_the_prose_check_hits_on_the_changed_files(
     )
 
 
-@pytest.mark.xfail(strict=True)
 def test_no_candidates_render_none(session_root: Path) -> None:
     pr_clone(session_root, "aet", 262)
     write(session_root, "Candidates: {{ candidates }}\n")
@@ -257,7 +255,6 @@ def test_no_candidates_render_none(session_root: Path) -> None:
     assert hydrate(session_root, order) == "Candidates: none\n"
 
 
-@pytest.mark.xfail(strict=True)
 def test_a_failing_prose_check_is_a_review_error(session_root: Path) -> None:
     # A crashed check must not read as no candidates.
     pr_clone(session_root, "aet", 262)
@@ -269,7 +266,6 @@ def test_a_failing_prose_check_is_a_review_error(session_root: Path) -> None:
         hydrate(session_root, order)
 
 
-@pytest.mark.xfail(strict=True)
 def test_candidates_without_the_prose_check_is_a_review_error(
     session_root: Path,
 ) -> None:

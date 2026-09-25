@@ -3,15 +3,18 @@
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 from pathlib import Path
 from typing import Any
 
 import jinja2
+import jinja2.meta
 
 from pandoscope.reinset.receive import Order
 
 PASS_DIR = Path("skills") / "original" / "thread-ledger" / "review"
+PROSE_CHECK = Path("skills") / "original" / "writing-prose" / "check.sh"
 
 
 class ReviewError(Exception):
@@ -84,6 +87,55 @@ def findings_contract(schema: dict[str, Any], indent: str = "") -> str:
     return "\n".join(lines)
 
 
+def _surface(path: str) -> str:
+    """The writing-prose surface of a changed file."""
+    name = Path(path).name
+    if not name.endswith(".md"):
+        return "comment"
+    if name == "SKILL.md":
+        return "skill"
+    if name in {"CLAUDE.md", "AGENTS.md"}:
+        return "primed"
+    return "markdown"
+
+
+def prose_candidates(check: Path, clone: Path, base: str, head: str) -> str:
+    """
+    Return the F and H hits of the writing-prose ``check`` on the changed files.
+
+    Runs the check once per file the pull request adds or changes,
+    on the file at ``head`` in ``clone``,
+    and returns the hit lines, or ``none`` when there are none.
+    Raises ReviewError when the check is missing or fails to run.
+    """
+    if not check.is_file():
+        msg = f"no prose check at {check}"
+        raise ReviewError(msg)
+    changed = _git(
+        clone, "diff", "-z", "--name-only", "--diff-filter=d", f"origin/{base}...{head}"
+    )
+    hits = []
+    for path in filter(None, changed.split("\0")):
+        # The prefix keeps a file named `-` from reading as stdin.
+        run = subprocess.run(  # noqa: S603
+            ["bash", str(check), _surface(path), f"./{path}"],  # noqa: S607
+            cwd=clone,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        # Exit 1 means F hits; anything else past 0 is a check that did not run.
+        if run.returncode not in (0, 1):
+            msg = f"{check} failed on {path}: {run.stderr.strip()}"
+            raise ReviewError(msg)
+        hits += [
+            line.removeprefix("./")
+            for line in run.stdout.splitlines()
+            if re.match(r"\S+:\d+: [FH] ", line)
+        ]
+    return "\n".join(hits) or "none"
+
+
 def _check_origin(clone: Path, repo: str) -> None:
     """Raise ReviewError unless the clone's origin is the forge repository ``repo``."""
     try:
@@ -105,7 +157,9 @@ def hydrate(session_root: Path, order: Order) -> str:
     and ``base`` and ``head`` from the clone of the pull request's repository
     under the session root.
     Switches that clone to the review ``branch`` at the head.
-    Renders ``findings_contract`` from the findings schema beside the pass file.
+    Renders ``findings_contract`` from the findings schema beside the pass file,
+    and ``candidates``, when the pass file uses it,
+    from the writing-prose check over the changed files (skills#220).
     Raises ReviewError when the pass file, the clone or a ref is missing,
     when the clone belongs to another repository,
     when the switch fails,
@@ -150,6 +204,15 @@ def hydrate(session_root: Path, order: Order) -> str:
         undefined=jinja2.StrictUndefined, keep_trailing_newline=True
     )
     try:
+        template = env.parse(path.read_text())
+        # DECISION: the composer runs the prose check, not the reviewer.
+        # The review policy denies the reviewer every execution,
+        # and a check run before the session pins the candidates in the task
+        # (skills#220, option A).
+        if "candidates" in jinja2.meta.find_undeclared_variables(template):
+            values["candidates"] = prose_candidates(
+                session_root / PROSE_CHECK, clone, base, head
+            )
         task = env.from_string(path.read_text()).render(values)
     except jinja2.TemplateError as error:
         msg = f"{path} does not render: {error}"
