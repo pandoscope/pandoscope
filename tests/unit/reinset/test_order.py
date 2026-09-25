@@ -74,3 +74,12 @@ def test_a_reviewer_needs_pass_and_tier_and_no_other_role_may_carry_them() -> No
 
 def test_a_non_mapping_is_one_violation() -> None:
     assert len(validate_order(["not", "a", "mapping"], "x")) == 1
+
+
+@pytest.mark.xfail(strict=True)
+def test_the_model_tier_is_named_model_tier() -> None:
+    # `tier` also names a finding's grade (hard, judgment); the order's
+    # field names the model tier.
+    order = {k: v for k, v in VALID.items() if k != "tier"}
+    assert validate_order({**order, "model-tier": "opus"}, VALID["id"]) == []
+    assert any("tier" in v for v in validate_order(VALID, str(VALID["id"])))
