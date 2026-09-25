@@ -10,8 +10,9 @@ from pandoscope.reinset.review import ReviewError, hydrate, pull_refs
 from .conftest import commit, git, pr_clone
 
 PROMPT = """\
-Review <repo>#<n> (<pass>, tier <tier>): base <base>, head <head>.
-Tickets: <tickets>.
+Review {{ repo }}#{{ n }} ({{ pass }}, tier {{ tier }}):
+base {{ base }}, head {{ head }}.
+Tickets: {{ tickets }}.
 """
 
 ORDER = (
@@ -84,7 +85,7 @@ def test_hydrate_fills_every_placeholder_from_order_and_clone(
     order = find_order(FIRE, session_root)
     assert order is not None
     assert hydrate(session_root, order) == (
-        "Review pandoscope/aet#262 (spec-fidelity, tier opus): "
+        "Review pandoscope/aet#262 (spec-fidelity, tier opus):\n"
         f"base feature, head {head}.\n"
         "Tickets: pandoscope/skills#179, pandoscope/aet#261.\n"
     )
@@ -92,10 +93,10 @@ def test_hydrate_fills_every_placeholder_from_order_and_clone(
 
 def test_an_unfilled_placeholder_is_a_review_error(session_root: Path) -> None:
     pr_clone(session_root, "aet", 262)
-    write(session_root, "Review <n> by <deadline>.\n")
+    write(session_root, "Review {{ n }} by {{ deadline }}.\n")
     order = find_order(FIRE, session_root)
     assert order is not None
-    with pytest.raises(ReviewError, match="<deadline>"):
+    with pytest.raises(ReviewError, match="deadline"):
         hydrate(session_root, order)
 
 
@@ -110,7 +111,9 @@ def test_missing_pass_file_is_a_review_error(session_root: Path) -> None:
 
 def test_the_whole_pass_file_is_the_task(session_root: Path) -> None:
     pr_clone(session_root, "aet", 262)
-    write(session_root, "# Task\n\nReview <repo>#<n>.\n\n```sh\ngit fetch\n```\n")
+    write(
+        session_root, "# Task\n\nReview {{ repo }}#{{ n }}.\n\n```sh\ngit fetch\n```\n"
+    )
     order = find_order(FIRE, session_root)
     assert order is not None
     assert hydrate(session_root, order) == (
@@ -135,7 +138,6 @@ def test_a_clone_of_another_repository_is_a_review_error(session_root: Path) -> 
         hydrate(session_root, order)
 
 
-@pytest.mark.xfail(strict=True)
 def test_the_task_is_a_jinja_template(session_root: Path) -> None:
     # Found by the opus review of pandoscope#31 (F002):
     # markup in angle brackets is text,
@@ -147,7 +149,6 @@ def test_the_task_is_a_jinja_template(session_root: Path) -> None:
     assert hydrate(session_root, order) == "Review pandoscope/aet#262.<br> <details>\n"
 
 
-@pytest.mark.xfail(strict=True)
 def test_an_undefined_template_variable_is_a_review_error(session_root: Path) -> None:
     pr_clone(session_root, "aet", 262)
     write(session_root, "Review {{ n }} with {{ tiker }}.\n")

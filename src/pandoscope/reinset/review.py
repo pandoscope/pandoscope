@@ -1,17 +1,17 @@
-"""The reviewer's task: the pass file, hydrated from order and clone."""
+"""The reviewer's task: the pass file rendered as a template from order and clone."""
 
 from __future__ import annotations
 
-import re
 import subprocess
 from pathlib import Path
 from typing import TYPE_CHECKING
+
+import jinja2
 
 if TYPE_CHECKING:
     from pandoscope.reinset.receive import Order
 
 PASS_DIR = Path("skills") / "original" / "thread-ledger" / "review"
-_PLACEHOLDER = re.compile(r"<([a-z][a-z-]*)>")
 
 
 class ReviewError(Exception):
@@ -80,12 +80,12 @@ def _check_origin(clone: Path, repo: str) -> None:
 
 def hydrate(session_root: Path, order: Order) -> str:
     """
-    Return the reviewer's task: the whole pass file, every placeholder filled.
+    Return the reviewer's task: the whole pass file, rendered.
 
-    Fills ``<repo>``, ``<n>``, ``<pass>``, ``<tier>``, ``<tickets>``
+    Renders ``repo``, ``n``, ``pass``, ``tier``, ``tickets``
     from the order and ``<base>``, ``<head>`` from the clone of the
     pull request's repository under the session root. Raises
-    ReviewError on a placeholder left unfilled.
+    ReviewError on an undefined variable.
     """
     assert order.pass_ and order.tier  # noqa: S101 — the schema requires both
     path = session_root / PASS_DIR / f"{order.pass_}.md"
@@ -105,15 +105,18 @@ def hydrate(session_root: Path, order: Order) -> str:
         "head": head,
         "tickets": ", ".join(order.tickets) or "none",
     }
-    task = _PLACEHOLDER.sub(
-        lambda m: values.get(m.group(1), m.group(0)), path.read_text()
+    # DECISION: the pass file is a Jinja template.
+    # Markup in angle brackets stays text,
+    # and StrictUndefined keeps a misspelled variable an error
+    # (pandoscope#31 review, F002).
+    env = jinja2.Environment(  # noqa: S701 — the task is Markdown, not HTML
+        undefined=jinja2.StrictUndefined, keep_trailing_newline=True
     )
-    left = sorted(set(_PLACEHOLDER.findall(task)))
-    if left:
-        msg = f"{path} leaves placeholders unfilled: " + ", ".join(
-            f"<{p}>" for p in left
-        )
-        raise ReviewError(msg)
+    try:
+        task = env.from_string(path.read_text()).render(values)
+    except jinja2.TemplateError as error:
+        msg = f"{path} does not render: {error}"
+        raise ReviewError(msg) from error
     return task
 
 
