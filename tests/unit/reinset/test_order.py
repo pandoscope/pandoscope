@@ -77,7 +77,7 @@ def test_a_non_mapping_is_one_violation() -> None:
 
 
 def test_the_model_tier_is_named_model_tier() -> None:
-    # `tier` also names a finding's grade (hard, judgment); the order's
+    # `tier` alone was ambiguous next to a finding's grade; the order's
     # field names the model tier.
     order = {k: v for k, v in VALID.items() if k != "model-tier"}
     assert validate_order({**order, "model-tier": "opus"}, VALID["id"]) == []
