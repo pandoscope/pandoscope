@@ -10,7 +10,7 @@ GOOD = """\
 id: review-spec-fidelity-opus-pr26
 role: reviewer
 pass: spec-fidelity
-tier: opus
+model_tier: opus
 pull_request: pandoscope/pandoscope#26
 tickets:
   - pandoscope/skills#195
@@ -33,7 +33,9 @@ def test_order_check_names_every_violation_and_fails(
     order = tmp_path / "orders" / "review-spec-fidelity-opus-pr26.yml"
     order.parent.mkdir()
     order.write_text(
-        GOOD.replace("tier: opus", "tier: Opus").replace("id: review", "id: x-review")
+        GOOD.replace("model_tier: opus", "model_tier: Opus").replace(
+            "id: review", "id: x-review"
+        )
     )
     assert main(["order", "check", str(order)]) == 1
     out = capsys.readouterr().out

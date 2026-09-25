@@ -20,7 +20,7 @@ TRIGGER_REPO_ENV = "CCR_TRIGGER_REPO"
 TRIGGER_HEAD_ENV = "CCR_TRIGGER_HEAD_REF"
 WAYBILL = "waybill"
 ORDER_BRANCH_PREFIX = "order/"
-_TICKET_NUMBER = re.compile(r"#(?P<n>\d+)$")
+_TICKET = re.compile(r"^(?P<repo>[^#]+)#(?P<n>\d+)$")
 
 
 @dataclass(frozen=True)
@@ -28,17 +28,21 @@ class Order:
     """
     The waybill order that the Routine fired from (waybill#1).
 
-    The order is the only receiver (ruling 2026-09-23, skills#195). It
-    names the role, the pull request under work, the tickets, and for
-    a reviewer the pass and tier. The Routine prompt carries no data.
+    The order is the only receiver (ruling 2026-09-23, skills#195).
+    It names the role, the pull request under work and the tickets.
+    For a reviewer it also names the pass and the model tier.
+    It may name the pull request's base.
+    The Routine prompt carries no data.
     """
 
     path: Path
     data: dict[str, Any]
     role: str
+    repo: str
     pull_request: int
+    base: str | None
     pass_: str | None
-    tier: str | None
+    model_tier: str | None
     tickets: list[str]
 
 
@@ -69,14 +73,16 @@ def find_order(env: Mapping[str, str], session_root: Path) -> Order | None:
     if violations:
         msg = f"order {path} is off the schema: " + "; ".join(violations)
         raise OrderError(msg)
-    match = _TICKET_NUMBER.search(data["pull_request"])
+    match = _TICKET.match(data["pull_request"])
     assert match is not None  # noqa: S101 — the schema pins the pattern
     return Order(
         path,
         data,
         data["role"],
+        match.group("repo"),
         int(match.group("n")),
+        data.get("base"),
         data.get("pass"),
-        data.get("tier"),
+        data.get("model_tier"),
         list(data["tickets"]),
     )
