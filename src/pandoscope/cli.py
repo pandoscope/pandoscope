@@ -9,6 +9,7 @@ from pathlib import Path
 import yaml
 
 from pandoscope import __version__
+from pandoscope.org.command import run_org_init
 from pandoscope.reinset.compose import Composition, compose
 from pandoscope.reinset.order import validate_order
 from pandoscope.stamp import TEMPLATE_URL, parse_data, stamp
@@ -67,7 +68,66 @@ def build_parser() -> argparse.ArgumentParser:
         "check", help="validate order files against the order schema"
     )
     check_parser.add_argument("files", nargs="+", help="orders/<name>.yml files")
+    add_org_parser(subparsers)
     return parser
+
+
+def add_org_parser(
+    subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
+) -> None:
+    """Add ``org init``: create an org's repos, stamp them, reconcile the org."""
+    org_parser = subparsers.add_parser("org", help="an org's repos and settings")
+    org_sub = org_parser.add_subparsers(dest="org_command", required=True)
+    init_parser = org_sub.add_parser(
+        "init",
+        help="create the org's repos, stamp them, seed them with meta's reconcilers",
+    )
+    init_parser.add_argument("org", help="the GitHub organization")
+    init_parser.add_argument(
+        "--project", required=True, help="name of the project's code repo"
+    )
+    init_parser.add_argument(
+        "--description", required=True, help="purpose of the project's code repo"
+    )
+    init_parser.add_argument(
+        "--approver",
+        action="append",
+        required=True,
+        help="human login whose Approve satisfies the merge gate (repeatable)",
+    )
+    init_parser.add_argument(
+        "--meta",
+        required=True,
+        help="checkout of a meta repo carrying scripts/sync-gh-*.sh",
+    )
+    init_parser.add_argument(
+        "--secrets",
+        default=None,
+        help="the org's secret material and reconciler state "
+        "(default: <meta>/.secrets/orgs/<org>)",
+    )
+    init_parser.add_argument(
+        "--release-bot-app",
+        default=None,
+        help="slug of the org's release-bot GitHub App; without it, "
+        "credentials are skipped",
+    )
+    init_parser.add_argument(
+        "--release-bot-client-id", default=None, help="client ID of that app"
+    )
+    init_parser.add_argument(
+        "--board-url", default=None, help="the org's project board, if it has one"
+    )
+    init_parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="create and stamp nothing; run every reconciler with --dry-run",
+    )
+    init_parser.add_argument(
+        "--workdir",
+        default=None,
+        help="where to clone the repos for stamping (default: a temporary directory)",
+    )
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -88,6 +148,8 @@ def main(argv: list[str] | None = None) -> int:
         print(run_compose(args.session_root).render_text, end="")
     if args.command == "order":
         return run_order_check(args.files)
+    if args.command == "org":
+        return run_org_init(args)
     return 0
 
 
