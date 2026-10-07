@@ -122,6 +122,58 @@ uses. The command prints every violation with its field. It exits 1
 when any file fails. Waybill's pull request checks run it. A broken
 order therefore turns red before anyone fires on it.
 
+### `pandoscope org init ORG`
+
+Create an [org](docs/glossary/org.md)'s repos,
+[stamp](docs/glossary/template-stamp.md) them,
+and seed them with the reconcilers of a meta checkout.
+
+```sh
+pandoscope org init somnus-app \
+  --project somnus --description "Battery wake diagnosis for Android." \
+  --approver pando-genet \
+  --meta ~/src/meta \
+  --release-bot-app somnus-release-bot --release-bot-client-id Iv23... \
+  --dry-run
+```
+
+The repo plan is hardcoded for now:
+`meta`, the project's code repo, the three [memory repos](docs/glossary/memory-repo.md)
+and `waybill`, all private.
+`session-memory` and `waybill` take direct pushes,
+so branch protection and the merge bot leave them out.
+`waybill` is created with a README and is not stamped.
+
+The command runs three phases in order:
+
+1. **Create** every planned repo the org does not hold yet (`gh repo create`).
+2. **Stamp** every stamped repo that carries no stamp yet,
+   and push the stamp as the first commit on `main`.
+3. **Reconcile** by running meta's `scripts/sync-gh-*.sh` against the org:
+   settings, rulesets, Actions credentials, then collaborators.
+
+Stamping comes before reconciling,
+because the rulesets protect `main` and the stamp is a direct push to it.
+Settings, rulesets and collaborators reuse meta's own confs
+with the `ORG=` line pointed at the new org;
+the rulesets' `except:` scopes name the plan's direct-push repos.
+The credentials conf is generated from the flags,
+because every value in meta's copy belongs to the pandoscope org.
+Without `--release-bot-app` the credentials step is skipped.
+
+Generated confs, reconciler state and the secret material live in
+`--secrets` (default `<meta>/.secrets/orgs/<org>`, gitignored in meta).
+The first run lays out an empty placeholder file per secret there.
+Fill them, then run the command again.
+
+`--dry-run` creates and stamps nothing and passes `--dry-run` to every reconciler.
+The command exits 1 while any reconciler reports DRIFT or MANUAL lines.
+It is safe to re-run: existing repos and stamps are left alone.
+
+The host needs `gh` authenticated as an org owner
+with the `repo` and `admin:org` scopes, `jq`, and bash 4.4 or newer.
+Installing the release-bot app on the org is a manual step the run reports.
+
 More commands land as the tool grows.
 
 ## Glossary
