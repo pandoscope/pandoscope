@@ -22,6 +22,7 @@ from pandoscope.org.confs import (
     credentials_conf,
     retarget,
     retarget_excepts,
+    with_setting,
 )
 from pandoscope.org.plan import Repo
 
@@ -71,6 +72,8 @@ def reconcile(
     Settings and rulesets first;
     then credentials, which place the BOT_MERGE_ENABLED switch;
     then collaborators, which read it.
+    The settings conf also declares main as every planned repo's default branch,
+    so a repo created before the run ends up on the stamp's branch.
     Generated confs and every script's state live under ``secrets``,
     the org's gitignored secrets directory.
     A fresh ``secrets`` directory is seeded first,
@@ -86,6 +89,7 @@ def reconcile(
     seed_credentials = not secrets.exists()
     confs.mkdir(parents=True, exist_ok=True)
     direct = [repo.name for repo in plan if repo.direct_pushes]
+    planned = f"only:{','.join(repo.name for repo in plan)}"
 
     def conf(name: str, text: str) -> str:
         path = confs / name
@@ -111,7 +115,13 @@ def reconcile(
             "sync-gh-repo-settings.sh",
             {
                 "SYNC_SETTINGS_CONF": conf(
-                    "repo-settings.conf", meta_conf("repo-settings.conf")
+                    "repo-settings.conf",
+                    with_setting(
+                        meta_conf("repo-settings.conf"),
+                        "default_branch",
+                        "main",
+                        planned,
+                    ),
                 ),
                 "SYNC_SETTINGS_STATE_DIR": str(secrets / "state" / "repo-settings"),
             },
