@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import subprocess
 from collections.abc import Callable, Sequence
 from pathlib import Path
@@ -80,4 +81,41 @@ def ensure_board(org: str, run: Run, *, dry_run: bool) -> tuple[str | None, str]
     a board that would be created has no URL yet.
     Raises what ``run`` raises.
     """
-    raise NotImplementedError
+    # DECISION:SCOPE — the org's board is the open project titled after
+    # the org; other projects the org holds are neither reused nor counted.
+    title = json.dumps(org)
+    found = run(
+        [
+            "gh",
+            "project",
+            "list",
+            "--owner",
+            org,
+            "--format",
+            "json",
+            "--jq",
+            f".projects[] | select(.title == {title} and (.closed | not)) | .url",
+        ],
+        None,
+    ).splitlines()
+    if found:
+        return found[0], "exists"
+    if dry_run:
+        return None, "would create"
+    created = run(
+        [
+            "gh",
+            "project",
+            "create",
+            "--owner",
+            org,
+            "--title",
+            org,
+            "--format",
+            "json",
+            "--jq",
+            ".url",
+        ],
+        None,
+    )
+    return created.strip(), "created"
