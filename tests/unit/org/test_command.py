@@ -155,7 +155,13 @@ def test_a_board_url_the_principal_passes_is_used_as_given(tmp_path: Path) -> No
         run=fake,
         exec_=fake_exec,
     )
-    assert not [cmd for cmd in fake.commands() if cmd[:2] == ("gh", "project")]
+    looked_up = [
+        cmd
+        for cmd in fake.commands()
+        if cmd[:2] == ("gh", "project")
+        or cmd[:3] == ("gh", "api", "orgs/o/actions/variables")
+    ]
+    assert looked_up == []
     assert f'"var|PROJECT_BOARD_URL|all|{BOARD}"' in credentials_conf(fake_exec)
 
 
