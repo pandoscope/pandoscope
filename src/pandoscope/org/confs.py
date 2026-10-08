@@ -60,6 +60,16 @@ def retarget_excepts(conf: str, direct: list[str]) -> str:
     return EXCEPT_ENTRY.sub(rf'\1|{scope}"', conf)
 
 
+def with_setting(conf: str, key: str, value: str, scope: str) -> str:
+    """
+    Return the settings ``conf`` with ``key`` declared as ``value`` over ``scope``.
+
+    A declaration of ``key`` that ``conf`` already carries is replaced.
+    Raises ValueError when ``conf`` has no ``SETTINGS=(`` array.
+    """
+    raise NotImplementedError
+
+
 def credentials_conf(org: str, plan: list[Repo], creds: Credentials) -> str:
     """
     Return an ``actions-credentials.conf`` for ``org``.
