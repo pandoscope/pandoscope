@@ -134,7 +134,6 @@ def credentials_conf(fake_exec: FakeExec) -> str:
     return Path(env["SYNC_CREDENTIALS_CONF"]).read_text()
 
 
-@pytest.mark.xfail(strict=True)
 def test_org_without_a_board_gets_one_and_its_url_in_the_credentials(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -160,7 +159,6 @@ def test_a_board_url_the_principal_passes_is_used_as_given(tmp_path: Path) -> No
     assert f'"var|PROJECT_BOARD_URL|all|{BOARD}"' in credentials_conf(fake_exec)
 
 
-@pytest.mark.xfail(strict=True)
 def test_dry_run_reports_the_board_it_would_create(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
