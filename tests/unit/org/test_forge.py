@@ -74,7 +74,6 @@ BOARD = "https://github.com/orgs/o/projects/1"
 LIST = ("gh", "project", "list", "--owner", "o")
 
 
-@pytest.mark.xfail(strict=True)
 def test_ensure_board_reuses_the_board_titled_after_the_org() -> None:
     fake = FakeRun({LIST: f"{BOARD}\n"})
     assert ensure_board("o", fake, dry_run=False) == (BOARD, "exists")
@@ -82,7 +81,6 @@ def test_ensure_board_reuses_the_board_titled_after_the_org() -> None:
     assert '.title == "o"' in fake.commands()[0][-1]
 
 
-@pytest.mark.xfail(strict=True)
 def test_ensure_board_creates_one_titled_after_the_org() -> None:
     fake = FakeRun({("gh", "project", "create"): f"{BOARD}\n"})
     assert ensure_board("o", fake, dry_run=False) == (BOARD, "created")
@@ -101,7 +99,6 @@ def test_ensure_board_creates_one_titled_after_the_org() -> None:
     )
 
 
-@pytest.mark.xfail(strict=True)
 def test_ensure_board_dry_run_creates_nothing() -> None:
     fake = FakeRun()
     assert ensure_board("o", fake, dry_run=True) == (None, "would create")
