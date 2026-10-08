@@ -55,7 +55,7 @@ def run_org_init(
             plan,
             Path(args.workdir or scratch),
             run=run,
-            stamp=stamp,
+            stamp=stamp_with,
             stamp_repo=stamp_repo,
             reconcile=bound_reconcile,
             dry_run=args.dry_run,
