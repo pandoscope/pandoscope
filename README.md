@@ -157,6 +157,7 @@ because the rulesets protect `main` and the stamp is a direct push to it.
 Settings, rulesets and collaborators reuse meta's own confs
 with the `ORG=` line pointed at the new org;
 the rulesets' `except:` scopes name the plan's direct-push repos.
+The settings conf also makes `main` the default branch of every planned repo.
 The credentials conf is generated from the flags,
 because every value in meta's copy belongs to the pandoscope org.
 Without `--release-bot-app` the credentials step is skipped.
