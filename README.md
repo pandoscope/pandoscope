@@ -164,9 +164,14 @@ The credentials conf is generated from the flags,
 because every value in meta's copy belongs to the pandoscope **org**.
 Without `--release-bot-app` the credentials step is skipped.
 
-Without `--board-url`, the command finds the **org**'s project board,
-the open project titled after the **org**, and creates it when the **org** has none.
-The credentials then point the add-to-project workflow at that board.
+The **org** variable `PROJECT_BOARD_URL` records the **org**'s project board,
+the one the add-to-project workflow files into.
+`--board-url` sets it.
+Without the flag, the command keeps a recorded board.
+With none recorded, it adopts the **org**'s only open project,
+or creates one titled after the **org** when there is none.
+Several open projects and no record stop the run with a list to pass `--board-url` from.
+The credentials step then records the board in the variable.
 
 Generated confs, reconciler state and the secret material live in `--secrets`,
 by default `<meta>/.secrets/orgs/<org>`, which meta gitignores.
