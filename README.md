@@ -160,6 +160,9 @@ the rulesets' `except:` scopes name the plan's direct-push repos.
 The settings conf also makes `main` the default branch of every planned repo.
 The credentials conf is generated from the flags,
 because every value in meta's copy belongs to the pandoscope org.
+Without `--board-url`, the command finds the org's project board,
+the open project titled after the org, and creates it when the org has none.
+The credentials then point the add-to-project workflow at that board.
 Without `--release-bot-app` the credentials step is skipped.
 
 Generated confs, reconciler state and the secret material live in
@@ -172,7 +175,7 @@ The command exits 1 while any reconciler reports DRIFT or MANUAL lines.
 It is safe to re-run: existing repos and stamps are left alone.
 
 The host needs `gh` authenticated as an org owner
-with the `repo` and `admin:org` scopes, `jq`, and bash 4.4 or newer.
+with the `repo`, `admin:org` and `project` scopes, `jq`, and bash 4.4 or newer.
 Installing the release-bot app on the org is a manual step the run reports.
 
 More commands land as the tool grows.
