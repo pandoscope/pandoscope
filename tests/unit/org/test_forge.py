@@ -71,35 +71,48 @@ def test_run_failure_names_command_cwd_and_stderr(tmp_path: Path) -> None:
 
 
 BOARD = "https://github.com/orgs/o/projects/1"
-LIST = ("gh", "project", "list", "--owner", "o")
+OTHER = "https://github.com/orgs/o/projects/2"
+VARIABLES = ("gh", "api", "orgs/o/actions/variables")
+PROJECTS = ("gh", "project", "list")
+CREATE = ("gh", "project", "create")
 
 
-def test_ensure_board_reuses_the_board_titled_after_the_org() -> None:
-    fake = FakeRun({LIST: f"{BOARD}\n"})
-    assert ensure_board("o", fake, dry_run=False) == (BOARD, "exists")
-    assert [cmd[:3] for cmd in fake.commands()] == [("gh", "project", "list")]
-    assert '.title == "o"' in fake.commands()[0][-1]
+def calls(fake: FakeRun) -> list[tuple[str, ...]]:
+    return [cmd[:3] for cmd in fake.commands()]
 
 
-def test_ensure_board_creates_one_titled_after_the_org() -> None:
-    fake = FakeRun({("gh", "project", "create"): f"{BOARD}\n"})
+@pytest.mark.xfail(strict=True)
+def test_ensure_board_keeps_the_board_the_org_variable_records() -> None:
+    fake = FakeRun({VARIABLES: f"{BOARD}\n"})
+    assert ensure_board("o", fake, dry_run=False) == (BOARD, "recorded")
+    assert calls(fake) == [VARIABLES]
+
+
+@pytest.mark.xfail(strict=True)
+def test_ensure_board_adopts_the_orgs_only_open_project() -> None:
+    fake = FakeRun({PROJECTS: f"{BOARD}\tRoadmap\n"})
+    assert ensure_board("o", fake, dry_run=False) == (BOARD, "adopted")
+    assert CREATE not in calls(fake)
+
+
+def test_ensure_board_creates_one_titled_after_the_org_when_it_has_none() -> None:
+    fake = FakeRun({CREATE: f"{BOARD}\n"})
     assert ensure_board("o", fake, dry_run=False) == (BOARD, "created")
-    assert fake.commands()[1] == (
-        "gh",
-        "project",
-        "create",
-        "--owner",
-        "o",
-        "--title",
-        "o",
-        "--format",
-        "json",
-        "--jq",
-        ".url",
-    )
+    create = next(cmd for cmd in fake.commands() if cmd[:3] == CREATE)
+    assert create[3:7] == ("--owner", "o", "--title", "o")
 
 
 def test_ensure_board_dry_run_creates_nothing() -> None:
     fake = FakeRun()
     assert ensure_board("o", fake, dry_run=True) == (None, "would create")
-    assert [cmd[2] for cmd in fake.commands()] == ["list"]
+    assert CREATE not in calls(fake)
+
+
+@pytest.mark.xfail(strict=True)
+def test_ensure_board_refuses_to_guess_between_open_projects() -> None:
+    fake = FakeRun({PROJECTS: f"{BOARD}\tRoadmap\n{OTHER}\tBugs\n"})
+    with pytest.raises(ValueError, match="--board-url") as error:
+        ensure_board("o", fake, dry_run=True)
+    assert BOARD in str(error.value)
+    assert OTHER in str(error.value)
+    assert CREATE not in calls(fake)
