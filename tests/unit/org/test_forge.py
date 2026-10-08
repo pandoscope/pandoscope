@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from pandoscope.org.forge import create_repo, existing_repos, run
+from pandoscope.org.forge import create_repo, ensure_board, existing_repos, run
 from pandoscope.org.plan import Repo
 
 from .fakes import FakeRun
@@ -68,3 +68,41 @@ def test_run_failure_names_command_cwd_and_stderr(tmp_path: Path) -> None:
     assert "boom" in message
     assert str(tmp_path) in message
     assert isinstance(error.value.__cause__, subprocess.CalledProcessError)
+
+
+BOARD = "https://github.com/orgs/o/projects/1"
+LIST = ("gh", "project", "list", "--owner", "o")
+
+
+@pytest.mark.xfail(strict=True)
+def test_ensure_board_reuses_the_board_titled_after_the_org() -> None:
+    fake = FakeRun({LIST: f"{BOARD}\n"})
+    assert ensure_board("o", fake, dry_run=False) == (BOARD, "exists")
+    assert [cmd[:3] for cmd in fake.commands()] == [("gh", "project", "list")]
+    assert '.title == "o"' in fake.commands()[0][-1]
+
+
+@pytest.mark.xfail(strict=True)
+def test_ensure_board_creates_one_titled_after_the_org() -> None:
+    fake = FakeRun({("gh", "project", "create"): f"{BOARD}\n"})
+    assert ensure_board("o", fake, dry_run=False) == (BOARD, "created")
+    assert fake.commands()[1] == (
+        "gh",
+        "project",
+        "create",
+        "--owner",
+        "o",
+        "--title",
+        "o",
+        "--format",
+        "json",
+        "--jq",
+        ".url",
+    )
+
+
+@pytest.mark.xfail(strict=True)
+def test_ensure_board_dry_run_creates_nothing() -> None:
+    fake = FakeRun()
+    assert ensure_board("o", fake, dry_run=True) == (None, "would create")
+    assert [cmd[2] for cmd in fake.commands()] == ["list"]
