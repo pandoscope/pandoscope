@@ -159,6 +159,7 @@ The reconcilers read confs written for the new **org**.
 Settings, rulesets and collaborators reuse meta's own confs.
 Their `ORG=` line names the new **org**,
 and the rulesets' `except:` scopes name the plan's direct-push repos.
+The settings conf also makes `main` the default branch of every planned repo.
 The credentials conf is generated from the flags,
 because every value in meta's copy belongs to the pandoscope **org**.
 Without `--release-bot-app` the credentials step is skipped.

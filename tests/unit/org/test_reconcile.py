@@ -151,7 +151,6 @@ def test_usage_error_stops_the_run_with_the_output(tmp_path: Path) -> None:
     assert len(fake.calls) == 2
 
 
-@pytest.mark.xfail(strict=True)
 def test_settings_make_main_every_repos_default_branch(tmp_path: Path) -> None:
     meta, secrets = fake_meta(tmp_path), tmp_path / "secrets"
     secrets.mkdir()
