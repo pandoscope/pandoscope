@@ -10,7 +10,7 @@ from pandoscope.org import forge, reconcile
 from pandoscope.org.confs import Credentials
 from pandoscope.org.init import init_org
 from pandoscope.org.plan import Repo, default_plan
-from pandoscope.org.seed import stamp_repo
+from pandoscope.org.seed import Stamp, stamp_repo
 from pandoscope.stamp import stamp
 
 
@@ -19,6 +19,7 @@ def run_org_init(
     *,
     run: forge.Run = forge.run,
     exec_: reconcile.Exec = reconcile.run_script,
+    stamp_with: Stamp = stamp,
 ) -> int:
     """
     Run ``org init`` for parsed ``args`` and print what happened.
