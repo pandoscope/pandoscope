@@ -81,14 +81,12 @@ def calls(fake: FakeRun) -> list[tuple[str, ...]]:
     return [cmd[:3] for cmd in fake.commands()]
 
 
-@pytest.mark.xfail(strict=True)
 def test_ensure_board_keeps_the_board_the_org_variable_records() -> None:
     fake = FakeRun({VARIABLES: f"{BOARD}\n"})
     assert ensure_board("o", fake, dry_run=False) == (BOARD, "recorded")
     assert calls(fake) == [VARIABLES]
 
 
-@pytest.mark.xfail(strict=True)
 def test_ensure_board_adopts_the_orgs_only_open_project() -> None:
     fake = FakeRun({PROJECTS: f"{BOARD}\tRoadmap\n"})
     assert ensure_board("o", fake, dry_run=False) == (BOARD, "adopted")
@@ -108,7 +106,6 @@ def test_ensure_board_dry_run_creates_nothing() -> None:
     assert CREATE not in calls(fake)
 
 
-@pytest.mark.xfail(strict=True)
 def test_ensure_board_refuses_to_guess_between_open_projects() -> None:
     fake = FakeRun({PROJECTS: f"{BOARD}\tRoadmap\n{OTHER}\tBugs\n"})
     with pytest.raises(ValueError, match="--board-url") as error:
