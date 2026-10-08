@@ -119,3 +119,52 @@ def test_repos_are_stamped_with_the_stamp_run_org_init_is_given(
         "decision-memory",
         "evidence-memory",
     ]
+
+
+BOARD = "https://github.com/orgs/o/projects/7"
+BOT = ("--release-bot-app", "o-bot", "--release-bot-client-id", "Iv1")
+
+
+def no_stamp(directory: str, data: object = None, **_: object) -> None:
+    """Stamp nothing: these tests are about the board."""
+
+
+def credentials_conf(fake_exec: FakeExec) -> str:
+    env = next(env for _, env in fake_exec.calls if "SYNC_CREDENTIALS_CONF" in env)
+    return Path(env["SYNC_CREDENTIALS_CONF"]).read_text()
+
+
+@pytest.mark.xfail(strict=True)
+def test_org_without_a_board_gets_one_and_its_url_in_the_credentials(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    fake_exec = FakeExec()
+    run_org_init(
+        args(fake_meta(tmp_path), *BOT, "--secrets", str(tmp_path / "s")),
+        run=FakeRun({("gh", "project", "create"): f"{BOARD}\n"}),
+        exec_=fake_exec,
+        stamp_with=no_stamp,
+    )
+    assert f"board: created {BOARD}" in capsys.readouterr().out
+    assert f'"var|PROJECT_BOARD_URL|all|{BOARD}"' in credentials_conf(fake_exec)
+
+
+def test_a_board_url_the_principal_passes_is_used_as_given(tmp_path: Path) -> None:
+    fake, fake_exec = FakeRun(), FakeExec()
+    run_org_init(
+        args(fake_meta(tmp_path), *BOT, "--board-url", BOARD, "--dry-run"),
+        run=fake,
+        exec_=fake_exec,
+    )
+    assert not [cmd for cmd in fake.commands() if cmd[:2] == ("gh", "project")]
+    assert f'"var|PROJECT_BOARD_URL|all|{BOARD}"' in credentials_conf(fake_exec)
+
+
+@pytest.mark.xfail(strict=True)
+def test_dry_run_reports_the_board_it_would_create(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    run_org_init(
+        args(fake_meta(tmp_path), "--dry-run"), run=FakeRun(), exec_=FakeExec()
+    )
+    assert "board: would create" in capsys.readouterr().out
