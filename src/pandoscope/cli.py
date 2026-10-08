@@ -116,7 +116,9 @@ def add_org_parser(
         "--release-bot-client-id", default=None, help="client ID of that app"
     )
     init_parser.add_argument(
-        "--board-url", default=None, help="the org's project board, if it has one"
+        "--board-url",
+        default=None,
+        help="use this board instead of the org's own (found or created)",
     )
     init_parser.add_argument(
         "--dry-run",

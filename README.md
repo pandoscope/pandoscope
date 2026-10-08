@@ -164,6 +164,10 @@ The credentials conf is generated from the flags,
 because every value in meta's copy belongs to the pandoscope **org**.
 Without `--release-bot-app` the credentials step is skipped.
 
+Without `--board-url`, the command finds the **org**'s project board,
+the open project titled after the **org**, and creates it when the **org** has none.
+The credentials then point the add-to-project workflow at that board.
+
 Generated confs, reconciler state and the secret material live in `--secrets`,
 by default `<meta>/.secrets/orgs/<org>`, which meta gitignores.
 The first run lays out an empty placeholder file per secret there.
@@ -174,7 +178,7 @@ The command exits 1 while any reconciler reports DRIFT or MANUAL lines.
 It is safe to re-run: existing repos and **stamps** are left alone.
 
 The host needs `jq`, bash 4.4 or newer,
-and `gh` authenticated as an **org** owner with the `repo` and `admin:org` scopes.
+and `gh` authenticated as an **org** owner with the `repo`, `admin:org` and `project` scopes.
 Installing the release-bot app on the **org** is a manual step the run reports.
 
 More commands land as the tool grows.
