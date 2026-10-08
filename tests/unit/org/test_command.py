@@ -98,7 +98,6 @@ def test_app_without_client_id_is_refused(tmp_path: Path) -> None:
         )
 
 
-@pytest.mark.xfail(strict=True)
 def test_repos_are_stamped_with_the_stamp_run_org_init_is_given(
     tmp_path: Path,
 ) -> None:
