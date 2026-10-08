@@ -96,3 +96,27 @@ def test_app_without_client_id_is_refused(tmp_path: Path) -> None:
         run_org_init(
             args(meta, "--release-bot-app", "o-bot"), run=FakeRun(), exec_=FakeExec()
         )
+
+
+@pytest.mark.xfail(strict=True)
+def test_repos_are_stamped_with_the_stamp_run_org_init_is_given(
+    tmp_path: Path,
+) -> None:
+    stamped: list[str] = []
+
+    def fake_stamp(directory: str, data: object = None, **_: object) -> None:
+        stamped.append(Path(directory).name)
+
+    run_org_init(
+        args(fake_meta(tmp_path), "--workdir", str(tmp_path / "w")),
+        run=FakeRun(),
+        exec_=FakeExec(),
+        stamp_with=fake_stamp,
+    )
+    assert stamped == [
+        "meta",
+        "app",
+        "session-memory",
+        "decision-memory",
+        "evidence-memory",
+    ]
