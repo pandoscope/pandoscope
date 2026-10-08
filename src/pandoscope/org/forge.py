@@ -70,3 +70,14 @@ def create_repo(org: str, repo: Repo, run: Run) -> None:
     if not repo.stamped:
         cmd.append("--add-readme")
     run(cmd, None)
+
+
+def ensure_board(org: str, run: Run, *, dry_run: bool) -> tuple[str | None, str]:
+    """
+    Return the URL of ``org``'s project board and what happened to it.
+
+    The event is "exists", "created" or, under ``dry_run``, "would create";
+    a board that would be created has no URL yet.
+    Raises what ``run`` raises.
+    """
+    raise NotImplementedError
