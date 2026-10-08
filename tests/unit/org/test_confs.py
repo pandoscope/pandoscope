@@ -120,21 +120,18 @@ SETTINGS=(
 """
 
 
-@pytest.mark.xfail(strict=True)
 def test_with_setting_declares_a_new_setting() -> None:
     out = with_setting(META_SETTINGS, "default_branch", "main", "all")
     assert '    "default_branch|main|all"\n)' in out
     assert '"allow_merge_commit|true|all"' in out
 
 
-@pytest.mark.xfail(strict=True)
 def test_with_setting_replaces_an_existing_declaration() -> None:
     out = with_setting(META_SETTINGS, "has_wiki", "true", "only:meta")
     assert '"has_wiki|true|only:meta"' in out
     assert '"has_wiki|false|all"' not in out
 
 
-@pytest.mark.xfail(strict=True)
 def test_with_setting_refuses_a_conf_without_settings() -> None:
     with pytest.raises(ValueError, match="SETTINGS"):
         with_setting('ORG="o"\n', "default_branch", "main", "all")

@@ -19,6 +19,7 @@ from pandoscope.org.plan import Repo
 
 ORG_LINE = re.compile(r'^ORG="[^"]*"$', re.MULTILINE)
 EXCEPT_ENTRY = re.compile(r'^(\s*"[^"|]+)\|except:[^"]*"', re.MULTILINE)
+SETTINGS_ARRAY = re.compile(r"^(SETTINGS=\(\n)(.*?)^\)", re.MULTILINE | re.DOTALL)
 
 
 @dataclass(frozen=True)
@@ -67,7 +68,13 @@ def with_setting(conf: str, key: str, value: str, scope: str) -> str:
     A declaration of ``key`` that ``conf`` already carries is replaced.
     Raises ValueError when ``conf`` has no ``SETTINGS=(`` array.
     """
-    raise NotImplementedError
+    array = SETTINGS_ARRAY.search(conf)
+    if not array:
+        msg = f"conf has no SETTINGS=( array to declare key={key!r} in"
+        raise ValueError(msg)
+    body = re.sub(rf'^\s*"{re.escape(key)}\|[^"]*"\n', "", array.group(2), flags=re.M)
+    declared = f'{array.group(1)}{body}    "{key}|{value}|{scope}"\n)'
+    return conf[: array.start()] + declared + conf[array.end() :]
 
 
 def credentials_conf(org: str, plan: list[Repo], creds: Credentials) -> str:
