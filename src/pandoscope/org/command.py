@@ -10,7 +10,7 @@ from pandoscope.org import forge, reconcile
 from pandoscope.org.confs import Credentials
 from pandoscope.org.init import init_org
 from pandoscope.org.plan import Repo, default_plan
-from pandoscope.org.planfile import read_plan
+from pandoscope.org.planfile import read_plan, render_plan
 from pandoscope.org.seed import Stamp, stamp_repo
 from pandoscope.stamp import stamp
 
@@ -77,7 +77,14 @@ def run_org_init(
 
 def run_org_plan(args: argparse.Namespace) -> int:
     """Print the default repo plan for parsed ``args`` as a plan file; return 0."""
-    raise NotImplementedError
+    plan = default_plan(
+        args.org,
+        project=args.project,
+        description=args.description,
+        approvers=args.approver,
+    )
+    print(render_plan(args.org, args.approver, plan), end="")
+    return 0
 
 
 def _plan(args: argparse.Namespace) -> list[Repo]:
