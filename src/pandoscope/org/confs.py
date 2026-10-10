@@ -91,6 +91,9 @@ def credentials_conf(org: str, plan: list[Repo], creds: Credentials) -> str:
     """
     gated = ",".join(repo.name for repo in plan if not repo.direct_pushes)
     lines = [f"var|RELEASE_BOT_CLIENT_ID|all|{creds.client_id}"]
+    # DECISION:SCOPE — a plan without a session store is valid (an org that
+    # does not use one yet); the variable is then absent, which is how a
+    # consumer learns the store is off.
     sessions = [
         repo.name
         for repo in plan
