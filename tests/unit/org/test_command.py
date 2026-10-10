@@ -190,7 +190,6 @@ def plan_args(meta: Path, plan: Path, *extra: str) -> argparse.Namespace:
     )
 
 
-@pytest.mark.xfail(strict=True)
 def test_a_plan_file_brings_every_repo_it_names(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -211,7 +210,6 @@ def test_a_plan_file_brings_every_repo_it_names(
     assert "session-memory" not in out
 
 
-@pytest.mark.xfail(strict=True)
 def test_without_a_plan_file_the_plan_flags_are_required(tmp_path: Path) -> None:
     meta = fake_meta(tmp_path)
     argv = ["org", "init", "o", "--meta", str(meta), "--project", "app"]
