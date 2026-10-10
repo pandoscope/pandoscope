@@ -14,7 +14,7 @@ from typing import Any
 
 import yaml
 
-from pandoscope.org.plan import Repo, _project_answers
+from pandoscope.org.plan import Repo, _project_answers, _store_answers
 
 
 def read_plan(path: Path, org: str) -> list[Repo]:
@@ -40,15 +40,22 @@ def read_plan(path: Path, org: str) -> list[Repo]:
 
 def _repo(org: str, entry: dict[str, Any], gate: dict[str, str]) -> Repo:
     name = entry["name"]
-    answers = _project_answers(
-        org,
-        entry.get("title", name),
-        name,
-        entry["kind"],
-        gate,
-        entry["purpose"],
-    )
-    return Repo(name, entry["purpose"], answers)
+    direct_pushes = bool(entry.get("direct_pushes", False))
+    # A repo that takes direct pushes stays out of the merge gate,
+    # so it gets no approval answers (as session-memory in default_plan).
+    own_gate = {} if direct_pushes else gate
+    if entry["kind"] == "store":
+        answers = _store_answers(entry["store"], own_gate)
+    else:
+        answers = _project_answers(
+            org,
+            entry.get("title", name),
+            name,
+            entry["kind"],
+            own_gate,
+            entry["purpose"],
+        )
+    return Repo(name, entry["purpose"], answers, direct_pushes=direct_pushes)
 
 
 def render_plan(org: str, approvers: list[str], plan: list[Repo]) -> str:
