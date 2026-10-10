@@ -1,0 +1,35 @@
+{
+  "pr": "pandoscope/pandoscope#48",
+  "head": "1dac1e1a48d3fd7ac29d05b02e6bcc71e5abfb30",
+  "pass": "spec-fidelity",
+  "model_tier": "opus",
+  "findings": [
+    {
+      "file": "src/pandoscope/org/command.py",
+      "line": 51,
+      "rule": "Without `--plan` the command behaves as today.",
+      "input": "`pandoscope org init some-org --meta M --project app` (no --description, no --approver, no --plan, no --dry-run, no --board-url) on an org with no PROJECT_BOARD_URL and no open project",
+      "finding_basis": "decided",
+      "confidence": 70,
+      "finding": "Today argparse rejects the missing --description/--approver before any forge call, but now the check sits in `_plan`, which runs after `_board` (line 43) has already called `forge.ensure_board` and created a project board in the org, so the refusal arrives only after a side effect."
+    },
+    {
+      "file": "tests/unit/org/test_command.py",
+      "line": 179,
+      "rule": "A file with two code repos and prefixed store names yields a plan whose repos are created, stamped and reconciled under those names (unit level, with the existing fakes).",
+      "input": "PLAN_FILE in test_a_plan_file_brings_every_repo_it_names: meta, app, helper and no store entries, run with --dry-run",
+      "finding_basis": "decided",
+      "confidence": 75,
+      "finding": "The acceptance test this criterion asks for is missing: the only end-to-end plan-file test has no prefixed stores (e.g. pando-session-memory) and runs with --dry-run, so nothing is created or stamped, and no test checks that the rulesets/credentials confs name the prefixed stores."
+    },
+    {
+      "file": "src/pandoscope/org/planfile.py",
+      "line": 47,
+      "rule": "The file holds the org, its approvers and one entry per repo: `name`, `purpose`, `kind` (`code`, `docs`, `store`, `plain`), `store` (which store subtemplate, only for `kind: store`), optional `title` (the stamped project name, default the name), `private` (default true), `direct_pushes` (default false).",
+      "input": "org.yml with `approvers: []` and one `{name: app, kind: code, purpose: p}` entry",
+      "finding_basis": "judged",
+      "confidence": 45,
+      "finding": "read_plan accepts a file with no approvers and stamps gated repos with `agentic_merge_approval_gate: true` and an empty `agentic_merge_approvers`, whereas the same plan built from the flags is refused by default_plan, so the file path yields a plan the flag path cannot."
+    }
+  ]
+}
