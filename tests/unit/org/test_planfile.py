@@ -85,7 +85,6 @@ def test_a_direct_push_entry_takes_no_approval_answers(tmp_path: Path) -> None:
     assert "agentic_merge_approval_gate" not in session.answers
 
 
-@pytest.mark.xfail(strict=True)
 def test_a_plain_entry_is_created_but_not_stamped(tmp_path: Path) -> None:
     text = """\
 org: o

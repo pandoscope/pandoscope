@@ -44,7 +44,9 @@ def _repo(org: str, entry: dict[str, Any], gate: dict[str, str]) -> Repo:
     # A repo that takes direct pushes stays out of the merge gate,
     # so it gets no approval answers (as session-memory in default_plan).
     own_gate = {} if direct_pushes else gate
-    if entry["kind"] == "store":
+    if entry["kind"] == "plain":
+        answers: dict[str, str] = {}
+    elif entry["kind"] == "store":
         answers = _store_answers(entry["store"], own_gate)
     else:
         answers = _project_answers(
@@ -55,7 +57,13 @@ def _repo(org: str, entry: dict[str, Any], gate: dict[str, str]) -> Repo:
             own_gate,
             entry["purpose"],
         )
-    return Repo(name, entry["purpose"], answers, direct_pushes=direct_pushes)
+    return Repo(
+        name,
+        entry["purpose"],
+        answers,
+        private=bool(entry.get("private", True)),
+        direct_pushes=direct_pushes,
+    )
 
 
 def render_plan(org: str, approvers: list[str], plan: list[Repo]) -> str:
