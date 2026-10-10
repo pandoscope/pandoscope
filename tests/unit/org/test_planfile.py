@@ -105,7 +105,6 @@ def one_repo(entry: str, org: str = "o") -> str:
     return f"org: {org}\napprovers: [human]\nrepos:\n{entry}"
 
 
-@pytest.mark.xfail(strict=True)
 @pytest.mark.parametrize(
     ("text", "named"),
     [
