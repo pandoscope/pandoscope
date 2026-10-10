@@ -219,7 +219,6 @@ def test_without_a_plan_file_the_plan_flags_are_required(tmp_path: Path) -> None
         run_org_init(build_parser().parse_args(argv), run=FakeRun(), exec_=FakeExec())
 
 
-@pytest.mark.xfail(strict=True)
 def test_org_plan_prints_the_default_plan_as_a_file_init_reads(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
