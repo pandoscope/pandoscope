@@ -5,8 +5,10 @@ from pathlib import Path
 
 import pytest
 
-from pandoscope.cli import build_parser
+from pandoscope.cli import build_parser, main
 from pandoscope.org.command import run_org_init
+from pandoscope.org.plan import default_plan
+from pandoscope.org.planfile import read_plan
 
 from .fakes import FakeRun
 from .test_reconcile import FakeExec, fake_meta
@@ -215,3 +217,26 @@ def test_without_a_plan_file_the_plan_flags_are_required(tmp_path: Path) -> None
     argv = ["org", "init", "o", "--meta", str(meta), "--project", "app"]
     with pytest.raises(ValueError, match="--plan"):
         run_org_init(build_parser().parse_args(argv), run=FakeRun(), exec_=FakeExec())
+
+
+@pytest.mark.xfail(strict=True)
+def test_org_plan_prints_the_default_plan_as_a_file_init_reads(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    argv = [
+        "org",
+        "plan",
+        "o",
+        "--project",
+        "app",
+        "--description",
+        "The app.",
+        "--approver",
+        "human",
+    ]
+    assert main(argv) == 0
+    plan = tmp_path / "org.yml"
+    plan.write_text(capsys.readouterr().out)
+    assert read_plan(plan, "o") == default_plan(
+        "o", project="app", description="The app.", approvers=["human"]
+    )
