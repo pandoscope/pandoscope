@@ -10,8 +10,11 @@ Format authority: ``read_plan``'s docstring.
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
-from pandoscope.org.plan import Repo
+import yaml
+
+from pandoscope.org.plan import Repo, _project_answers
 
 
 def read_plan(path: Path, org: str) -> list[Repo]:
@@ -27,7 +30,25 @@ def read_plan(path: Path, org: str) -> list[Repo]:
     Raises ValueError naming the offending value when the file does not
     hold a valid plan for ``org``.
     """
-    raise NotImplementedError
+    data = yaml.safe_load(path.read_text())
+    gate = {
+        "agentic_merge_approval_gate": "true",
+        "agentic_merge_approvers": ",".join(data["approvers"]),
+    }
+    return [_repo(org, entry, gate) for entry in data["repos"]]
+
+
+def _repo(org: str, entry: dict[str, Any], gate: dict[str, str]) -> Repo:
+    name = entry["name"]
+    answers = _project_answers(
+        org,
+        entry.get("title", name),
+        name,
+        entry["kind"],
+        gate,
+        entry["purpose"],
+    )
+    return Repo(name, entry["purpose"], answers)
 
 
 def render_plan(org: str, approvers: list[str], plan: list[Repo]) -> str:

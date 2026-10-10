@@ -34,7 +34,6 @@ def by_name(plan: list[Repo]) -> dict[str, Repo]:
     return {repo.name: repo for repo in plan}
 
 
-@pytest.mark.xfail(strict=True)
 def test_every_code_and_docs_entry_becomes_a_stamped_repo_of_the_org(
     tmp_path: Path,
 ) -> None:
