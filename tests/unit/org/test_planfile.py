@@ -132,7 +132,6 @@ def test_an_invalid_plan_file_is_refused_naming_the_value(
         read_plan(plan_file(tmp_path, text), "o")
 
 
-@pytest.mark.xfail(strict=True)
 def test_the_rendered_default_plan_reads_back_as_the_same_plan(
     tmp_path: Path,
 ) -> None:

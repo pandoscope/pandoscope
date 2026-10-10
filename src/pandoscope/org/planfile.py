@@ -23,14 +23,27 @@ def read_plan(path: Path, org: str) -> list[Repo]:
     """
     Return the repo plan the YAML file at ``path`` declares for ``org``.
 
-    The file holds ``org``, ``approvers`` (human logins) and ``repos``,
-    a list of entries with ``name``, ``purpose`` and ``kind``
-    (``code``, ``docs``, ``store`` or ``plain``),
-    ``store`` (the store subtemplate, for ``kind: store`` only),
-    and optionally ``title`` (the stamped project name, default the name),
-    ``private`` (default true) and ``direct_pushes`` (default false).
-    Raises ValueError naming the offending value when the file does not
-    hold a valid plan for ``org``.
+    ``read_plan`` reads these keys from the file:
+
+    - ``org``: the org the plan is for.
+    - ``approvers``: the human logins whose Approve satisfies the merge gate.
+    - ``repos``: one entry per repo.
+
+    and these fields from each entry:
+
+    - ``name``: the repo's name.
+    - ``purpose``: its description on the forge.
+    - ``kind``: ``code``, ``docs``, ``store`` or ``plain``.
+    - ``store``: the store subtemplate it is stamped from,
+      for ``kind: store`` only.
+    - ``title``, optional: the stamped project name, by default the name.
+    - ``description``, optional: the stamped project description,
+      by default the purpose.
+    - ``private``, optional: true by default.
+    - ``direct_pushes``, optional: false by default.
+
+    Raises ValueError naming the offending value
+    when the file does not hold a valid plan for ``org``.
     """
     data = yaml.safe_load(path.read_text())
     if data["org"] != org:
@@ -75,7 +88,7 @@ def _repo(org: str, entry: dict[str, Any], gate: dict[str, str]) -> Repo:
             name,
             kind,
             own_gate,
-            entry["purpose"],
+            entry.get("description", entry["purpose"]),
         )
     return Repo(
         name,
@@ -87,5 +100,37 @@ def _repo(org: str, entry: dict[str, Any], gate: dict[str, str]) -> Repo:
 
 
 def render_plan(org: str, approvers: list[str], plan: list[Repo]) -> str:
-    """Return ``plan`` for ``org`` as the YAML ``read_plan`` reads."""
-    raise NotImplementedError
+    """
+    Return ``plan`` for ``org`` as the YAML ``read_plan`` reads.
+
+    Optional fields are written only where they differ from their default,
+    so the file shows what is particular about each repo.
+    """
+    data = {
+        "org": org,
+        "approvers": approvers,
+        "repos": [_entry(repo) for repo in plan],
+    }
+    return yaml.safe_dump(data, sort_keys=False, width=100)
+
+
+def _entry(repo: Repo) -> dict[str, Any]:
+    entry: dict[str, Any] = {"name": repo.name}
+    subtemplate = repo.answers.get("agentic_subtemplate")
+    if not repo.stamped:
+        entry["kind"] = "plain"
+    elif subtemplate != "template":
+        entry["kind"] = "store"
+        entry["store"] = subtemplate
+    else:
+        entry["kind"] = repo.answers["agentic_project_kind"]
+        if repo.answers["agentic_project_name"] != repo.name:
+            entry["title"] = repo.answers["agentic_project_name"]
+        if repo.answers["agentic_project_description"] != repo.purpose:
+            entry["description"] = repo.answers["agentic_project_description"]
+    entry["purpose"] = repo.purpose
+    if not repo.private:
+        entry["private"] = False
+    if repo.direct_pushes:
+        entry["direct_pushes"] = True
+    return entry
