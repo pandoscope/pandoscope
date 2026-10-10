@@ -109,13 +109,11 @@ def test_credentials_declare_the_shared_secrets(secret: str) -> None:
     assert f'"secret|{secret}' in credentials_conf("o", PLAN, full())
 
 
-@pytest.mark.xfail(strict=True)
 def test_credentials_without_a_session_store_leave_its_variable_out() -> None:
     conf = credentials_conf("o", PLAN[:2], full())
     assert "SESSION_MEMORY_REPO" not in conf
 
 
-@pytest.mark.xfail(strict=True)
 def test_the_session_store_variable_names_the_store_under_its_own_name() -> None:
     plan = [
         *PLAN[:2],
