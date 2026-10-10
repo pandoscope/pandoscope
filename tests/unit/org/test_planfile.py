@@ -48,3 +48,40 @@ def test_every_code_and_docs_entry_becomes_a_stamped_repo_of_the_org(
     assert repos["helper"].answers["agentic_merge_approvers"] == "human"
     assert repos["helper"].purpose == "The helper."
     assert repos["helper"].private
+
+STORES = """\
+org: o
+approvers: [human]
+repos:
+  - name: pando-session-memory
+    kind: store
+    store: session-memory
+    purpose: Session store.
+    direct_pushes: true
+  - name: pando-decision-memory
+    kind: store
+    store: decision-memory
+    purpose: Decision store.
+"""
+
+
+@pytest.mark.xfail(strict=True)
+def test_a_store_entry_is_stamped_from_its_store_subtemplate_under_its_own_name(
+    tmp_path: Path,
+) -> None:
+    repos = by_name(read_plan(plan_file(tmp_path, STORES), "o"))
+    session = repos["pando-session-memory"]
+    decision = repos["pando-decision-memory"]
+    assert session.answers["agentic_subtemplate"] == "session-memory"
+    assert decision.answers["agentic_subtemplate"] == "decision-memory"
+    assert "agentic_project_name" not in decision.answers
+    assert decision.answers["agentic_merge_approvers"] == "human"
+
+
+@pytest.mark.xfail(strict=True)
+def test_a_direct_push_entry_takes_no_approval_answers(tmp_path: Path) -> None:
+    session = by_name(read_plan(plan_file(tmp_path, STORES), "o"))[
+        "pando-session-memory"
+    ]
+    assert session.direct_pushes
+    assert "agentic_merge_approval_gate" not in session.answers
