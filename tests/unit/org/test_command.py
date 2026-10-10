@@ -172,3 +172,48 @@ def test_dry_run_reports_the_board_it_would_create(
         args(fake_meta(tmp_path), "--dry-run"), run=FakeRun(), exec_=FakeExec()
     )
     assert "board: would create" in capsys.readouterr().out
+
+
+PLAN_FILE = """\
+org: o
+approvers: [human]
+repos:
+  - {name: meta, title: Meta, kind: docs, purpose: Org-level docs.}
+  - {name: app, kind: code, purpose: The app.}
+  - {name: helper, kind: code, purpose: The helper.}
+"""
+
+
+def plan_args(meta: Path, plan: Path, *extra: str) -> argparse.Namespace:
+    return build_parser().parse_args(
+        ["org", "init", "o", "--meta", str(meta), "--plan", str(plan), *extra]
+    )
+
+
+@pytest.mark.xfail(strict=True)
+def test_a_plan_file_brings_every_repo_it_names(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    meta = fake_meta(tmp_path)
+    plan = tmp_path / "org.yml"
+    plan.write_text(PLAN_FILE)
+    fake = FakeRun({("gh", "repo", "list"): "meta\n"})
+    code = run_org_init(
+        plan_args(meta, plan, "--dry-run", "--secrets", str(tmp_path / "s")),
+        run=fake,
+        exec_=FakeExec(),
+    )
+    out = capsys.readouterr().out
+    assert code == 0
+    assert "o/meta: exists" in out
+    assert "o/app: would create" in out
+    assert "o/helper: would create" in out
+    assert "session-memory" not in out
+
+
+@pytest.mark.xfail(strict=True)
+def test_without_a_plan_file_the_plan_flags_are_required(tmp_path: Path) -> None:
+    meta = fake_meta(tmp_path)
+    argv = ["org", "init", "o", "--meta", str(meta), "--project", "app"]
+    with pytest.raises(ValueError, match="--plan"):
+        run_org_init(build_parser().parse_args(argv), run=FakeRun(), exec_=FakeExec())

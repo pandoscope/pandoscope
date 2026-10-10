@@ -31,9 +31,7 @@ def test_org_init_parses_the_plan_inputs() -> None:
     assert args.workdir is None
 
 
-@pytest.mark.parametrize(
-    "missing", ["--project", "--description", "--approver", "--meta"]
-)
+@pytest.mark.parametrize("missing", ["--meta"])
 def test_org_init_requires_every_plan_input(missing: str) -> None:
     given = {
         "--project": "p",
