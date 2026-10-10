@@ -84,16 +84,21 @@ def add_org_parser(
     )
     init_parser.add_argument("org", help="the GitHub organization")
     init_parser.add_argument(
-        "--project", required=True, help="name of the project's code repo"
+        "--project",
+        default=None,
+        help="name of the project's code repo (without --plan)",
     )
     init_parser.add_argument(
-        "--description", required=True, help="purpose of the project's code repo"
+        "--description",
+        default=None,
+        help="purpose of the project's code repo (without --plan)",
     )
     init_parser.add_argument(
         "--approver",
         action="append",
-        required=True,
-        help="human login whose Approve satisfies the merge gate (repeatable)",
+        default=None,
+        help="human login whose Approve satisfies the merge gate "
+        "(repeatable; without --plan)",
     )
     init_parser.add_argument(
         "--meta",

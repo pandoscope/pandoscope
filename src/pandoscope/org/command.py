@@ -10,6 +10,7 @@ from pandoscope.org import forge, reconcile
 from pandoscope.org.confs import Credentials
 from pandoscope.org.init import init_org
 from pandoscope.org.plan import Repo, default_plan
+from pandoscope.org.planfile import read_plan
 from pandoscope.org.seed import Stamp, stamp_repo
 from pandoscope.stamp import stamp
 
@@ -28,8 +29,11 @@ def run_org_init(
     or a manual step.
     Without ``--board-url`` it finds or creates the org's project board,
     and the credentials point the add-to-project workflow at it.
-    Raises ValueError when ``--meta`` holds no reconcilers or the
-    release-bot flags come without each other, and what any step raises.
+    The repo plan comes from ``--plan``, else from ``--project``,
+    ``--description`` and ``--approver``.
+    Raises ValueError when ``--meta`` holds no reconcilers, the
+    release-bot flags come without each other, or neither a plan file nor
+    every plan flag is given, and what any step raises.
     """
     meta = Path(args.meta)
     if not (meta / "scripts" / "sync-gh-repo-settings.sh").exists():
@@ -44,12 +48,7 @@ def run_org_init(
     secrets = (
         Path(args.secrets) if args.secrets else meta / ".secrets" / "orgs" / args.org
     )
-    plan = default_plan(
-        args.org,
-        project=args.project,
-        description=args.description,
-        approvers=args.approver,
-    )
+    plan = _plan(args)
 
     def bound_reconcile(org: str, plan: list[Repo]) -> list[reconcile.Outcome]:
         return reconcile.reconcile(
@@ -74,6 +73,25 @@ def run_org_init(
         for line in outcome.lines:
             print(f"  {line}")
     return 1 if any(outcome.code == 1 for outcome in result.outcomes) else 0
+
+
+def _plan(args: argparse.Namespace) -> list[Repo]:
+    """Return the plan from ``--plan``, else the default plan from the flags."""
+    if args.plan:
+        return read_plan(Path(args.plan), args.org)
+    if not (args.project and args.description and args.approver):
+        msg = (
+            "give --plan, or --project, --description and --approver;"
+            f" got project={args.project!r} description={args.description!r}"
+            f" approver={args.approver!r}"
+        )
+        raise ValueError(msg)
+    return default_plan(
+        args.org,
+        project=args.project,
+        description=args.description,
+        approvers=args.approver,
+    )
 
 
 def _release_bot(args: argparse.Namespace) -> tuple[str, str] | None:
