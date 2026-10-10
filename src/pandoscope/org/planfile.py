@@ -14,7 +14,9 @@ from typing import Any
 
 import yaml
 
-from pandoscope.org.plan import Repo, _project_answers, _store_answers
+from pandoscope.org.plan import STORES, Repo, _project_answers, _store_answers
+
+KINDS = ("code", "docs", "store", "plain")
 
 
 def read_plan(path: Path, org: str) -> list[Repo]:
@@ -31,6 +33,14 @@ def read_plan(path: Path, org: str) -> list[Repo]:
     hold a valid plan for ``org``.
     """
     data = yaml.safe_load(path.read_text())
+    if data["org"] != org:
+        msg = f"plan file {path} is for org={data['org']!r}, not org={org!r}"
+        raise ValueError(msg)
+    names = [entry["name"] for entry in data["repos"]]
+    twins = sorted({name for name in names if names.count(name) > 1})
+    if twins:
+        msg = f"plan file {path} names repos more than once: {twins}"
+        raise ValueError(msg)
     gate = {
         "agentic_merge_approval_gate": "true",
         "agentic_merge_approvers": ",".join(data["approvers"]),
@@ -40,20 +50,30 @@ def read_plan(path: Path, org: str) -> list[Repo]:
 
 def _repo(org: str, entry: dict[str, Any], gate: dict[str, str]) -> Repo:
     name = entry["name"]
+    kind = entry["kind"]
+    if kind not in KINDS:
+        msg = f"repo={name!r} has kind={kind!r}; expected one of {KINDS}"
+        raise ValueError(msg)
+    if kind == "store" and entry.get("store") not in STORES:
+        msg = (
+            f"repo={name!r} of kind 'store' has store={entry.get('store')!r};"
+            f" expected one of {STORES}"
+        )
+        raise ValueError(msg)
     direct_pushes = bool(entry.get("direct_pushes", False))
     # A repo that takes direct pushes stays out of the merge gate,
     # so it gets no approval answers (as session-memory in default_plan).
     own_gate = {} if direct_pushes else gate
-    if entry["kind"] == "plain":
+    if kind == "plain":
         answers: dict[str, str] = {}
-    elif entry["kind"] == "store":
+    elif kind == "store":
         answers = _store_answers(entry["store"], own_gate)
     else:
         answers = _project_answers(
             org,
             entry.get("title", name),
             name,
-            entry["kind"],
+            kind,
             own_gate,
             entry["purpose"],
         )
