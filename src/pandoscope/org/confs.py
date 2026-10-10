@@ -85,16 +85,20 @@ def credentials_conf(org: str, plan: list[Repo], creds: Credentials) -> str:
     that do not take direct pushes.
     An ``except:`` scope computes its selection from the org's public repos,
     and an all-private org has none.
-    Raises ValueError when the plan has no session-memory store.
+    SESSION_MEMORY_REPO names the repo stamped from the session-memory
+    subtemplate, under whatever name the plan gives it; a plan without
+    one leaves the variable out.
     """
-    names = [repo.name for repo in plan]
-    if "session-memory" not in names:
-        msg = f"plan for org={org!r} has no session-memory store: {names}"
-        raise ValueError(msg)
     gated = ",".join(repo.name for repo in plan if not repo.direct_pushes)
-    lines = [
-        f"var|RELEASE_BOT_CLIENT_ID|all|{creds.client_id}",
-        f"var|SESSION_MEMORY_REPO|all|{org}/session-memory",
+    lines = [f"var|RELEASE_BOT_CLIENT_ID|all|{creds.client_id}"]
+    sessions = [
+        repo.name
+        for repo in plan
+        if repo.answers.get("agentic_subtemplate") == "session-memory"
+    ]
+    if sessions:
+        lines.append(f"var|SESSION_MEMORY_REPO|all|{org}/{sessions[0]}")
+    lines += [
         "var|LABELS_SYNC_ENABLED|all|true",
         f"var|BOT_MERGE_ENABLED|only:{gated}|true",
         "secret|RELEASE_BOT_PRIVATE_KEY|all|RELEASE_BOT_PRIVATE_KEY.pem",
