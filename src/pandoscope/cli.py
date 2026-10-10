@@ -130,6 +130,11 @@ def add_org_parser(
         default=None,
         help="where to clone the repos for stamping (default: a temporary directory)",
     )
+    init_parser.add_argument(
+        "--plan",
+        default=None,
+        help="the org's repo plan file (org.yml in its meta repo)",
+    )
 
 
 def main(argv: list[str] | None = None) -> int:
