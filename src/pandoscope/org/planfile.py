@@ -33,6 +33,8 @@ def read_plan(path: Path, org: str) -> list[Repo]:
     Raises ValueError naming the offending value when the file does not
     hold a valid plan for ``org``.
     """
+    # DECISION:IFACE — YAML, not TOML as #46 sketched: PyYAML is already a
+    # dependency and also writes the file (render_plan); TOML would need a writer.
     data = yaml.safe_load(path.read_text())
     if data["org"] != org:
         msg = f"plan file {path} is for org={data['org']!r}, not org={org!r}"
@@ -61,6 +63,8 @@ def _repo(org: str, entry: dict[str, Any], gate: dict[str, str]) -> Repo:
             f" expected one of {STORES}"
         )
         raise ValueError(msg)
+    # DECISION:SCOPE — store names are data: which store a repo is comes from
+    # its `store` field, never from its name (#46, prefixed store names).
     direct_pushes = bool(entry.get("direct_pushes", False))
     # A repo that takes direct pushes stays out of the merge gate,
     # so it gets no approval answers (as session-memory in default_plan).
