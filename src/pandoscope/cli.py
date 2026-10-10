@@ -9,7 +9,7 @@ from pathlib import Path
 import yaml
 
 from pandoscope import __version__
-from pandoscope.org.command import run_org_init
+from pandoscope.org.command import run_org_init, run_org_plan
 from pandoscope.reinset.compose import Composition, compose
 from pandoscope.reinset.order import validate_order
 from pandoscope.stamp import TEMPLATE_URL, parse_data, stamp
@@ -140,6 +140,23 @@ def add_org_parser(
         default=None,
         help="the org's repo plan file (org.yml in its meta repo)",
     )
+    plan_parser = org_sub.add_parser(
+        "plan",
+        help="print the default repo plan as a file to edit and pass to --plan",
+    )
+    plan_parser.add_argument("org", help="the GitHub organization")
+    plan_parser.add_argument(
+        "--project", required=True, help="name of the project's code repo"
+    )
+    plan_parser.add_argument(
+        "--description", required=True, help="purpose of the project's code repo"
+    )
+    plan_parser.add_argument(
+        "--approver",
+        action="append",
+        required=True,
+        help="human login whose Approve satisfies the merge gate (repeatable)",
+    )
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -160,6 +177,8 @@ def main(argv: list[str] | None = None) -> int:
         print(run_compose(args.session_root).render_text, end="")
     if args.command == "order":
         return run_order_check(args.files)
+    if args.command == "org" and args.org_command == "plan":
+        return run_org_plan(args)
     if args.command == "org":
         return run_org_init(args)
     return 0
