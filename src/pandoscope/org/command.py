@@ -1,4 +1,4 @@
-"""The ``pandoscope org init`` command: parsed arguments in, a printed report out."""
+"""The ``pandoscope org`` commands: parsed arguments in, printed output out."""
 
 from __future__ import annotations
 
@@ -73,6 +73,11 @@ def run_org_init(
         for line in outcome.lines:
             print(f"  {line}")
     return 1 if any(outcome.code == 1 for outcome in result.outcomes) else 0
+
+
+def run_org_plan(args: argparse.Namespace) -> int:
+    """Print the default repo plan for parsed ``args`` as a plan file; return 0."""
+    raise NotImplementedError
 
 
 def _plan(args: argparse.Namespace) -> list[Repo]:
