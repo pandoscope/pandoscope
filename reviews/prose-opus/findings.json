@@ -1,0 +1,251 @@
+{
+  "pr": "pandoscope/pandoscope#48",
+  "head": "1dac1e1a48d3fd7ac29d05b02e6bcc71e5abfb30",
+  "pass": "prose",
+  "model_tier": "opus",
+  "findings": [
+    {
+      "file": "src/pandoscope/org/plan.py",
+      "line": 1,
+      "rule": "State the present, and leave history to commit messages.",
+      "input": "The plan is hardcoded for now: the org repos every Pandoscope org needs,\nplus one code repo for the project.\nA principal-supplied list of repos and their purposes replaces it later;\neverything downstream reads only `Repo`, so that list plugs in here.",
+      "finding_basis": "judged",
+      "confidence": 85,
+      "finding": "The module docstring calls the plan hardcoded and promises a principal-supplied list later, but this change adds that list (`planfile.read_plan`, `--plan`), so the docstring now describes a past state and a plan that has already landed."
+    },
+    {
+      "file": "README.md",
+      "line": 183,
+      "rule": "Argue a case: open each paragraph with its claim, then give the mechanism and what follows from it.",
+      "input": "Stamping comes before reconciling,\nbecause the rulesets protect `main` and the stamp is a direct push to it.\n... The org variable `PROJECT_BOARD_URL` records the org's project board,\n... Without `--release-bot-app` the credentials step is skipped.",
+      "finding_basis": "judged",
+      "confidence": 65,
+      "finding": "The paragraph opens on stamping order, then moves through conf reuse, the generated credentials conf, the board lookup and the skipped credentials step, so its opening claim covers only the first two lines."
+    },
+    {
+      "file": "README.md",
+      "line": 175,
+      "rule": "Link a fact maintained elsewhere instead of restating it as a count, a far position or a section name, and drop a count that the list after it states, while adjacency words stay fine.",
+      "input": "The command runs three phases in order:",
+      "finding_basis": "decided",
+      "confidence": 90,
+      "finding": "The lead-in states the count \"three\" for the numbered list right after it, which already shows the count."
+    },
+    {
+      "file": "README.md",
+      "line": 147,
+      "rule": "Link the first mention of a glossary term, bold every later mention that means the term, and leave the everyday word unmarked.",
+      "input": "It lives in the org's meta repo (`org.yml`),\nso an org can hold several code repos, only the stores it uses,",
+      "finding_basis": "decided",
+      "confidence": 75,
+      "finding": "\"org\" is linked to its glossary entry at line 127, but its later mentions in this paragraph mean the glossary term and are not bolded."
+    },
+    {
+      "file": "README.md",
+      "line": 177,
+      "rule": "Link the first mention of a glossary term, bold every later mention that means the term, and leave the everyday word unmarked.",
+      "input": "1. **Create** every planned repo the org does not hold yet (`gh repo create`).\n2. **Stamp** every stamped repo that carries no stamp yet,",
+      "finding_basis": "decided",
+      "confidence": 70,
+      "finding": "This list repeats the glossary terms \"org\" and \"stamp\"/\"stamped\" (linked at lines 127–128) without bolding them, while it bolds the step names."
+    },
+    {
+      "file": "README.md",
+      "line": 210,
+      "rule": "Break new or rewritten prose at sentence or clause boundaries, one per line.",
+      "input": "The host needs `gh` authenticated as an org owner\nwith the `repo`, `admin:org` and `project` scopes, `jq`, and bash 4.4 or newer.",
+      "finding_basis": "judged",
+      "confidence": 70,
+      "finding": "The line break cuts the object list mid-clause, so `jq` and bash read as part of the \"with\" phrase about `gh`'s scopes and not as separate requirements of the host."
+    },
+    {
+      "file": "README.md",
+      "line": 169,
+      "rule": "Give one thing one name throughout a text, and never use that name for a second thing.",
+      "input": "`kind` is `code`, `docs`, `store` (stamped from the subtemplate `store` names)",
+      "finding_basis": "judged",
+      "confidence": 55,
+      "finding": "The sentence uses `store` for the kind value and for the field that names the subtemplate, both in one parenthetical, so \"the subtemplate `store` names\" can't be parsed without the YAML example."
+    },
+    {
+      "file": "README.md",
+      "line": 171,
+      "rule": "Link a file in the same repository by its relative path, so the link follows the branch, fork or clone being read.",
+      "input": "Format authority: `read_plan` in `src/pandoscope/org/planfile.py`.",
+      "finding_basis": "decided",
+      "confidence": 65,
+      "finding": "The README names a file in this repository as a code span and does not link it by its relative path."
+    },
+    {
+      "file": "src/pandoscope/org/confs.py",
+      "line": 93,
+      "rule": "State each fact once within a text, and pair an effect with its cause instead of listing effects and causes apart.",
+      "input": "# DECISION:SCOPE — a plan without a session store is valid (an org that\n# does not use one yet); the variable is then absent, which is how a\n# consumer learns the store is off.",
+      "finding_basis": "judged",
+      "confidence": 55,
+      "finding": "The comment repeats the docstring's \"a plan without one leaves the variable out\" a few lines above, and calls the store \"session store\" where the docstring and README say \"session-memory\" store."
+    },
+    {
+      "file": "src/pandoscope/org/planfile.py",
+      "line": 23,
+      "rule": "Give parallel cases one list item each, with the effect first and its cause after it.",
+      "input": "The file holds ``org``, ``approvers`` (human logins) and ``repos``,\na list of entries with ``name``, ``purpose`` and ``kind``\n(``code``, ``docs``, ``store`` or ``plain``),\n``store`` (the store subtemplate, for ``kind: store`` only),\nand optionally ``title`` (...), ``description`` (...),\n``private`` (default true) and ``direct_pushes`` (default false).",
+      "finding_basis": "judged",
+      "confidence": 50,
+      "finding": "The format authority packs eight parallel fields, each with its own parenthetical, into one sentence where one item per field would do."
+    },
+    {
+      "file": "README.md",
+      "line": 201,
+      "rule": "Break new or rewritten prose at sentence or clause boundaries, one per line.",
+      "input": "Generated confs, reconciler state and the secret material live in\n`--secrets` (default `<meta>/.secrets/orgs/<org>`, gitignored in meta).",
+      "finding_basis": "decided",
+      "confidence": 75,
+      "finding": "The break splits the preposition \"in\" from its object `--secrets`."
+    },
+    {
+      "file": "README.md",
+      "line": 152,
+      "rule": "Break new or rewritten prose at sentence or clause boundaries, one per line.",
+      "input": "`pandoscope org plan ORG --project … --description … --approver …`\nprints the default plan as such a file, to edit and commit:",
+      "finding_basis": "judged",
+      "confidence": 55,
+      "finding": "The break separates the subject from its verb \"prints\" inside one clause."
+    },
+    {
+      "file": "src/pandoscope/org/confs.py",
+      "line": 1,
+      "rule": "Break new or rewritten prose at sentence or clause boundaries, one per line.",
+      "input": "Settings, rulesets and collaborators reuse meta's own conf and rewrite\nonly what names the org; credentials are generated here, because every\nvalue in meta's copy belongs to the pandoscope org.\nMirrored pair: a grammar change in meta's confs changes this module in\nthe same arc.",
+      "finding_basis": "decided",
+      "confidence": 85,
+      "finding": "The module docstring wraps at a fixed width, so its lines break mid-clause (\"rewrite / only\", \"every / value\", \"in / the same arc\")."
+    },
+    {
+      "file": "src/pandoscope/org/confs.py",
+      "line": 27,
+      "rule": "Break new or rewritten prose at sentence or clause boundaries, one per line.",
+      "input": "``app_slug`` is the release-bot GitHub App every workflow mints its\ntoken from, ``client_id`` its client ID. ``board_url`` is the org\nproject board, or None when the org has none yet.",
+      "finding_basis": "decided",
+      "confidence": 85,
+      "finding": "The `Credentials` docstring wraps at a fixed width: two sentences share a line, and breaks fall mid-clause."
+    },
+    {
+      "file": "src/pandoscope/org/confs.py",
+      "line": 53,
+      "rule": "Break new or rewritten prose at sentence or clause boundaries, one per line.",
+      "input": "In meta every ``except:`` names the repos that take direct pushes,\nso the plan's direct-push repos replace it. With none, the entry\nwidens to ``all``.",
+      "finding_basis": "decided",
+      "confidence": 85,
+      "finding": "The `retarget_excepts` docstring puts two sentences on one line and breaks the second one between subject and verb."
+    },
+    {
+      "file": "src/pandoscope/org/confs.py",
+      "line": 81,
+      "rule": "Break new or rewritten prose at sentence or clause boundaries, one per line.",
+      "input": "BOT_MERGE_ENABLED is scoped ``only:`` the planned repos that do not\ntake direct pushes: an ``except:`` scope computes its selection from\nthe org's public repos, and an all-private org has none.\nSESSION_MEMORY_REPO names the repo stamped from the session-memory\nsubtemplate, under whatever name the plan gives it; a plan without\none leaves the variable out.",
+      "finding_basis": "decided",
+      "confidence": 85,
+      "finding": "The `credentials_conf` docstring wraps at a fixed width, which breaks every line mid-clause."
+    },
+    {
+      "file": "src/pandoscope/org/confs.py",
+      "line": 93,
+      "rule": "Break new or rewritten prose at sentence or clause boundaries, one per line.",
+      "input": "# DECISION:SCOPE — a plan without a session store is valid (an org that\n# does not use one yet); the variable is then absent, which is how a\n# consumer learns the store is off.",
+      "finding_basis": "decided",
+      "confidence": 80,
+      "finding": "The DECISION comment wraps at a fixed width and breaks inside the parenthetical and the relative clause."
+    },
+    {
+      "file": "src/pandoscope/org/forge.py",
+      "line": 76,
+      "rule": "Break new or rewritten prose at sentence or clause boundaries, one per line.",
+      "input": "The org variable PROJECT_BOARD_URL records the board the workflows file\ninto; a recorded board is kept (\"recorded\"). Without one, the org's only\nopen project is adopted (\"adopted\"), and an org with no open project\ngets one titled after the org (\"created\", or \"would create\" under\n``dry_run``, with no URL yet).\n...\nbecause choosing between them is the principal's call, and what ``run``\nraises.",
+      "finding_basis": "decided",
+      "confidence": 85,
+      "finding": "The `ensure_board` docstring wraps at a fixed width, so sentences share lines and breaks split verbs from their objects."
+    },
+    {
+      "file": "src/pandoscope/org/command.py",
+      "line": 25,
+      "rule": "Break new or rewritten prose at sentence or clause boundaries, one per line.",
+      "input": "Raises ValueError when ``--meta`` holds no reconcilers, the\nrelease-bot flags come without each other, or neither a plan file nor\nevery plan flag is given, and what any step raises.",
+      "finding_basis": "decided",
+      "confidence": 80,
+      "finding": "The `run_org_init` docstring's Raises sentence breaks mid-clause (\"the / release-bot flags\", \"nor / every plan flag\")."
+    },
+    {
+      "file": "src/pandoscope/org/init.py",
+      "line": 37,
+      "rule": "Break new or rewritten prose at sentence or clause boundaries, one per line.",
+      "input": "Every repo is stamped before the reconcile, because the reconcile\nprotects main and the stamp is a direct push to it.\nSafe to re-run: existing repos and existing stamps are left alone.\n``dry_run`` creates and stamps nothing; ``reconcile`` gets the same\nflag through its own binding.",
+      "finding_basis": "decided",
+      "confidence": 80,
+      "finding": "The `init_org` docstring breaks between a subject and its verb (\"the reconcile / protects\") and inside a noun phrase (\"the same / flag\")."
+    },
+    {
+      "file": "src/pandoscope/org/plan.py",
+      "line": 21,
+      "rule": "Break new or rewritten prose at sentence or clause boundaries, one per line.",
+      "input": "``answers`` are the copier answers it is stamped with; empty means the\nrepo is created but not stamped. ``direct_pushes`` marks a repo that\ntakes pushes to main by design, so the reconcilers leave it out of\nbranch protection and the merge bot.",
+      "finding_basis": "decided",
+      "confidence": 85,
+      "finding": "The `Repo` docstring wraps at a fixed width: two sentences share a line, and breaks fall mid-clause."
+    },
+    {
+      "file": "src/pandoscope/org/planfile.py",
+      "line": 23,
+      "rule": "Break new or rewritten prose at sentence or clause boundaries, one per line.",
+      "input": "Raises ValueError naming the offending value when the file does not\nhold a valid plan for ``org``.",
+      "finding_basis": "decided",
+      "confidence": 75,
+      "finding": "The `read_plan` docstring's Raises sentence breaks between \"does not\" and \"hold\"."
+    },
+    {
+      "file": "src/pandoscope/org/planfile.py",
+      "line": 36,
+      "rule": "Break new or rewritten prose at sentence or clause boundaries, one per line.",
+      "input": "# DECISION:IFACE — YAML, not TOML as #46 sketched: PyYAML is already a\n# dependency and also writes the file (render_plan); TOML would need a writer.",
+      "finding_basis": "decided",
+      "confidence": 80,
+      "finding": "The DECISION comment breaks inside the noun phrase \"a / dependency\"."
+    },
+    {
+      "file": "src/pandoscope/org/planfile.py",
+      "line": 66,
+      "rule": "Break new or rewritten prose at sentence or clause boundaries, one per line.",
+      "input": "# DECISION:SCOPE — store names are data: which store a repo is comes from\n# its `store` field, never from its name (#46, prefixed store names).",
+      "finding_basis": "decided",
+      "confidence": 80,
+      "finding": "The DECISION comment breaks between \"comes from\" and its object."
+    },
+    {
+      "file": "src/pandoscope/org/reconcile.py",
+      "line": 1,
+      "rule": "Break new or rewritten prose at sentence or clause boundaries, one per line.",
+      "input": "Each reconciler is a ``scripts/sync-gh-*.sh`` in a meta checkout. It reads\nits conf from a ``SYNC_*_CONF`` env var and its org from that conf's\n``ORG=`` line (interface authority: each script's header comment).",
+      "finding_basis": "decided",
+      "confidence": 85,
+      "finding": "The module docstring puts two sentences on one line and breaks the second between verb and object."
+    },
+    {
+      "file": "src/pandoscope/org/reconcile.py",
+      "line": 34,
+      "rule": "Break new or rewritten prose at sentence or clause boundaries, one per line.",
+      "input": "``code`` is its exit status, None when it was skipped. ``lines`` are\nits DRIFT, MANUAL and FIXED lines, or the reason it was skipped.",
+      "finding_basis": "decided",
+      "confidence": 80,
+      "finding": "The `Outcome` docstring puts two sentences on one line and breaks between \"are\" and its complement."
+    },
+    {
+      "file": "src/pandoscope/org/reconcile.py",
+      "line": 68,
+      "rule": "Break new or rewritten prose at sentence or clause boundaries, one per line.",
+      "input": "Settings and rulesets first; then credentials, which place the\nBOT_MERGE_ENABLED switch; then collaborators, which read it.\nThe settings conf also declares main as every planned repo's default\nbranch, so a repo created before the run ends up on the stamp's branch.\n...\nRaises RuntimeError naming the script and its output on an exit\nother than 0 or 1, and ValueError when a meta conf cannot be retargeted.",
+      "finding_basis": "decided",
+      "confidence": 80,
+      "finding": "The `reconcile` docstring wraps at a fixed width, breaking inside noun phrases (\"the / BOT_MERGE_ENABLED switch\", \"default / branch\", \"an exit / other than\")."
+    }
+  ]
+}
