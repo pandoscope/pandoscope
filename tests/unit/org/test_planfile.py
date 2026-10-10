@@ -99,3 +99,35 @@ repos:
     (waybill,) = read_plan(plan_file(tmp_path, text), "o")
     assert not waybill.stamped
     assert not waybill.private
+
+
+def one_repo(entry: str, org: str = "o") -> str:
+    return f"org: {org}\napprovers: [human]\nrepos:\n{entry}"
+
+
+@pytest.mark.xfail(strict=True)
+@pytest.mark.parametrize(
+    ("text", "named"),
+    [
+        (one_repo("  - {name: a, kind: code, purpose: p}\n", org="other"), "other"),
+        (one_repo("  - {name: a, kind: library, purpose: p}\n"), "library"),
+        (one_repo("  - {name: a, kind: store, purpose: p}\n"), "store"),
+        (
+            one_repo("  - {name: a, kind: store, store: ledger, purpose: p}\n"),
+            "ledger",
+        ),
+        (
+            one_repo(
+                "  - {name: twin, kind: code, purpose: p}\n"
+                "  - {name: twin, kind: docs, purpose: q}\n"
+            ),
+            "twin",
+        ),
+    ],
+    ids=["other-org", "unknown-kind", "store-without-store", "unknown-store", "dup"],
+)
+def test_an_invalid_plan_file_is_refused_naming_the_value(
+    tmp_path: Path, text: str, named: str
+) -> None:
+    with pytest.raises(ValueError, match=named):
+        read_plan(plan_file(tmp_path, text), "o")
