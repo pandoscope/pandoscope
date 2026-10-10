@@ -65,7 +65,6 @@ repos:
 """
 
 
-@pytest.mark.xfail(strict=True)
 def test_a_store_entry_is_stamped_from_its_store_subtemplate_under_its_own_name(
     tmp_path: Path,
 ) -> None:
@@ -78,7 +77,6 @@ def test_a_store_entry_is_stamped_from_its_store_subtemplate_under_its_own_name(
     assert decision.answers["agentic_merge_approvers"] == "human"
 
 
-@pytest.mark.xfail(strict=True)
 def test_a_direct_push_entry_takes_no_approval_answers(tmp_path: Path) -> None:
     session = by_name(read_plan(plan_file(tmp_path, STORES), "o"))[
         "pando-session-memory"
