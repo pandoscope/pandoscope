@@ -55,8 +55,10 @@ def read_plan(path: Path, org: str) -> list[Repo]:
     if not data["approvers"]:
         msg = f"plan file {path} has no approvers; the merge gate needs at least one"
         raise ValueError(msg)
+    # The forge treats repo names case-insensitively, so App and app are twins.
     names = [entry["name"] for entry in data["repos"]]
-    twins = sorted({name for name in names if names.count(name) > 1})
+    folded = [name.lower() for name in names]
+    twins = sorted({name for name in names if folded.count(name.lower()) > 1})
     if twins:
         msg = f"plan file {path} names repos more than once: {twins}"
         raise ValueError(msg)
