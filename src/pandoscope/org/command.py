@@ -29,11 +29,12 @@ def run_org_init(
     or a manual step.
     Without ``--board-url`` it finds or creates the org's project board,
     and the credentials point the add-to-project workflow at it.
-    The repo plan comes from ``--plan``, else from ``--project``,
-    ``--description`` and ``--approver``.
-    Raises ValueError when ``--meta`` holds no reconcilers, the
-    release-bot flags come without each other, or neither a plan file nor
-    every plan flag is given, and what any step raises.
+    The repo plan comes from ``--plan``,
+    else from ``--project``, ``--description`` and ``--approver``.
+    Raises ValueError when ``--meta`` holds no reconcilers,
+    when the release-bot flags come without each other,
+    or when neither a plan file nor every plan flag is given,
+    and what any step raises.
     """
     meta = Path(args.meta)
     if not (meta / "scripts" / "sync-gh-repo-settings.sh").exists():
