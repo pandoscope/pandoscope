@@ -1,10 +1,10 @@
 """
 The repos an org holds, and how each is stamped.
 
-The plan is hardcoded for now: the org repos every Pandoscope org needs,
+``default_plan`` holds the org repos every Pandoscope org needs,
 plus one code repo for the project.
-A principal-supplied list of repos and their purposes replaces it later;
-everything downstream reads only `Repo`, so that list plugs in here.
+An org's own plan file replaces it (``planfile.read_plan``);
+everything downstream reads only ``Repo``, so either plan plugs in here.
 """
 
 from __future__ import annotations
