@@ -297,3 +297,13 @@ def test_prefixed_stores_are_created_stamped_and_reconciled_by_their_names(
     assert '"var|SESSION_MEMORY_REPO|all|o/pando-session-memory"' in credentials_conf(
         fake_exec
     )
+
+
+@pytest.mark.xfail(strict=True)
+def test_missing_plan_flags_are_refused_before_any_forge_call(tmp_path: Path) -> None:
+    meta = fake_meta(tmp_path)
+    fake = FakeRun()
+    argv = ["org", "init", "o", "--meta", str(meta), "--project", "app"]
+    with pytest.raises(ValueError, match="--plan"):
+        run_org_init(build_parser().parse_args(argv), run=fake, exec_=FakeExec())
+    assert fake.commands() == []
