@@ -1,0 +1,35 @@
+{
+  "pr": "pandoscope/pandoscope#48",
+  "head": "428e512ae8250446d0657ddc0ff18b68450cab57",
+  "pass": "spec-fidelity",
+  "model_tier": "opus-r2",
+  "findings": [
+    {
+      "file": "src/pandoscope/org/planfile.py",
+      "line": 76,
+      "rule": "A file naming another org than `ORG`, an unknown kind or store, a store entry without `store`, or two entries with one name stops the run with the offending values.",
+      "input": "org: o\napprovers: [human]\nrepos:\n  - {name: app, kind: code, store: ledger, purpose: p}",
+      "finding_basis": "judged",
+      "confidence": 50,
+      "finding": "The unknown store value `ledger` is checked only on `kind: store` entries, so on a code, docs or plain entry it is silently ignored and the run proceeds instead of stopping with the offending value."
+    },
+    {
+      "file": "src/pandoscope/org/planfile.py",
+      "line": 59,
+      "rule": "A file naming another org than `ORG`, an unknown kind or store, a store entry without `store`, or two entries with one name stops the run with the offending values.",
+      "input": "org: o\napprovers: [human]\nrepos:\n  - {name: App, kind: code, purpose: p}\n  - {name: app, kind: docs, purpose: q}",
+      "finding_basis": "judged",
+      "confidence": 30,
+      "finding": "The duplicate check compares names case-sensitively, so two entries that name the same GitHub repo (`App` and `app`, which the forge treats as one name) pass validation and the run goes on instead of stopping."
+    },
+    {
+      "file": "src/pandoscope/org/command.py",
+      "line": 102,
+      "rule": "Without `--plan` the command behaves as today.",
+      "input": "pandoscope org init o --meta META --project app   (no --description, no --approver, no --plan)",
+      "finding_basis": "judged",
+      "confidence": 25,
+      "finding": "Without `--plan`, a missing `--description` or `--approver` no longer gets argparse's usage error with exit 2 as today; `main` lets the ValueError from `_plan` escape as an uncaught traceback, a change the PR body names but the ticket rules out."
+    }
+  ]
+}
