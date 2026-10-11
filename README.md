@@ -146,11 +146,12 @@ so branch protection and the merge bot leave them out.
 
 `--plan FILE` reads the plan from a file instead,
 which replaces `--project`, `--description` and `--approver`.
-It lives in the org's meta repo (`org.yml`),
-so an org can hold several code repos, only the stores it uses,
-and its own repo names.
-`pandoscope org plan ORG --project … --description … --approver …`
-prints the default plan as such a file, to edit and commit:
+The file lives in the **org**'s meta repo as `org.yml`,
+so an **org** can hold several code repos,
+only the stores it uses,
+and repo names of its own.
+`pandoscope org plan ORG --project … --description … --approver …` prints the default plan as such a file,
+to edit and commit:
 
 ```yaml
 org: example-org
@@ -166,9 +167,11 @@ repos:
     direct_pushes: true
 ```
 
-`kind` is `code`, `docs`, `store` (stamped from the subtemplate `store` names)
-or `plain` (created with a README, not stamped).
-Format authority: `read_plan` in `src/pandoscope/org/planfile.py`.
+Each entry's `kind` says how its repo is made:
+`code` and `docs` repos are **stamped** as projects,
+a `store` repo is **stamped** from the subtemplate its `store` field names,
+and a `plain` repo is created with a README and not **stamped**.
+The format's authority is `read_plan` in [`src/pandoscope/org/planfile.py`](src/pandoscope/org/planfile.py).
 The credentials step sets `SESSION_MEMORY_REPO` to the session-memory store's name,
 and leaves it out when the plan has none.
 
