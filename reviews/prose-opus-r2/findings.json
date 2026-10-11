@@ -1,0 +1,80 @@
+{
+  "pr": "pandoscope/pandoscope#48",
+  "head": "3c12431ffd5135a04ec67d1c4ead530dd3b67c1d",
+  "pass": "prose",
+  "model_tier": "opus-r2",
+  "findings": [
+    {
+      "file": "src/pandoscope/org/planfile.py",
+      "line": 26,
+      "rule": "Link a fact maintained elsewhere instead of restating it as a count, a far position or a section name, and drop a count that the list after it states, while adjacency words stay fine.",
+      "input": "The file holds three keys:",
+      "finding_basis": "decided",
+      "confidence": 80,
+      "finding": "The read_plan docstring's lead-in to the key list states a count that the three-item list right after it already gives, so the count drifts when a key is added."
+    },
+    {
+      "file": "README.md",
+      "line": 140,
+      "rule": "Link the first mention of a glossary term, bold every later mention that means the term, and leave the everyday word unmarked.",
+      "input": "`waybill` is created with a README and is not stamped.",
+      "finding_basis": "decided",
+      "confidence": 75,
+      "finding": "The default-plan paragraph uses \"stamped\" in the glossary sense after the linked first mention but leaves it unbolded, while every other later mention in the section is bolded."
+    },
+    {
+      "file": "README.md",
+      "line": 147,
+      "rule": "Argue a case: open each paragraph with its claim, then give the mechanism and what follows from it.",
+      "input": "The file lives in the **org**'s meta repo as `org.yml`,\nso an **org** can hold several code repos,\nonly the stores it uses,\nand repo names of its own.",
+      "finding_basis": "judged",
+      "confidence": 55,
+      "finding": "The `--plan FILE` paragraph presents several code repos, chosen stores and own names as a consequence of the file living in meta, but they follow from the plan being a file of entries, so the mechanism and its consequence do not connect."
+    },
+    {
+      "file": "src/pandoscope/org/planfile.py",
+      "line": 26,
+      "rule": "Make the actor the subject, and keep config, fields and files as objects.",
+      "input": "The file holds three keys:",
+      "finding_basis": "judged",
+      "confidence": 50,
+      "finding": "The read_plan docstring's description of the format makes the file the subject of the sentence instead of keeping it as an object of what read_plan reads."
+    },
+    {
+      "file": "src/pandoscope/org/confs.py",
+      "line": 83,
+      "rule": "When a sentence gives the cause, consequence or exception of the one before, say so with a connective.",
+      "input": "BOT_MERGE_ENABLED is scoped ``only:`` the planned repos\nthat do not take direct pushes.\nAn ``except:`` scope computes its selection from the org's public repos,\nand an all-private org has none.",
+      "finding_basis": "judged",
+      "confidence": 50,
+      "finding": "The credentials_conf docstring gives the reason for the ``only:`` scope in the sentence after it without a connective, so the second sentence reads as an unrelated fact."
+    },
+    {
+      "file": "README.md",
+      "line": 140,
+      "rule": "Link a fact maintained elsewhere instead of restating it as a count, a far position or a section name, and drop a count that the list after it states, while adjacency words stay fine.",
+      "input": "the three [memory repos](docs/glossary/memory-repo.md)",
+      "finding_basis": "judged",
+      "confidence": 45,
+      "finding": "The default-plan paragraph restates as a count the set of stores that `STORES` in plan.py maintains, so the README drifts when a store is added or dropped."
+    },
+    {
+      "file": "src/pandoscope/org/seed.py",
+      "line": 33,
+      "rule": "Keep each fact in one place and reference it from everywhere else, and let a declared copy name its source and update path.",
+      "input": "The push lands before any ruleset protects main,\nwhich is why org init stamps every repo before it reconciles.",
+      "finding_basis": "judged",
+      "confidence": 45,
+      "finding": "The stamp_repo docstring repeats the stamp-before-reconcile ordering and its reason, which init_org's docstring in init.py already states, so the two copies can diverge."
+    },
+    {
+      "file": "README.md",
+      "line": 147,
+      "rule": "Give one thing one name throughout a text, and never use that name for a second thing.",
+      "input": "only the stores it uses,",
+      "finding_basis": "judged",
+      "confidence": 40,
+      "finding": "The org init section first calls the session, decision and evidence repos \"memory repos\" (linked glossary term), then calls them \"stores\" and \"the session-memory store\", giving one thing two names."
+    }
+  ]
+}
