@@ -23,13 +23,13 @@ def read_plan(path: Path, org: str) -> list[Repo]:
     """
     Return the repo plan the YAML file at ``path`` declares for ``org``.
 
-    The file holds three keys:
+    ``read_plan`` reads these keys from the file:
 
     - ``org``: the org the plan is for.
     - ``approvers``: the human logins whose Approve satisfies the merge gate.
     - ``repos``: one entry per repo.
 
-    Each entry has these fields:
+    and these fields from each entry:
 
     - ``name``: the repo's name.
     - ``purpose``: its description on the forge.
