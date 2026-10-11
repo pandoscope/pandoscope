@@ -84,9 +84,9 @@ def credentials_conf(org: str, plan: list[Repo], creds: Credentials) -> str:
     BOT_MERGE_ENABLED is scoped ``only:`` the planned repos that do not
     take direct pushes: an ``except:`` scope computes its selection from
     the org's public repos, and an all-private org has none.
-    SESSION_MEMORY_REPO names the repo stamped from the session-memory
-    subtemplate, under whatever name the plan gives it; a plan without
-    one leaves the variable out.
+    SESSION_MEMORY_REPO names the repo stamped from the session-memory subtemplate,
+    under whatever name the plan gives it;
+    a plan without one leaves the variable out.
     """
     gated = ",".join(repo.name for repo in plan if not repo.direct_pushes)
     lines = [f"var|RELEASE_BOT_CLIENT_ID|all|{creds.client_id}"]
