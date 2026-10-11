@@ -18,7 +18,9 @@ CREDS = Credentials(app_slug="o-release-bot", client_id="Iv23x", board_url=None)
 def fake_meta(root: Path) -> Path:
     scripts = root / "meta" / "scripts"
     scripts.mkdir(parents=True)
-    (scripts / "repo-settings.conf").write_text('ORG="pandoscope"\nSETTINGS=()\n')
+    (scripts / "repo-settings.conf").write_text(
+        'ORG="pandoscope"\nSETTINGS=(\n    "has_wiki|false|all"\n)\n'
+    )
     (scripts / "repo-rulesets.conf").write_text(
         'ORG="pandoscope"\nRULESETS=(\n    "p.json|except:session-memory,waybill"\n)\n'
     )
@@ -147,3 +149,13 @@ def test_usage_error_stops_the_run_with_the_output(tmp_path: Path) -> None:
     with pytest.raises(RuntimeError, match=r"exit 2.*bad conf: RULESETS"):
         reconcile("o", PLAN, meta, secrets, CREDS, dry_run=False, exec_=fake)
     assert len(fake.calls) == 2
+
+
+def test_settings_make_main_every_repos_default_branch(tmp_path: Path) -> None:
+    meta, secrets = fake_meta(tmp_path), tmp_path / "secrets"
+    secrets.mkdir()
+    fake = FakeExec()
+    reconcile("o", PLAN, meta, secrets, CREDS, dry_run=False, exec_=fake)
+    settings = Path(fake.calls[0][1]["SYNC_SETTINGS_CONF"]).read_text()
+    assert '"default_branch|main|only:meta,session-memory"' in settings
+    assert '"has_wiki|false|all"' in settings

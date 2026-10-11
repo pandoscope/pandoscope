@@ -70,3 +70,75 @@ def create_repo(org: str, repo: Repo, run: Run) -> None:
     if not repo.stamped:
         cmd.append("--add-readme")
     run(cmd, None)
+
+
+def ensure_board(org: str, run: Run, *, dry_run: bool) -> tuple[str | None, str]:
+    """
+    Return the URL of ``org``'s project board and how it was found.
+
+    The org variable PROJECT_BOARD_URL records the board the workflows file into.
+    A recorded board is kept ("recorded").
+    Without one, the org's only open project is adopted ("adopted").
+    An org with no open project gets one titled after the org:
+    "created", or "would create" under ``dry_run``, with no URL yet.
+    Raises ValueError listing the open projects when there are several,
+    because choosing between them is the principal's call.
+    Raises what ``run`` raises.
+    """
+    recorded = run(
+        [
+            "gh",
+            "api",
+            f"orgs/{org}/actions/variables",
+            "--paginate",
+            "--jq",
+            '.variables[] | select(.name == "PROJECT_BOARD_URL") | .value',
+        ],
+        None,
+    ).strip()
+    if recorded:
+        return recorded, "recorded"
+    projects = run(
+        [
+            "gh",
+            "project",
+            "list",
+            "--owner",
+            org,
+            "--limit",
+            "100",
+            "--format",
+            "json",
+            "--jq",
+            '.projects[] | select(.closed | not) | "\\(.url)\\t\\(.title)"',
+        ],
+        None,
+    ).splitlines()
+    if len(projects) == 1:
+        return projects[0].split("\t")[0], "adopted"
+    if len(projects) > 1:
+        listing = "\n".join(f"  {line}" for line in projects)
+        msg = (
+            f"org={org!r} has no recorded board and {len(projects)} open projects;"
+            f" pass --board-url with one of them:\n{listing}"
+        )
+        raise ValueError(msg)
+    if dry_run:
+        return None, "would create"
+    created = run(
+        [
+            "gh",
+            "project",
+            "create",
+            "--owner",
+            org,
+            "--title",
+            org,
+            "--format",
+            "json",
+            "--jq",
+            ".url",
+        ],
+        None,
+    )
+    return created.strip(), "created"

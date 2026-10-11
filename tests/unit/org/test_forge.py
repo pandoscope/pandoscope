@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from pandoscope.org.forge import create_repo, existing_repos, run
+from pandoscope.org.forge import create_repo, ensure_board, existing_repos, run
 from pandoscope.org.plan import Repo
 
 from .fakes import FakeRun
@@ -68,3 +68,48 @@ def test_run_failure_names_command_cwd_and_stderr(tmp_path: Path) -> None:
     assert "boom" in message
     assert str(tmp_path) in message
     assert isinstance(error.value.__cause__, subprocess.CalledProcessError)
+
+
+BOARD = "https://github.com/orgs/o/projects/1"
+OTHER = "https://github.com/orgs/o/projects/2"
+VARIABLES = ("gh", "api", "orgs/o/actions/variables")
+PROJECTS = ("gh", "project", "list")
+CREATE = ("gh", "project", "create")
+
+
+def calls(fake: FakeRun) -> list[tuple[str, ...]]:
+    return [cmd[:3] for cmd in fake.commands()]
+
+
+def test_ensure_board_keeps_the_board_the_org_variable_records() -> None:
+    fake = FakeRun({VARIABLES: f"{BOARD}\n"})
+    assert ensure_board("o", fake, dry_run=False) == (BOARD, "recorded")
+    assert calls(fake) == [VARIABLES]
+
+
+def test_ensure_board_adopts_the_orgs_only_open_project() -> None:
+    fake = FakeRun({PROJECTS: f"{BOARD}\tRoadmap\n"})
+    assert ensure_board("o", fake, dry_run=False) == (BOARD, "adopted")
+    assert CREATE not in calls(fake)
+
+
+def test_ensure_board_creates_one_titled_after_the_org_when_it_has_none() -> None:
+    fake = FakeRun({CREATE: f"{BOARD}\n"})
+    assert ensure_board("o", fake, dry_run=False) == (BOARD, "created")
+    create = next(cmd for cmd in fake.commands() if cmd[:3] == CREATE)
+    assert create[3:7] == ("--owner", "o", "--title", "o")
+
+
+def test_ensure_board_dry_run_creates_nothing() -> None:
+    fake = FakeRun()
+    assert ensure_board("o", fake, dry_run=True) == (None, "would create")
+    assert CREATE not in calls(fake)
+
+
+def test_ensure_board_refuses_to_guess_between_open_projects() -> None:
+    fake = FakeRun({PROJECTS: f"{BOARD}\tRoadmap\n{OTHER}\tBugs\n"})
+    with pytest.raises(ValueError, match="--board-url") as error:
+        ensure_board("o", fake, dry_run=True)
+    assert BOARD in str(error.value)
+    assert OTHER in str(error.value)
+    assert CREATE not in calls(fake)

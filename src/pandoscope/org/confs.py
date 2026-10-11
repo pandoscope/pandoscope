@@ -19,6 +19,7 @@ from pandoscope.org.plan import Repo
 
 ORG_LINE = re.compile(r'^ORG="[^"]*"$', re.MULTILINE)
 EXCEPT_ENTRY = re.compile(r'^(\s*"[^"|]+)\|except:[^"]*"', re.MULTILINE)
+SETTINGS_ARRAY = re.compile(r"^(SETTINGS=\(\n)(.*?)^\)", re.MULTILINE | re.DOTALL)
 
 
 @dataclass(frozen=True)
@@ -58,6 +59,22 @@ def retarget_excepts(conf: str, direct: list[str]) -> str:
     """
     scope = f"except:{','.join(direct)}" if direct else "all"
     return EXCEPT_ENTRY.sub(rf'\1|{scope}"', conf)
+
+
+def with_setting(conf: str, key: str, value: str, scope: str) -> str:
+    """
+    Return the settings ``conf`` with ``key`` declared as ``value`` over ``scope``.
+
+    A declaration of ``key`` that ``conf`` already carries is replaced.
+    Raises ValueError when ``conf`` has no ``SETTINGS=(`` array.
+    """
+    array = SETTINGS_ARRAY.search(conf)
+    if not array:
+        msg = f"conf has no SETTINGS=( array to declare key={key!r} in"
+        raise ValueError(msg)
+    body = re.sub(rf'^\s*"{re.escape(key)}\|[^"]*"\n', "", array.group(2), flags=re.M)
+    declared = f'{array.group(1)}{body}    "{key}|{value}|{scope}"\n)'
+    return conf[: array.start()] + declared + conf[array.end() :]
 
 
 def credentials_conf(org: str, plan: list[Repo], creds: Credentials) -> str:
