@@ -40,6 +40,8 @@ def run_org_init(
         msg = f"--meta {meta} has no scripts/sync-gh-repo-settings.sh"
         raise ValueError(msg)
     release_bot = _release_bot(args)
+    # Every check of the arguments runs before _board, which can create a board.
+    plan = _plan(args)
     board_url = _board(args, run)
     creds = None
     if release_bot:
@@ -48,7 +50,6 @@ def run_org_init(
     secrets = (
         Path(args.secrets) if args.secrets else meta / ".secrets" / "orgs" / args.org
     )
-    plan = _plan(args)
 
     def bound_reconcile(org: str, plan: list[Repo]) -> list[reconcile.Outcome]:
         return reconcile.reconcile(
