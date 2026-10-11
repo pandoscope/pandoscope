@@ -73,6 +73,9 @@ def _repo(org: str, entry: dict[str, Any], gate: dict[str, str]) -> Repo:
     if kind not in KINDS:
         msg = f"repo={name!r} has kind={kind!r}; expected one of {KINDS}"
         raise ValueError(msg)
+    if kind != "store" and "store" in entry:
+        msg = f"repo={name!r} of kind={kind!r} has store={entry['store']!r}; only a store has one"
+        raise ValueError(msg)
     if kind == "store" and entry.get("store") not in STORES:
         msg = (
             f"repo={name!r} of kind 'store' has store={entry.get('store')!r};"
