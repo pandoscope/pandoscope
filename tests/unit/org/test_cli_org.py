@@ -47,7 +47,6 @@ def test_org_init_requires_every_plan_input(missing: str) -> None:
         build_parser().parse_args(argv)
 
 
-@pytest.mark.xfail(strict=True)
 def test_org_init_without_a_plan_file_reports_missing_flags_as_usage(
     tmp_path: object,
 ) -> None:

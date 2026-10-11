@@ -179,6 +179,18 @@ def main(argv: list[str] | None = None) -> int:
         return run_order_check(args.files)
     if args.command == "org" and args.org_command == "plan":
         return run_org_plan(args)
+    if args.command == "org" and not args.plan:
+        missing = [
+            flag
+            for flag, value in (
+                ("--project", args.project),
+                ("--description", args.description),
+                ("--approver", args.approver),
+            )
+            if not value
+        ]
+        if missing:
+            build_parser().error(f"without --plan, org init needs {', '.join(missing)}")
     if args.command == "org":
         return run_org_init(args)
     return 0
