@@ -39,6 +39,9 @@ def read_plan(path: Path, org: str) -> list[Repo]:
     if data["org"] != org:
         msg = f"plan file {path} is for org={data['org']!r}, not org={org!r}"
         raise ValueError(msg)
+    if not data["approvers"]:
+        msg = f"plan file {path} has no approvers; the merge gate needs at least one"
+        raise ValueError(msg)
     names = [entry["name"] for entry in data["repos"]]
     twins = sorted({name for name in names if names.count(name) > 1})
     if twins:
