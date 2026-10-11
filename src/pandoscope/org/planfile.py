@@ -23,15 +23,27 @@ def read_plan(path: Path, org: str) -> list[Repo]:
     """
     Return the repo plan the YAML file at ``path`` declares for ``org``.
 
-    The file holds ``org``, ``approvers`` (human logins) and ``repos``,
-    a list of entries with ``name``, ``purpose`` and ``kind``
-    (``code``, ``docs``, ``store`` or ``plain``),
-    ``store`` (the store subtemplate, for ``kind: store`` only),
-    and optionally ``title`` (the stamped project name, default the name),
-    ``description`` (the stamped project description, default the purpose),
-    ``private`` (default true) and ``direct_pushes`` (default false).
-    Raises ValueError naming the offending value when the file does not
-    hold a valid plan for ``org``.
+    The file holds three keys:
+
+    - ``org``: the org the plan is for.
+    - ``approvers``: the human logins whose Approve satisfies the merge gate.
+    - ``repos``: one entry per repo.
+
+    Each entry has these fields:
+
+    - ``name``: the repo's name.
+    - ``purpose``: its description on the forge.
+    - ``kind``: ``code``, ``docs``, ``store`` or ``plain``.
+    - ``store``: the store subtemplate it is stamped from,
+      for ``kind: store`` only.
+    - ``title``, optional: the stamped project name, by default the name.
+    - ``description``, optional: the stamped project description,
+      by default the purpose.
+    - ``private``, optional: true by default.
+    - ``direct_pushes``, optional: false by default.
+
+    Raises ValueError naming the offending value
+    when the file does not hold a valid plan for ``org``.
     """
     # DECISION:IFACE — YAML, not TOML as #46 sketched: PyYAML is already a
     # dependency and also writes the file (render_plan); TOML would need a writer.
