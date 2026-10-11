@@ -154,7 +154,6 @@ def test_a_store_field_on_an_entry_that_is_no_store_is_refused(tmp_path: Path) -
         read_plan(plan_file(tmp_path, text), "o")
 
 
-@pytest.mark.xfail(strict=True)
 def test_names_differing_only_in_case_are_refused_as_twins(tmp_path: Path) -> None:
     text = one_repo(
         "  - {name: App, kind: code, purpose: p}\n  - {name: app, kind: docs, purpose: q}\n"
