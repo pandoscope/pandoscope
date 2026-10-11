@@ -142,7 +142,6 @@ def test_the_rendered_default_plan_reads_back_as_the_same_plan(
     assert read_plan(plan_file(tmp_path, text), "o") == plan
 
 
-@pytest.mark.xfail(strict=True)
 def test_a_plan_file_without_approvers_is_refused(tmp_path: Path) -> None:
     text = "org: o\napprovers: []\nrepos:\n  - {name: app, kind: code, purpose: p}\n"
     with pytest.raises(ValueError, match="approvers"):
