@@ -239,3 +239,61 @@ def test_org_plan_prints_the_default_plan_as_a_file_init_reads(
     assert read_plan(plan, "o") == default_plan(
         "o", project="app", description="The app.", approvers=["human"]
     )
+
+
+PREFIXED_PLAN = """\
+org: o
+approvers: [human]
+repos:
+  - {name: meta, title: Meta, kind: docs, purpose: Org-level docs.}
+  - {name: app, kind: code, purpose: The app.}
+  - {name: helper, kind: code, purpose: The helper.}
+  - name: pando-session-memory
+    kind: store
+    store: session-memory
+    purpose: Sessions.
+    direct_pushes: true
+  - {name: pando-waybill, kind: plain, purpose: Orders., direct_pushes: true}
+"""
+
+
+def test_prefixed_stores_are_created_stamped_and_reconciled_by_their_names(
+    tmp_path: Path,
+) -> None:
+    stamped: list[str] = []
+
+    def fake_stamp(directory: str, data: object = None, **_: object) -> None:
+        stamped.append(Path(directory).name)
+
+    plan = tmp_path / "org.yml"
+    plan.write_text(PREFIXED_PLAN)
+    fake, fake_exec = FakeRun(), FakeExec()
+    run_org_init(
+        plan_args(
+            fake_meta(tmp_path),
+            plan,
+            "--workdir",
+            str(tmp_path / "w"),
+            "--secrets",
+            str(tmp_path / "s"),
+            *BOT,
+        ),
+        run=fake,
+        exec_=fake_exec,
+        stamp_with=fake_stamp,
+    )
+    created = [cmd[3] for cmd in fake.commands() if cmd[:3] == ("gh", "repo", "create")]
+    assert created == [
+        "o/meta",
+        "o/app",
+        "o/helper",
+        "o/pando-session-memory",
+        "o/pando-waybill",
+    ]
+    assert stamped == ["meta", "app", "helper", "pando-session-memory"]
+    env = next(env for _, env in fake_exec.calls if "SYNC_RULESETS_CONF" in env)
+    rulesets = Path(env["SYNC_RULESETS_CONF"]).read_text()
+    assert '"p.json|except:pando-session-memory,pando-waybill"' in rulesets
+    assert '"var|SESSION_MEMORY_REPO|all|o/pando-session-memory"' in credentials_conf(
+        fake_exec
+    )
