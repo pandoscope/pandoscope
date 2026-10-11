@@ -14,7 +14,12 @@ from pandoscope.org.plan import Repo
 PLAN = [
     Repo("meta", "m", {"agentic_subtemplate": "template"}),
     Repo("somnus", "s", {"agentic_subtemplate": "template"}),
-    Repo("session-memory", "s", {"agentic_subtemplate": "x"}, direct_pushes=True),
+    Repo(
+        "session-memory",
+        "s",
+        {"agentic_subtemplate": "session-memory"},
+        direct_pushes=True,
+    ),
     Repo("waybill", "w", direct_pushes=True),
 ]
 
@@ -104,9 +109,23 @@ def test_credentials_declare_the_shared_secrets(secret: str) -> None:
     assert f'"secret|{secret}' in credentials_conf("o", PLAN, full())
 
 
-def test_credentials_without_a_session_store_refuse() -> None:
-    with pytest.raises(ValueError, match="session-memory"):
-        credentials_conf("o", PLAN[:2], full())
+def test_credentials_without_a_session_store_leave_its_variable_out() -> None:
+    conf = credentials_conf("o", PLAN[:2], full())
+    assert "SESSION_MEMORY_REPO" not in conf
+
+
+def test_the_session_store_variable_names_the_store_under_its_own_name() -> None:
+    plan = [
+        *PLAN[:2],
+        Repo(
+            "pando-session-memory",
+            "s",
+            {"agentic_subtemplate": "session-memory"},
+            direct_pushes=True,
+        ),
+    ]
+    conf = credentials_conf("o", plan, full())
+    assert '"var|SESSION_MEMORY_REPO|all|o/pando-session-memory"' in conf
 
 
 META_SETTINGS = """\
