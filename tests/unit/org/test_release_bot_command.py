@@ -158,3 +158,15 @@ def test_a_seeded_directory_with_an_empty_key_placeholder_is_filled(tmp_path: Pa
     flow = Flow()
     assert go(flow, tmp_path) == 0
     assert (secrets / KEY_FILE).read_text() == CONVERSION["pem"]
+
+
+def test_a_refused_conversion_shows_no_key_material(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    flow = Flow()
+    flow.run = FakeRun({EXCHANGE: json.dumps({**CONVERSION, "slug": "x$(touch pwned)"})})
+    with pytest.raises(ValueError) as error:
+        go(flow, tmp_path)
+    shown = str(error.value) + capsys.readouterr().out
+    assert "synthetic key material" not in shown
+    assert "not-kept" not in shown
