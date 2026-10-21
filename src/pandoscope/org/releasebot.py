@@ -51,9 +51,23 @@ class Callback(Protocol):
 
     url: str
 
-    def wait(self, page: str) -> str:
-        """Serve ``page`` at ``/`` and return the code ``/callback`` receives."""
+    def wait(self) -> str:
+        """Return the code the first ``/callback`` with this flow's state brings."""
         ...
+
+    def close(self) -> None:
+        """Release the port; until then no one else can bind it."""
+        ...
+
+
+def page_file(page: str) -> Path:
+    """
+    Write ``page`` to a new file only the current user can read; return its path.
+
+    The page carries the flow's state, so it never goes over the network:
+    the browser opens it from this file.
+    """
+    raise NotImplementedError
 
 
 def listen(state: str, timeout: float = 600, read_timeout: float = 5) -> Callback:
@@ -119,7 +133,10 @@ class _LocalCallback:
 
         return Handler
 
-    def wait(self, page: str) -> str:
+    def close(self) -> None:
+        """Release the port (stub: wait still closes it)."""
+
+    def wait(self, page: str = "") -> str:
         """Serve ``page`` until the callback brings this flow's code; return it."""
         self._page = page
         deadline = time.monotonic() + self._timeout
