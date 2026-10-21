@@ -1,0 +1,116 @@
+{
+  "pr": "pandoscope/pandoscope#50",
+  "head": "05ffee55e88cf6f57797d0495a0b84882933264b",
+  "pass": "prose",
+  "model_tier": "opus",
+  "findings": [
+    {
+      "file": "src/pandoscope/cli.py",
+      "line": 114,
+      "rule": "Erase every mention of a removed feature, and put migration notes in the commit's BREAKING CHANGE footer.",
+      "input": "help=\"slug of the org's release-bot GitHub App; without it, \" \"credentials are skipped\",",
+      "finding_basis": "judged",
+      "confidence": 80,
+      "finding": "The `--release-bot-app` help text still says that leaving out the flag skips credentials, but this change makes `org init` fall back to the app that `org release-bot` recorded, as README.md and `run_org_init` now say."
+    },
+    {
+      "file": "README.md",
+      "line": 195,
+      "rule": "Make every \"the X\" and \"its\" point to something named in the current or previous sentence.",
+      "input": "Without `--release-bot-app` and `--release-bot-client-id`, the command uses the app `org release-bot` recorded in the secrets directory;\nwith neither, the credentials step is skipped.",
+      "finding_basis": "judged",
+      "confidence": 70,
+      "finding": "In this paragraph, \"with neither\" has no clear referent: it could mean neither flag, which the previous clause already covers, or neither the flags nor a recorded app, which the text never states."
+    },
+    {
+      "file": "README.md",
+      "line": 195,
+      "rule": "Open a relative clause with \"that\" or \"which\", or give it a sentence of its own.",
+      "input": "the command uses the app `org release-bot` recorded in the secrets directory",
+      "finding_basis": "judged",
+      "confidence": 70,
+      "finding": "The relative clause has no \"that\", so the code span `org release-bot` reads as the app's name and not as the command that recorded the app."
+    },
+    {
+      "file": "src/pandoscope/org/command.py",
+      "line": 168,
+      "rule": "Open a relative clause with \"that\" or \"which\", or give it a sentence of its own.",
+      "input": "# Without the flags, the app `org release-bot` created for this org.",
+      "finding_basis": "judged",
+      "confidence": 65,
+      "finding": "This comment is a verbless fragment built on a reduced relative clause, so `org release-bot` reads as the app's name and not as the command that created the app."
+    },
+    {
+      "file": "src/pandoscope/org/command.py",
+      "line": 90,
+      "rule": "Break new or rewritten prose at sentence or clause boundaries, one per line.",
+      "input": "Opens the manifest page and, once the app exists, its install page in the\nprincipal's browser, and prints the client ID. The key goes to the org's\nsecrets directory and is never printed.",
+      "finding_basis": "decided",
+      "confidence": 85,
+      "finding": "The `run_org_release_bot` docstring is wrapped at a fixed width: lines break inside noun phrases, and two sentences share a line."
+    },
+    {
+      "file": "src/pandoscope/org/releasebot.py",
+      "line": 1,
+      "rule": "Break new or rewritten prose at sentence or clause boundaries, one per line.",
+      "input": "the page `form_page` renders posts the manifest to GitHub, the principal\nconfirms \"Create GitHub App\", and GitHub redirects back to a local callback\nwith a one-time code that `convert` exchanges for the app's credentials.",
+      "finding_basis": "decided",
+      "confidence": 85,
+      "finding": "The module docstring is wrapped at a fixed width and breaks inside clauses (\"the principal / confirms\", \"the second / confirmation\")."
+    },
+    {
+      "file": "src/pandoscope/org/releasebot.py",
+      "line": 54,
+      "rule": "Break new or rewritten prose at sentence or clause boundaries, one per line.",
+      "input": "Its ``wait`` serves the page at ``/``, ignores every request but the\nredirect with this ``state``, and returns that redirect's code.",
+      "finding_basis": "decided",
+      "confidence": 75,
+      "finding": "The `listen` docstring breaks a line in the middle of the noun phrase \"every request but the redirect\"."
+    },
+    {
+      "file": "src/pandoscope/org/releasebot.py",
+      "line": 198,
+      "rule": "Break new or rewritten prose at sentence or clause boundaries, one per line.",
+      "input": "The key goes to ``KEY_FILE`` with mode 0600; slug, app id and client ID go\nto ``RECORD_FILE``. The client secret is not kept.",
+      "finding_basis": "decided",
+      "confidence": 75,
+      "finding": "The `store` docstring breaks a line between \"go\" and its complement, and two sentences share the next line."
+    },
+    {
+      "file": "src/pandoscope/org/releasebot.py",
+      "line": 1,
+      "rule": "Open a relative clause with \"that\" or \"which\", or give it a sentence of its own.",
+      "input": "the page `form_page` renders posts the manifest to GitHub",
+      "finding_basis": "judged",
+      "confidence": 65,
+      "finding": "The module docstring's reduced relative clause \"the page `form_page` renders posts\" puts two verbs side by side, so the sentence reads wrong until the reader re-parses it."
+    },
+    {
+      "file": "src/pandoscope/org/command.py",
+      "line": 28,
+      "rule": "Break new or rewritten prose at sentence or clause boundaries, one per line.",
+      "input": "Returns 0 when every reconciler converged, 1 when any reported drift\nor a manual step.",
+      "finding_basis": "judged",
+      "confidence": 60,
+      "finding": "The `run_org_init` docstring breaks a line inside the object \"drift or a manual step\"."
+    },
+    {
+      "file": "src/pandoscope/org/releasebot.py",
+      "line": 1,
+      "rule": "Link a fact maintained elsewhere instead of restating it as a count, a far position or a section name, and drop a count that the list after it states, while adjacency words stay fine.",
+      "input": "The flow needs two confirmations in the principal's browser and nothing else:",
+      "finding_basis": "judged",
+      "confidence": 55,
+      "finding": "The module docstring states the count \"two confirmations\" before the sentences that name both confirmations, and those sentences put the second confirmation outside the flow, which contradicts \"and nothing else\"."
+    },
+    {
+      "file": "src/pandoscope/cli.py",
+      "line": 78,
+      "rule": "State the present, and leave history to commit messages.",
+      "input": "\"\"\"Add ``org init``: create an org's repos, stamp them, reconcile the org.\"\"\"",
+      "finding_basis": "judged",
+      "confidence": 50,
+      "finding": "The `add_org_parser` docstring names only `org init`, but the function now also adds the `org plan` and `org release-bot` subcommands."
+    }
+  ]
+}
