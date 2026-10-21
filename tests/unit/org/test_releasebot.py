@@ -182,8 +182,13 @@ def test_the_install_page_is_the_apps_own() -> None:
     )
 
 
-def test_the_page_file_is_readable_by_its_owner_only() -> None:
+def test_the_page_file_is_readable_by_its_owner_only(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The page holds a state: pytest's tmp_path cleans it up, the system's would not.
+    monkeypatch.setattr(tempfile, "tempdir", str(tmp_path))
     path = page_file("<p>state</p>")
+    assert path.parent.parent == tmp_path
     assert path.read_text() == "<p>state</p>"
     assert stat.S_IMODE(path.stat().st_mode) == 0o600
     assert stat.S_IMODE(path.parent.stat().st_mode) == 0o700
