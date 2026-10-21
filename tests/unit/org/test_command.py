@@ -325,3 +325,42 @@ def test_without_bot_flags_org_init_uses_the_recorded_release_bot(tmp_path: Path
     conf = credentials_conf(fake_exec)
     assert '"o-release-bot"' in conf
     assert '"var|RELEASE_BOT_CLIENT_ID|all|Iv23rec"' in conf
+
+
+@pytest.mark.xfail(strict=True)
+@pytest.mark.parametrize(
+    ("extra", "named"),
+    [
+        (("--release-bot-app", 'x$(touch pwned)', "--release-bot-client-id", "Iv1"), "release-bot-app"),
+        (("--release-bot-app", "x", "--release-bot-client-id", 'Iv1"; rm -rf ~'), "client"),
+        (("--board-url", "https://evil.example/x\"$(id)"), "board"),
+    ],
+    ids=["app", "client-id", "board-url"],
+)
+def test_odd_flag_values_are_refused_before_any_forge_call(
+    tmp_path: Path, extra: tuple[str, ...], named: str
+) -> None:
+    plan = tmp_path / "org.yml"
+    plan.write_text(PLAN_FILE)
+    fake = FakeRun()
+    with pytest.raises(ValueError, match=named):
+        run_org_init(
+            plan_args(fake_meta(tmp_path), plan, "--dry-run", *extra),
+            run=fake,
+            exec_=FakeExec(),
+            stamp_with=no_stamp,
+        )
+    assert fake.commands() == []
+
+
+@pytest.mark.xfail(strict=True)
+@pytest.mark.parametrize("org", ["../escape", 'o"x', "dash-", "o/sub"])
+def test_an_org_that_is_no_github_login_is_refused(tmp_path: Path, org: str) -> None:
+    argv = ["org", "init", org, "--meta", str(fake_meta(tmp_path)), "--dry-run"]
+    argv += ["--project", "app", "--description", "d", "--approver", "h"]
+    fake = FakeRun()
+    with pytest.raises(ValueError, match="org"):
+        run_org_init(
+            build_parser().parse_args(argv), run=fake, exec_=FakeExec(), stamp_with=no_stamp
+        )
+    assert fake.commands() == []

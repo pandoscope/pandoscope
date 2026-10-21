@@ -219,3 +219,19 @@ def test_a_key_that_appears_during_the_wait_points_at_the_new_app(
         go(flow, tmp_path)
     assert "https://github.com/organizations/o/settings/apps/o-release-bot" in capsys.readouterr().out
     assert (secrets / KEY_FILE).read_text() == "another run's key\n"
+
+
+@pytest.mark.xfail(strict=True)
+@pytest.mark.parametrize(
+    ("org", "extra", "named"),
+    [("../escape", (), "org"), ("o", ("--name", 'bot"><x'), "name"), ("o", ("--name", "x" * 35), "name")],
+    ids=["org", "name-chars", "name-length"],
+)
+def test_odd_org_or_name_is_refused_before_the_flow(
+    tmp_path: Path, org: str, extra: tuple[str, ...], named: str
+) -> None:
+    flow = Flow()
+    args = build_parser().parse_args(["org", "release-bot", org, "--meta", str(tmp_path), *extra])
+    with pytest.raises(ValueError, match=named):
+        run_org_release_bot(args, run=flow.run, listen=flow.listen, browse=flow.browse)
+    assert flow.states == []
