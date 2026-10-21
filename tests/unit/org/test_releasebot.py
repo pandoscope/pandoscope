@@ -5,6 +5,9 @@ import json
 import os
 import re
 import stat
+import subprocess
+import sys
+import tempfile
 from pathlib import Path
 
 import pytest
@@ -185,6 +188,35 @@ def test_the_page_file_is_readable_by_its_owner_only() -> None:
     assert stat.S_IMODE(path.stat().st_mode) == 0o600
     assert stat.S_IMODE(path.parent.stat().st_mode) == 0o700
 
+
+
+@pytest.mark.xfail(strict=True, reason="page_file writes in the locale's encoding")
+def test_the_page_file_is_utf8_whatever_the_locale(tmp_path: Path) -> None:
+    # An ASCII locale, as a bare C locale gives when Python does not coerce it.
+    env = {
+        **os.environ,
+        "LC_ALL": "C",
+        "LANG": "C",
+        "PYTHONCOERCECLOCALE": "0",
+        "PYTHONUTF8": "0",
+        "TMPDIR": str(tmp_path),
+    }
+    script = "from pandoscope.org.releasebot import page_file; print(page_file('<p>\u2026</p>'))"
+    done = subprocess.run(  # noqa: S603 - the test's own interpreter
+        [sys.executable, "-c", script], env=env, capture_output=True, text=True, check=False
+    )
+    assert done.returncode == 0, done.stderr
+    assert Path(done.stdout.strip()).read_bytes() == "<p>\u2026</p>".encode()
+
+
+@pytest.mark.xfail(strict=True, reason="page_file leaves its directory behind on failure")
+def test_a_page_file_that_cannot_be_written_leaves_nothing_behind(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(tempfile, "tempdir", str(tmp_path))
+    with pytest.raises(UnicodeEncodeError):
+        page_file("<p>\ud800</p>")
+    assert list(tmp_path.iterdir()) == []
 
 
 @pytest.mark.parametrize(
