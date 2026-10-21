@@ -306,3 +306,23 @@ def test_missing_plan_flags_are_refused_before_any_forge_call(tmp_path: Path) ->
     with pytest.raises(ValueError, match="--plan"):
         run_org_init(build_parser().parse_args(argv), run=fake, exec_=FakeExec())
     assert fake.commands() == []
+
+
+@pytest.mark.xfail(strict=True)
+def test_without_bot_flags_org_init_uses_the_recorded_release_bot(tmp_path: Path) -> None:
+    secrets = tmp_path / "s"
+    secrets.mkdir()
+    (secrets / "release-bot.json").write_text(
+        '{"slug": "o-release-bot", "app_id": 4711, "client_id": "Iv23rec"}\n'
+    )
+    plan = tmp_path / "org.yml"
+    plan.write_text(PLAN_FILE)
+    fake_exec = FakeExec()
+    run_org_init(
+        plan_args(fake_meta(tmp_path), plan, "--dry-run", "--secrets", str(secrets)),
+        run=FakeRun(),
+        exec_=fake_exec,
+    )
+    conf = credentials_conf(fake_exec)
+    assert '"o-release-bot"' in conf
+    assert '"var|RELEASE_BOT_CLIENT_ID|all|Iv23rec"' in conf
