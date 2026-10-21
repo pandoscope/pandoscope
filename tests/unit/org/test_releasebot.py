@@ -221,3 +221,38 @@ def test_an_idle_connection_does_not_hold_the_callback_past_its_timeout() -> Non
     idle.close()
     assert not waiter.is_alive()
     assert len(raised) == 1
+
+
+@pytest.mark.xfail(strict=True)
+@pytest.mark.parametrize(
+    "change",
+    [
+        {"pem": None},
+        {"slug": None},
+        {"id": None},
+        {"client_id": None},
+        {"pem": ""},
+        {"slug": "x$(touch pwned)"},
+        {"slug": "../../elsewhere"},
+        {"client_id": 'Iv23"; rm -rf ~; "'},
+        {"id": "4711"},
+        {"id": True},
+    ],
+    ids=["no-pem", "no-slug", "no-id", "no-client-id", "empty-pem", "shell-slug", "path-slug", "shell-client-id", "string-id", "bool-id"],
+)
+def test_a_conversion_with_a_missing_or_odd_field_is_refused_before_any_write(
+    tmp_path: Path, change: dict[str, object]
+) -> None:
+    conversion = {k: v for k, v in {**CONVERSION, **change}.items() if v is not None}
+    with pytest.raises(ValueError):
+        store(tmp_path, conversion)
+    assert list(tmp_path.iterdir()) == []
+
+
+@pytest.mark.xfail(strict=True)
+def test_a_planted_record_with_shell_characters_is_refused_on_reading(tmp_path: Path) -> None:
+    (tmp_path / RECORD_FILE).write_text(
+        '{"slug": "x$(touch pwned)", "app_id": 1, "client_id": "Iv23abc"}\n'
+    )
+    with pytest.raises(ValueError, match="slug"):
+        recorded(tmp_path)
