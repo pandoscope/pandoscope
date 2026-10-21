@@ -6,7 +6,9 @@ import re
 
 import pytest
 
-from pandoscope.org.releasebot import callback_code, form_page, manifest
+from pandoscope.org.releasebot import callback_code, convert, form_page, manifest
+
+from .fakes import FakeRun
 
 CALLBACK = "http://127.0.0.1:8123/callback"
 
@@ -65,3 +67,30 @@ def test_the_callback_with_its_own_state_yields_the_code() -> None:
 )
 def test_any_other_request_yields_no_code(path: str) -> None:
     assert callback_code(path, "s-123") is None
+
+
+CONVERSION = {
+    "id": 4711,
+    "slug": "o-release-bot",
+    "client_id": "Iv23abc",
+    "client_secret": "not-kept",
+    "webhook_secret": None,
+    "pem": "synthetic key material\n",
+}
+EXCHANGE = ("gh", "api", "--method", "POST", "app-manifests/abc123/conversions")
+
+
+@pytest.mark.xfail(strict=True)
+def test_the_code_is_exchanged_for_the_apps_credentials() -> None:
+    fake = FakeRun({EXCHANGE: json.dumps(CONVERSION)})
+    assert convert("abc123", fake) == CONVERSION
+    assert fake.commands() == [EXCHANGE]
+
+
+@pytest.mark.xfail(strict=True)
+@pytest.mark.parametrize("code", ["../users", "abc 123", "abc?x=1", ""])
+def test_a_code_that_is_no_plain_token_is_refused_before_any_call(code: str) -> None:
+    fake = FakeRun()
+    with pytest.raises(ValueError, match="code"):
+        convert(code, fake)
+    assert fake.commands() == []
