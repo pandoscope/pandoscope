@@ -89,6 +89,7 @@ def run_org_release_bot(
     args: argparse.Namespace,
     *,
     run: forge.Run = forge.run,
+    fetch: releasebot.Fetch = releasebot.fetch,
     browse: Callable[[str], object] = webbrowser.open,
     ask: Callable[[str], str] = getpass.getpass,
 ) -> int:

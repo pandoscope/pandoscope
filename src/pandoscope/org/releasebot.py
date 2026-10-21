@@ -24,7 +24,7 @@ import os
 import re
 import stat
 import tempfile
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from pathlib import Path
 from urllib.parse import parse_qs, quote, urlsplit
 from typing import Any
@@ -152,6 +152,21 @@ def pasted_code(url: str, org: str, state: str) -> str | None:
     if not hmac.compare_digest(states[0].encode(), state.encode()):
         return None
     return codes[0]
+
+
+# One HTTPS request to GitHub's API: method and URL in, response body out.
+Fetch = Callable[[str, str], bytes]
+API = "https://api.github.com"
+
+
+def fetch(method: str, url: str) -> bytes:
+    """
+    Send one ``method`` request to ``url`` on GitHub's API, without a token; return the body.
+
+    Raises urllib's errors: HTTPError for an answer other than 2xx, URLError
+    when GitHub cannot be reached or its certificate does not verify.
+    """
+    raise NotImplementedError
 
 
 def convert(code: str, run: Run) -> dict[str, Any]:
