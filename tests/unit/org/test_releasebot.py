@@ -235,7 +235,6 @@ def test_a_store_waits_for_the_lock_and_then_sees_the_key_another_run_kept(
     assert (secrets / KEY_FILE).read_text() == "the first run's key\n"
 
 
-@pytest.mark.xfail(strict=True, reason="no fallback when hard links are unsupported")
 @pytest.mark.parametrize("code", [errno.ENOTSUP, errno.EOPNOTSUPP, errno.EPERM], ids=["ENOTSUP", "EOPNOTSUPP", "EPERM"])
 def test_a_filesystem_without_hard_links_still_gets_the_key(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, code: int
@@ -251,7 +250,6 @@ def test_a_filesystem_without_hard_links_still_gets_the_key(
     assert sorted(path.name for path in tmp_path.iterdir()) == sorted([KEY_FILE, RECORD_FILE])
 
 
-@pytest.mark.xfail(strict=True, reason="parents take the umask's mode")
 def test_missing_parents_are_created_private(tmp_path: Path) -> None:
     secrets = tmp_path / "meta" / ".secrets" / "orgs" / "o"
     store(secrets, CONVERSION, "o")
@@ -259,7 +257,6 @@ def test_missing_parents_are_created_private(tmp_path: Path) -> None:
         assert stat.S_IMODE(directory.stat().st_mode) == 0o700, directory
 
 
-@pytest.mark.xfail(strict=True, reason="only the secrets directory itself is checked")
 def test_a_parent_others_can_write_is_refused(tmp_path: Path) -> None:
     shared = tmp_path / "shared"
     shared.mkdir()
@@ -277,7 +274,6 @@ def test_a_sticky_parent_others_can_write_is_fine(tmp_path: Path) -> None:
     assert (shared / "o" / KEY_FILE).read_text() == CONVERSION["pem"]
 
 
-@pytest.mark.xfail(strict=True, reason="nothing is synced before the key is linked")
 def test_the_key_reaches_the_disk_before_it_is_linked(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -299,7 +295,6 @@ def test_the_key_reaches_the_disk_before_it_is_linked(
     assert "fsync" in calls[: calls.index("link")]
 
 
-@pytest.mark.xfail(strict=True, reason="store writes by path, not through the directory it checked")
 def test_a_secrets_directory_swapped_after_its_check_gets_nothing(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -488,14 +483,15 @@ def test_a_temp_file_swapped_for_a_symlink_is_never_linked(
     secrets.mkdir(mode=0o700)
     victim = tmp_path / "victim"
     victim.write_text("someone else's file\n")
-    swapped = secrets / ".pandoscope-swapped"
-    swapped.symlink_to(victim)
-    written = tmp_path / "written"
+    real_fsync = os.fsync
 
-    def fake_mkstemp(dir: Path, prefix: str) -> tuple[int, str]:  # noqa: A002
-        return os.open(written, os.O_WRONLY | os.O_CREAT, 0o600), str(swapped)
+    def fsync_then_swap(fd: int) -> None:
+        real_fsync(fd)
+        for temp in secrets.glob(".pandoscope-*"):
+            temp.unlink()
+            temp.symlink_to(victim)
 
-    monkeypatch.setattr("pandoscope.org.releasebot.tempfile.mkstemp", fake_mkstemp)
+    monkeypatch.setattr(os, "fsync", fsync_then_swap)
     with pytest.raises(ValueError, match="temp"):
         store(secrets, CONVERSION, "o")
     assert not (secrets / KEY_FILE).exists()

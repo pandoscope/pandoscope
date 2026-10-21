@@ -16,6 +16,7 @@ Flow authority: GitHub's "Registering a GitHub App from a manifest" docs.
 from __future__ import annotations
 
 import contextlib
+import errno
 import fcntl
 import hmac
 import html
@@ -223,39 +224,33 @@ def store(secrets: Path, conversion: dict[str, Any], org: str) -> dict[str, Any]
     if not isinstance(pem, str) or not pem.strip():
         msg = "the conversion carries no private key"
         raise ValueError(msg)
-    secrets.mkdir(mode=0o700, parents=True, exist_ok=True)
-    _own_private_directory(secrets)
+    _private_parents(secrets.parent)
+    with contextlib.suppress(FileExistsError):
+        secrets.mkdir(mode=0o700)
     key = secrets / KEY_FILE
-    # DECISION:SEC — one store per directory at a time, and the key checked
-    # again under the lock: two runs that both found the empty placeholder
-    # would otherwise both replace it, and the first app's key would be lost.
-    with _locked(secrets):
-        if key_in_use(secrets):
+    # DECISION:SEC — every step goes through the directory as opened and
+    # checked, never by path again: a directory swapped afterwards gets nothing.
+    # One store per directory at a time, and the key checked again under the
+    # lock: two runs that both found the empty placeholder would otherwise
+    # both replace it, and the first app's key would be lost.
+    with _locked_private_directory(secrets) as directory:
+        held = _entry(directory, KEY_FILE)
+        placeholder = held is not None and _is_empty_file(held)
+        if held is not None and not placeholder:
             msg = f"{key} already holds a release-bot key"
             raise FileExistsError(msg)
         # DECISION:SEC — the client secret is not kept: no workflow uses it,
         # and a secret that is never written cannot leak.
         # The record goes first: if the key then fails, a rerun finds no key
         # in the way and writes both again.
-        _place(secrets, secrets / RECORD_FILE, json.dumps(record, indent=2) + "\n", replace=True)
+        _place(directory, RECORD_FILE, json.dumps(record, indent=2) + "\n", replace=True)
         # DECISION:IRREV — the key is written to a temp file and linked into
         # place: link refuses any existing entry (a key in use, a symlink), and
         # a crash leaves no half-written key. Replacing the app is a deliberate
         # step (move the key away first). Only the empty placeholder the
         # credentials seed lays out is replaced.
-        _place(secrets, key, pem, replace=is_placeholder(key))
+        _place(directory, KEY_FILE, pem, replace=placeholder)
     return record
-
-
-@contextlib.contextmanager
-def _locked(directory: Path) -> Iterator[None]:
-    """Hold an exclusive lock on ``directory`` for the duration."""
-    fd = os.open(directory, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
-    try:
-        fcntl.flock(fd, fcntl.LOCK_EX)
-        yield
-    finally:
-        os.close(fd)
 
 
 def is_placeholder(key: Path) -> bool:
@@ -264,7 +259,7 @@ def is_placeholder(key: Path) -> bool:
         info = key.lstat()
     except FileNotFoundError:
         return False
-    return stat.S_ISREG(info.st_mode) and info.st_size == 0
+    return _is_empty_file(info)
 
 
 def key_in_use(secrets: Path) -> bool:
@@ -273,9 +268,63 @@ def key_in_use(secrets: Path) -> bool:
     return os.path.lexists(key) and not is_placeholder(key)
 
 
-def _own_private_directory(directory: Path) -> None:
+def _is_empty_file(info: os.stat_result) -> bool:
+    return stat.S_ISREG(info.st_mode) and info.st_size == 0
+
+
+def _entry(directory: int, name: str) -> os.stat_result | None:
+    """Return what ``name`` in the open ``directory`` is, never following a symlink, or None."""
+    try:
+        return os.stat(name, dir_fd=directory, follow_symlinks=False)
+    except FileNotFoundError:
+        return None
+
+
+def _private_parents(directory: Path) -> None:
     """
-    Make sure ``directory`` is the current user's own, then make it 0700.
+    Make sure only the user or root can change ``directory`` and every one above it.
+
+    Creates the missing ones with mode 0700. A directory others may write
+    is fine only with the sticky bit (``/tmp``): there no one can rename
+    another's entries.
+    Raises ValueError naming the first directory that fails.
+    """
+    # DECISION:SEC — whoever can rename a parent can put another directory
+    # in the secrets directory's place between runs.
+    directory = Path(os.path.abspath(directory))
+    missing: list[Path] = []
+    existing = directory
+    while not os.path.lexists(existing):
+        missing.append(existing)
+        existing = existing.parent
+    real = Path(os.path.realpath(existing))
+    for ancestor in (real, *real.parents):
+        _check_parent(ancestor, ancestor.lstat())
+    for created in reversed(missing):
+        try:
+            os.mkdir(created, 0o700)
+        except FileExistsError:
+            pass
+        info = created.lstat()
+        if stat.S_ISLNK(info.st_mode) or not stat.S_ISDIR(info.st_mode):
+            msg = f"{created} appeared as something other than a directory"
+            raise ValueError(msg)
+        _check_parent(created, info)
+
+
+def _check_parent(directory: Path, info: os.stat_result) -> None:
+    if info.st_uid not in (os.getuid(), 0):
+        msg = f"{directory} belongs to uid {info.st_uid}, neither you nor root"
+        raise ValueError(msg)
+    if info.st_mode & 0o022 and not info.st_mode & stat.S_ISVTX:
+        msg = f"{directory} is writable by group or others"
+        raise ValueError(msg)
+
+
+@contextlib.contextmanager
+def _locked_private_directory(directory: Path) -> Iterator[int]:
+    """
+    Open ``directory``, lock it, make sure it is the user's own, make it 0700; yield its fd.
 
     Raises ValueError when it is a symlink, not a directory, owned by
     someone else, or writable by group or others: whoever can write it can
@@ -288,42 +337,99 @@ def _own_private_directory(directory: Path) -> None:
     if not stat.S_ISDIR(info.st_mode):
         msg = f"secrets path {directory} is not a directory"
         raise ValueError(msg)
-    if info.st_uid != os.getuid():
-        msg = f"secrets directory {directory} belongs to uid {info.st_uid}, not to you"
-        raise ValueError(msg)
-    if info.st_mode & 0o022:
-        msg = f"secrets directory {directory} is writable by group or others"
-        raise ValueError(msg)
-    os.chmod(directory, 0o700)
+    fd = os.open(directory, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC)
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX)
+        opened = os.fstat(fd)
+        if opened.st_uid != os.getuid():
+            msg = f"secrets directory {directory} belongs to uid {opened.st_uid}, not to you"
+            raise ValueError(msg)
+        if opened.st_mode & 0o022:
+            msg = f"secrets directory {directory} is writable by group or others"
+            raise ValueError(msg)
+        os.fchmod(fd, 0o700)
+        yield fd
+    finally:
+        os.close(fd)
 
 
-def _place(directory: Path, path: Path, text: str, *, replace: bool) -> None:
+# What link(2) answers on a filesystem without hard links (exFAT, some network mounts).
+_NO_HARD_LINKS = frozenset({errno.ENOTSUP, errno.EOPNOTSUPP, errno.EPERM})
+
+
+def _place(directory: int, name: str, text: str, *, replace: bool) -> None:
     """
-    Write ``text`` to ``path`` (mode 0600) through a temp file in ``directory``.
+    Write ``text`` to ``name`` (mode 0600) in the open ``directory`` through a temp file.
 
     Raises ValueError when the temp file is no longer the file written
     (swapped, for a symlink or another file) before it is put in place.
     """
-    fd, temp = tempfile.mkstemp(dir=directory, prefix=".pandoscope-")
+    data = text.encode()
+    temp, fd = _temp_file(directory)
     try:
-        with os.fdopen(fd, "w") as handle:
-            handle.write(text)
-            handle.flush()
-            written = os.fstat(handle.fileno())
-        current = os.lstat(temp)
-        if not stat.S_ISREG(current.st_mode) or (current.st_dev, current.st_ino) != (
-            written.st_dev,
-            written.st_ino,
+        try:
+            _write_all(fd, data)
+            os.fsync(fd)
+            written = os.fstat(fd)
+        finally:
+            os.close(fd)
+        current = _entry(directory, temp)
+        if (
+            current is None
+            or not stat.S_ISREG(current.st_mode)
+            or (current.st_dev, current.st_ino) != (written.st_dev, written.st_ino)
         ):
             msg = f"the temp file {temp} was replaced before it was put in place"
             raise ValueError(msg)
         if replace:
-            os.replace(temp, path)
+            os.replace(temp, name, src_dir_fd=directory, dst_dir_fd=directory)
         else:
-            os.link(temp, path, follow_symlinks=False)
+            try:
+                os.link(temp, name, src_dir_fd=directory, dst_dir_fd=directory, follow_symlinks=False)
+            except OSError as error:
+                if error.errno not in _NO_HARD_LINKS:
+                    raise
+                _write_new(directory, name, data)
+        os.fsync(directory)
     finally:
-        if os.path.lexists(temp):
-            os.unlink(temp)
+        with contextlib.suppress(FileNotFoundError):
+            os.unlink(temp, dir_fd=directory)
+
+
+def _temp_file(directory: int) -> tuple[str, int]:
+    """Create a new, private temp file in the open ``directory``; return its name and fd."""
+    for _ in range(8):
+        name = f".pandoscope-{os.urandom(8).hex()}"
+        try:
+            flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC
+            return name, os.open(name, flags, 0o600, dir_fd=directory)
+        except FileExistsError:
+            continue
+    msg = "no free temp file name in the secrets directory"
+    raise FileExistsError(msg)
+
+
+def _write_new(directory: int, name: str, data: bytes) -> None:
+    """Create ``name`` in the open ``directory`` (never over an entry) and write ``data``."""
+    # DECISION:IRREV — without hard links the key is created in place:
+    # still never over an existing entry, but a crash can leave it half written.
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC
+    fd = os.open(name, flags, 0o600, dir_fd=directory)
+    try:
+        try:
+            _write_all(fd, data)
+            os.fsync(fd)
+        finally:
+            os.close(fd)
+    except BaseException:
+        os.unlink(name, dir_fd=directory)
+        raise
+
+
+def _write_all(fd: int, data: bytes) -> None:
+    view = memoryview(data)
+    while view:
+        view = view[os.write(fd, view) :]
 
 
 def recorded(secrets: Path, org: str) -> dict[str, Any] | None:
