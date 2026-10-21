@@ -28,6 +28,7 @@ from pandoscope.org.plan import Repo
 
 Exec = Callable[[list[str], dict[str, str]], tuple[int, str]]
 REPORTED = ("DRIFT", "MANUAL", "FIXED")
+SEED_MARKER = "README.md"
 
 
 @dataclass(frozen=True)
@@ -86,7 +87,10 @@ def reconcile(
     """
     scripts = meta / "scripts"
     confs = secrets / "confs"
-    seed_credentials = not secrets.exists()
+    # Mirrored pair: meta's scripts/lib/gh-credentials-seed.sh writes this
+    # README when it seeds. The directory alone proves nothing: org
+    # release-bot creates it with the key before org init ever runs.
+    seed_credentials = not (secrets / SEED_MARKER).exists()
     confs.mkdir(parents=True, exist_ok=True)
     direct = [repo.name for repo in plan if repo.direct_pushes]
     planned = f"only:{','.join(repo.name for repo in plan)}"

@@ -167,7 +167,6 @@ def test_settings_make_main_every_repos_default_branch(tmp_path: Path) -> None:
     assert '"has_wiki|false|all"' in settings
 
 
-@pytest.mark.xfail(strict=True)
 def test_a_secrets_dir_holding_only_the_release_bot_is_seeded(tmp_path: Path) -> None:
     meta, secrets = fake_meta(tmp_path), tmp_path / "secrets"
     secrets.mkdir()
