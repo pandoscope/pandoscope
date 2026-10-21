@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import email.message
 import getpass
 import html
 import inspect
 import json
 import re
 import stat
+import urllib.error
 from collections.abc import Callable, Sequence
 from pathlib import Path
 
@@ -39,8 +41,25 @@ EXCHANGE = (
     "gh", "api", "--hostname", "github.com", "--method", "POST", "app-manifests/abc123/conversions",
 )
 AUTH = ("gh", "auth", "status", "--hostname", "github.com")
+CONVERT = ("POST", "https://api.github.com/app-manifests/abc123/conversions")
+PROBE = ("GET", "https://api.github.com/zen")
 APPS = "https://github.com/organizations/o/settings/apps"
 REDIRECTED = APPS + "?code=abc123&state={state}"
+
+
+class FakeFetch:
+    """Answers GitHub API requests from a table; an exception in the table is raised."""
+
+    def __init__(self, answers: dict[tuple[str, str], bytes | BaseException]) -> None:
+        self.calls: list[tuple[str, str]] = []
+        self.answers = answers
+
+    def __call__(self, method: str, url: str) -> bytes:
+        self.calls.append((method, url))
+        answer = self.answers.get((method, url), b"")
+        if isinstance(answer, BaseException):
+            raise answer
+        return answer
 
 
 class Flow:
@@ -50,6 +69,7 @@ class Flow:
         self.page_mode = 0
         self.page_path: Path | None = None
         self.run = FakeRun({EXCHANGE: json.dumps(CONVERSION)})
+        self.fetch = FakeFetch({CONVERT: json.dumps(CONVERSION).encode(), PROBE: b"ok"})
         self.pastes = [REDIRECTED]
         self.prompts: list[str] = []
         self.on_browse: Callable[[], None] = lambda: None
@@ -89,6 +109,7 @@ def go(flow: Flow, meta: Path, *extra: str) -> int:
     return run_org_release_bot(
         bot_args(meta, *extra),  # type: ignore[arg-type]
         run=flow.run,
+        fetch=flow.fetch,
         browse=flow.browse,
         ask=flow.ask,
     )
@@ -518,3 +539,39 @@ def test_an_interrupt_before_the_key_is_in_hand_names_the_apps_page_and_cleans_u
     assert APPS in capsys.readouterr().out
     assert flow.page_path is not None
     assert not flow.page_path.parent.exists()
+
+
+@pytest.mark.xfail(strict=True, reason="round 4 S1: the code goes through gh's command line")
+def test_the_code_reaches_no_command_line(tmp_path: Path) -> None:
+    flow = Flow()
+    assert go(flow, tmp_path) == 0
+    assert all("abc123" not in " ".join(command) for command in flow.run.commands())
+    assert CONVERT in flow.fetch.calls
+    assert (tmp_path / ".secrets" / "orgs" / "o" / KEY_FILE).read_text() == CONVERSION["pem"]
+
+
+@pytest.mark.xfail(strict=True, reason="round 4 S1: GitHub's API is not reached for before the browser")
+def test_an_unreachable_github_api_stops_the_flow_before_the_browser(tmp_path: Path) -> None:
+    flow = Flow()
+    flow.fetch.answers[PROBE] = urllib.error.URLError("certificate verify failed")
+    with pytest.raises(RuntimeError, match="api.github.com"):
+        go(flow, tmp_path)
+    assert flow.opened == []
+
+
+@pytest.mark.xfail(strict=True, reason="round 4 S1: the exchange does not go through fetch")
+def test_a_failed_in_process_exchange_never_shows_the_code(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    flow = Flow()
+    flow.on_browse = lambda: capsys.readouterr() and None  # only what comes after counts
+    flow.fetch.answers[CONVERT] = urllib.error.HTTPError(
+        CONVERT[1], 500, "abc123 broke", email.message.Message(), None
+    )
+    with pytest.raises(RuntimeError) as error:
+        go(flow, tmp_path)
+    out = capsys.readouterr().out
+    assert APPS in out
+    assert "abc123" not in str(error.value) + out
+    assert error.value.__cause__ is None
+    assert error.value.__suppress_context__
