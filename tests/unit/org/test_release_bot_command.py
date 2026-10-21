@@ -111,6 +111,8 @@ def test_the_browser_gets_the_manifest_page_then_the_install_page(tmp_path: Path
 
 def test_the_name_flag_names_the_app(tmp_path: Path) -> None:
     flow = Flow()
+    named = {**CONVERSION, "name": "ada-release-bot", "slug": "ada-release-bot"}
+    flow.run = FakeRun({EXCHANGE: json.dumps(named)})
     go(flow, tmp_path, "--name", "ada-release-bot")
     assert flow.manifest()["name"] == "ada-release-bot"
 
@@ -127,7 +129,6 @@ def test_an_existing_key_stops_the_flow_before_anything_happens(tmp_path: Path) 
     assert flow.run.commands() == []
 
 
-@pytest.mark.xfail(strict=True)
 @pytest.mark.parametrize(
     ("change", "named"),
     [

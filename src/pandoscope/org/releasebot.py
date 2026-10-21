@@ -194,6 +194,28 @@ def convert(code: str, run: Run) -> dict[str, Any]:
     return conversion
 
 
+def check(conversion: dict[str, Any], org: str, name: str) -> None:
+    """
+    Make sure ``conversion`` is the app this flow asked for.
+
+    The app must belong to ``org``, carry ``name`` and hold exactly
+    ``PERMISSIONS``.
+    Raises ValueError naming what differs.
+    """
+    # DECISION:SEC — the state alone cannot prove the code is this flow's:
+    # whoever reads the local page can send a code for an app of their own.
+    owner = (conversion.get("owner") or {}).get("login")
+    if not isinstance(owner, str) or owner.lower() != org.lower():
+        msg = f"the code belongs to an app of owner={owner!r}, not of org={org!r}"
+        raise ValueError(msg)
+    if conversion.get("name") != name:
+        msg = f"the code belongs to app name={conversion.get('name')!r}, not {name!r}"
+        raise ValueError(msg)
+    if conversion.get("permissions") != PERMISSIONS:
+        msg = f"the app holds permissions={conversion.get('permissions')!r}, not {PERMISSIONS!r}"
+        raise ValueError(msg)
+
+
 def store(secrets: Path, conversion: dict[str, Any]) -> dict[str, Any]:
     """
     Keep the app's private key and record under ``secrets``; return the record.
