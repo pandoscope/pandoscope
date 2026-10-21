@@ -163,11 +163,12 @@ def convert(code: str, run: Run) -> dict[str, Any]:
         msg = f"the code={code!r} is not a plain token"
         raise ValueError(msg)
     # DECISION:SEC — gh's debug log (GH_DEBUG=api, or the older DEBUG)
-    # prints response bodies, and this response holds the private key.
+    # prints response bodies, and this response holds the private key;
+    # GH_HOST would send the code to another host.
     try:
         out = run(
             [
-                *("env", "-u", "GH_DEBUG", "-u", "DEBUG"),
+                *("env", "-u", "GH_DEBUG", "-u", "DEBUG", "-u", "GH_HOST"),
                 *("gh", "api", "--method", "POST", f"app-manifests/{code}/conversions"),
             ],
             None,
@@ -176,7 +177,10 @@ def convert(code: str, run: Run) -> dict[str, Any]:
         # DECISION:SEC — the failed command names the code, which stays valid
         # for an hour: the error says what failed without it, and drops the chain.
         raise RuntimeError(str(error).replace(code, "«code»")) from None
-    conversion: dict[str, Any] = json.loads(out)
+    conversion = json.loads(out)
+    if not isinstance(conversion, dict):
+        msg = "the exchange answered with something other than an object"
+        raise ValueError(msg)
     return conversion
 
 
@@ -190,9 +194,9 @@ def check(conversion: dict[str, Any], org: str, name: str) -> None:
     """
     # DECISION:SEC — the state alone cannot prove the code is this flow's:
     # whoever reads the local page can send a code for an app of their own.
-    owner = (conversion.get("owner") or {}).get("login")
-    if not isinstance(owner, str) or owner.lower() != org.lower():
-        msg = f"the code belongs to an app of owner={owner!r}, not of org={org!r}"
+    owner = _owner(conversion)
+    if owner is None or owner.lower() != org.lower():
+        msg = f"the code belongs to an app of owner={conversion.get('owner')!r}, not of org={org!r}"
         raise ValueError(msg)
     if conversion.get("name") != name:
         msg = f"the code belongs to app name={conversion.get('name')!r}, not {name!r}"
@@ -200,6 +204,16 @@ def check(conversion: dict[str, Any], org: str, name: str) -> None:
     if conversion.get("permissions") != PERMISSIONS:
         msg = f"the app holds permissions={conversion.get('permissions')!r}, not {PERMISSIONS!r}"
         raise ValueError(msg)
+    if conversion.get("events", []) != []:
+        msg = f"the app subscribes to events={conversion.get('events')!r}, not to none"
+        raise ValueError(msg)
+
+
+def _owner(conversion: dict[str, Any]) -> str | None:
+    """Return the login the conversion names as the app's owner, if it has a login's shape."""
+    owner = conversion.get("owner")
+    login = owner.get("login") if isinstance(owner, dict) else None
+    return login if isinstance(login, str) and LOGIN.fullmatch(login) else None
 
 
 def store(secrets: Path, conversion: dict[str, Any], org: str) -> dict[str, Any]:
@@ -475,9 +489,9 @@ def lost_key_note(conversion: dict[str, Any], org: str, key: Path) -> str:
     can generate a new key or delete the app. A code for an app outside
     ``org`` left nothing behind in the org.
     """
-    owner = (conversion.get("owner") or {}).get("login")
+    owner = _owner(conversion)
     slug = conversion.get("slug")
-    if not isinstance(owner, str) or owner.lower() != org.lower():
+    if owner is not None and owner.lower() != org.lower():
         return f"That code was for an app outside {org}; nothing was kept."
     if not isinstance(slug, str) or not SLUG.fullmatch(slug):
         page = f"https://github.com/organizations/{quote(org, safe='')}/settings/apps"
@@ -491,9 +505,11 @@ def lost_key_note(conversion: dict[str, Any], org: str, key: Path) -> str:
 
 def unconverted_note(org: str, name: str, key: Path) -> str:
     """Return what to do when the flow stopped before the app's key was in hand."""
+    # A key someone else fetched with the code stays valid until the app is gone:
+    # a new key would not revoke it.
     return (
-        f"If GitHub created {name}, it is listed at {apps_url(org)}: delete it there before "
-        f"running this again, or generate a private key there and save it as {key}."
+        f"If GitHub created {name}, delete it at {apps_url(org)} before running this again: "
+        f"a key fetched with its code stays valid until the app is deleted. Nothing was saved to {key}."
     )
 
 

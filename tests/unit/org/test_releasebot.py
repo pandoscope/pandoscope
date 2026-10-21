@@ -132,7 +132,7 @@ CONVERSION = {
     "pem": "synthetic key material\n",
 }
 EXCHANGE = (
-    "env", "-u", "GH_DEBUG", "-u", "DEBUG",
+    "env", "-u", "GH_DEBUG", "-u", "DEBUG", "-u", "GH_HOST",
     "gh", "api", "--method", "POST", "app-manifests/abc123/conversions",
 )
 
@@ -506,7 +506,6 @@ def test_a_record_that_is_no_object_is_refused(tmp_path: Path, text: str) -> Non
         recorded(tmp_path, "o")
 
 
-@pytest.mark.xfail(strict=True, reason="round 2: GH_HOST still reaches the exchange")
 def test_the_exchange_never_goes_to_another_gh_host() -> None:
     run = FakeRun({("env",): json.dumps(CONVERSION)})
     convert("abc123", run)
@@ -515,7 +514,6 @@ def test_the_exchange_never_goes_to_another_gh_host() -> None:
     assert "GH_HOST" in command[: command.index("gh")]
 
 
-@pytest.mark.xfail(strict=True, reason="round 2: an app with events passes the check")
 def test_an_app_that_subscribes_to_events_is_refused() -> None:
     with pytest.raises(ValueError, match="events"):
         check({**CONVERSION, "events": ["push"]}, "o", "o-release-bot")

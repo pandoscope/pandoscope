@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import argparse
+import contextlib
+import getpass
 import secrets as tokens
+import shutil
 import tempfile
 import webbrowser
 from collections.abc import Callable
@@ -86,7 +89,7 @@ def run_org_release_bot(
     *,
     run: forge.Run = forge.run,
     browse: Callable[[str], object] = webbrowser.open,
-    ask: Callable[[str], str] = input,
+    ask: Callable[[str], str] = getpass.getpass,
 ) -> int:
     """
     Create the org's release bot through the app-manifest flow; return 0.
@@ -116,20 +119,27 @@ def run_org_release_bot(
     # no local server to flood.
     apps = releasebot.apps_url(args.org)
     app = releasebot.manifest(args.org, name, apps)
+    sent = False
     try:
         page = releasebot.page_file(releasebot.form_page(args.org, app, state))
         try:
-            print(f"Opening {page} to send the manifest of {name} to GitHub.")
-            print('Confirm "Create GitHub App" there. GitHub then shows the org\'s apps.')
+            print(f"Opening {page}: it sends the manifest of {name} to GitHub.")
+            print(f'On GitHub, check that the page creates {name} for {args.org}, then confirm "Create GitHub App".')
+            print(f"GitHub then opens {apps}?code=…&state=…: paste that address here (it is not shown).")
+            print(f"If the browser lands anywhere else, do not paste: delete any new app at {apps} and run again.")
             browse(page.as_uri())
+            sent = True
             code = _pasted_code(ask, args.org, state)
         finally:
-            page.unlink(missing_ok=True)
-            page.parent.rmdir()
+            # Best effort: a stray file in the directory must not cost the code.
+            with contextlib.suppress(OSError):
+                page.unlink(missing_ok=True)
+            shutil.rmtree(page.parent, ignore_errors=True)
         conversion = releasebot.convert(code, run)
     except BaseException:
-        # Whether GitHub created the app is unknown here: say where to look.
-        print(releasebot.unconverted_note(args.org, name, key))
+        if sent:
+            # Whether GitHub created the app is unknown here: say where to look.
+            print(releasebot.unconverted_note(args.org, name, key))
         raise
     try:
         releasebot.check(conversion, args.org, name)

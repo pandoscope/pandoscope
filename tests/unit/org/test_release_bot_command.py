@@ -35,7 +35,7 @@ CONVERSION = {
     "pem": "synthetic key material\n",
 }
 EXCHANGE = (
-    "env", "-u", "GH_DEBUG", "-u", "DEBUG",
+    "env", "-u", "GH_DEBUG", "-u", "DEBUG", "-u", "GH_HOST",
     "gh", "api", "--method", "POST", "app-manifests/abc123/conversions",
 )
 APPS = "https://github.com/organizations/o/settings/apps"
@@ -301,7 +301,6 @@ def test_odd_org_or_name_is_refused_before_the_flow(
     assert flow.opened == []
 
 
-@pytest.mark.xfail(strict=True, reason="round 2 P1: no instructions before the browser opens")
 def test_before_the_browser_opens_the_owner_learns_what_github_must_show(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -316,12 +315,10 @@ def test_before_the_browser_opens_the_owner_learns_what_github_must_show(
     assert "do not paste" in before
 
 
-@pytest.mark.xfail(strict=True, reason="round 2 P2: the paste is echoed")
 def test_the_paste_is_read_without_echo() -> None:
     assert inspect.signature(run_org_release_bot).parameters["ask"].default is getpass.getpass
 
 
-@pytest.mark.xfail(strict=True, reason="round 2 P2: the note recommends generating a key")
 def test_a_stopped_flow_says_to_delete_the_app_not_to_generate_a_key(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -334,7 +331,6 @@ def test_a_stopped_flow_says_to_delete_the_app_not_to_generate_a_key(
     assert "generate" not in out.lower()
 
 
-@pytest.mark.xfail(strict=True, reason="round 2 P3: rmdir of the page dir throws the code away")
 def test_a_stray_file_in_the_page_directory_does_not_lose_the_code(tmp_path: Path) -> None:
     flow = Flow()
 
@@ -350,7 +346,6 @@ def test_a_stray_file_in_the_page_directory_does_not_lose_the_code(tmp_path: Pat
     assert not flow.page_path.parent.exists()
 
 
-@pytest.mark.xfail(strict=True, reason="round 2 P4: an odd conversion raises AttributeError")
 @pytest.mark.parametrize(
     "answer",
     ['["synthetic key material"]', '"synthetic key material"', json.dumps({**CONVERSION, "owner": "o"}), json.dumps({**CONVERSION, "owner": [1]})],
@@ -369,7 +364,6 @@ def test_a_conversion_of_another_shape_is_refused_with_the_apps_note(
     assert not (tmp_path / ".secrets" / "orgs" / "o" / KEY_FILE).exists()
 
 
-@pytest.mark.xfail(strict=True, reason="round 2 P5: the note prints though nothing was sent")
 def test_a_browser_that_fails_to_open_prints_no_app_note(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
