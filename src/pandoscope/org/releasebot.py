@@ -48,6 +48,17 @@ class Callback(Protocol):
         ...
 
 
+def listen(state: str, timeout: float = 600) -> Callback:
+    """
+    Open a callback on 127.0.0.1 for the flow that sent ``state``.
+
+    Its ``wait`` serves the page at ``/``, ignores every request but the
+    redirect with this ``state``, and returns that redirect's code.
+    Raises TimeoutError from ``wait`` when no code arrives within ``timeout`` seconds.
+    """
+    raise NotImplementedError
+
+
 def manifest(org: str, name: str, redirect_url: str) -> dict[str, Any]:
     """
     Return the app manifest for ``org``'s release bot named ``name``.
