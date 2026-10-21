@@ -194,7 +194,8 @@ and the rulesets' `except:` scopes name the plan's direct-push repos.
 The settings conf also makes `main` the default branch of every planned repo.
 The credentials conf is generated from the flags,
 because every value in meta's copy belongs to the pandoscope **org**.
-Without `--release-bot-app` the credentials step is skipped.
+Without `--release-bot-app` and `--release-bot-client-id`, the command uses the app `org release-bot` recorded in the secrets directory;
+with neither, the credentials step is skipped.
 
 The **org** variable `PROJECT_BOARD_URL` records the **org**'s project board,
 the one the add-to-project workflow files into.
@@ -217,6 +218,35 @@ It is safe to re-run: existing repos and **stamps** are left alone.
 The host needs `jq`, bash 4.4 or newer,
 and `gh` authenticated as an **org** owner with the `repo`, `admin:org` and `project` scopes.
 Installing the release-bot app on the **org** is a manual step the run reports.
+
+### `pandoscope org release-bot ORG`
+
+Create the **org**'s release-bot GitHub App, the app every stamped workflow mints its token from,
+through GitHub's app-manifest flow.
+
+```sh
+pandoscope org release-bot ada-digital-assistant --meta ~/src/meta --name ada-release-bot
+```
+
+The command opens a page in your browser that sends the app's manifest to GitHub:
+owned by the **org** and installable only there,
+no webhook, no events,
+and the permissions of the factory's own release bot.
+You confirm "Create GitHub App";
+GitHub sends the browser back to a one-time callback on `127.0.0.1`,
+which accepts only the request carrying the flow's random `state`.
+The command exchanges the callback's code for the app's credentials.
+The private key goes to `RELEASE_BOT_PRIVATE_KEY.pem` in the secrets directory (mode 0600),
+where the credentials step of `org init` reads it;
+slug, app id and client ID go to `release-bot.json` next to it.
+The client secret is not kept, and nothing secret is printed.
+Installing an app on an **org** has no API,
+so the command opens the app's install page last: choose all repositories there.
+
+The name defaults to `<org>-release-bot`.
+An existing key stops the command before it opens anything;
+move the key away to replace the app.
+The host needs `gh` authenticated as an **org** owner.
 
 More commands land as the tool grows.
 

@@ -101,6 +101,8 @@ def run_org_release_bot(
     if key.exists():
         msg = f"{key} already holds the org's release-bot key; move it away to replace the app"
         raise FileExistsError(msg)
+    # DECISION:IFACE — one app per org, named after it by default;
+    # --name for an org that already chose another (ada-release-bot).
     name = args.name or f"{args.org}-release-bot"
     state = tokens.token_urlsafe(24)
     callback = listen(state)

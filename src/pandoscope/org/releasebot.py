@@ -165,6 +165,8 @@ def callback_code(path: str, state: str) -> str | None:
 
     Only ``/callback`` with the expected ``state`` and a code counts.
     """
+    # DECISION:SEC — a random state per flow, compared in constant time:
+    # another page cannot hand this flow a code for an app of its own.
     parts = urlsplit(path)
     if parts.path != "/callback":
         return None
@@ -201,10 +203,13 @@ def store(secrets: Path, conversion: dict[str, Any]) -> dict[str, Any]:
     Raises FileExistsError when ``secrets`` already holds a key.
     """
     secrets.mkdir(parents=True, exist_ok=True)
-    # O_EXCL: a key in use is never replaced, not even by a race.
+    # DECISION:IRREV — O_EXCL: a key in use is never replaced, not even by a race;
+    # replacing the app is a deliberate step (move the key away first).
     fd = os.open(secrets / KEY_FILE, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
     with os.fdopen(fd, "w") as key:
         key.write(conversion["pem"])
+    # DECISION:SEC — the client secret is not kept: no workflow uses it,
+    # and a secret that is never written cannot leak.
     record = {
         "slug": conversion["slug"],
         "app_id": conversion["id"],
