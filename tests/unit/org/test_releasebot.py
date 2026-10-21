@@ -21,6 +21,7 @@ from pandoscope.org.releasebot import (
     apps_url,
     check,
     convert,
+    fetch,
     form_page,
     install_url,
     page_file,
@@ -30,7 +31,7 @@ from pandoscope.org.releasebot import (
     store,
 )
 
-from .fakes import FakeRun
+from .fakes import FakeFetch
 
 APPS = "https://github.com/organizations/o/settings/apps"
 
@@ -131,24 +132,21 @@ CONVERSION = {
     "webhook_secret": None,
     "pem": "synthetic key material\n",
 }
-EXCHANGE = (
-    "env", "-u", "GH_DEBUG", "-u", "DEBUG", "-u", "GH_HOST",
-    "gh", "api", "--hostname", "github.com", "--method", "POST", "app-manifests/abc123/conversions",
-)
+CONVERT = ("POST", "https://api.github.com/app-manifests/abc123/conversions")
 
 
 def test_the_code_is_exchanged_for_the_apps_credentials() -> None:
-    fake = FakeRun({EXCHANGE: json.dumps(CONVERSION)})
+    fake = FakeFetch({CONVERT: json.dumps(CONVERSION).encode()})
     assert convert("abc123", fake) == CONVERSION
-    assert fake.commands() == [EXCHANGE]
+    assert fake.calls == [CONVERT]
 
 
 @pytest.mark.parametrize("code", ["../users", "abc 123", "abc?x=1", ""])
 def test_a_code_that_is_no_plain_token_is_refused_before_any_call(code: str) -> None:
-    fake = FakeRun()
+    fake = FakeFetch()
     with pytest.raises(ValueError, match="code"):
         convert(code, fake)
-    assert fake.commands() == []
+    assert fake.calls == []
 
 
 def test_the_key_is_kept_readable_by_its_owner_only(tmp_path: Path) -> None:
@@ -506,21 +504,13 @@ def test_a_record_that_is_no_object_is_refused(tmp_path: Path, text: str) -> Non
         recorded(tmp_path, "o")
 
 
-def test_the_exchange_never_goes_to_another_gh_host() -> None:
-    run = FakeRun({("env",): json.dumps(CONVERSION)})
-    convert("abc123", run)
-    (command,) = run.commands()
-    assert command[: command.index("gh")].count("-u") >= 3
-    assert "GH_HOST" in command[: command.index("gh")]
-
-
 def test_an_app_that_subscribes_to_events_is_refused() -> None:
     with pytest.raises(ValueError, match="events"):
         check({**CONVERSION, "events": ["push"]}, "o", "o-release-bot")
 
 
-def test_the_exchange_names_github_com_as_its_host() -> None:
-    run = FakeRun({("env",): json.dumps(CONVERSION)})
-    convert("abc123", run)
-    (command,) = run.commands()
-    assert command[command.index("--hostname") + 1] == "github.com"
+
+
+def test_fetch_talks_only_to_githubs_api() -> None:
+    with pytest.raises(ValueError, match="api.github.com"):
+        fetch("POST", "https://evil.example/app-manifests/abc123/conversions")

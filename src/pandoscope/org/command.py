@@ -88,7 +88,6 @@ def run_org_init(
 def run_org_release_bot(
     args: argparse.Namespace,
     *,
-    run: forge.Run = forge.run,
     fetch: releasebot.Fetch = releasebot.fetch,
     browse: Callable[[str], object] = webbrowser.open,
     ask: Callable[[str], str] = getpass.getpass,
@@ -119,9 +118,9 @@ def run_org_release_bot(
         if releasebot.key_in_use_at(directory):
             msg = f"{key} already holds the org's release-bot key; move it away to replace the app"
             raise FileExistsError(msg)
-        # Without a working gh the exchange fails after GitHub created the app.
-        run(["gh", "auth", "status", "--hostname", "github.com"], None)
-        conversion = _converted(args.org, name, key, run=run, browse=browse, ask=ask)
+        # Without a reachable API the exchange fails after GitHub created the app.
+        releasebot.reach(fetch)
+        conversion = _converted(args.org, name, key, fetch=fetch, browse=browse, ask=ask)
         try:
             releasebot.check(conversion, args.org, name)
         except BaseException:
@@ -152,7 +151,7 @@ def _converted(
     name: str,
     key: Path,
     *,
-    run: forge.Run,
+    fetch: releasebot.Fetch,
     browse: Callable[[str], object],
     ask: Callable[[str], str],
 ) -> dict[str, Any]:
@@ -179,7 +178,7 @@ def _converted(
             with contextlib.suppress(OSError):
                 page.unlink(missing_ok=True)
             shutil.rmtree(page.parent, ignore_errors=True)
-        return releasebot.convert(code, run)
+        return releasebot.convert(code, fetch)
     except BaseException:
         if sent:
             # Whether GitHub created the app is unknown here: say where to look.

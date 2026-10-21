@@ -22,15 +22,16 @@ import html
 import json
 import os
 import re
+import ssl
 import stat
 import tempfile
+import urllib.request
 from collections.abc import Callable, Iterator
 from pathlib import Path
 from urllib.parse import parse_qs, quote, urlsplit
 from typing import Any
 
 from pandoscope.org import secretsdir
-from pandoscope.org.forge import Run
 
 # The factory's own release bot (pandoscope-release-bot) holds these;
 # every stamped workflow that mints its token needs no more.
@@ -166,35 +167,58 @@ def fetch(method: str, url: str) -> bytes:
     Raises urllib's errors: HTTPError for an answer other than 2xx, URLError
     when GitHub cannot be reached or its certificate does not verify.
     """
-    raise NotImplementedError
+    if not url.startswith(API + "/"):
+        msg = f"url={url!r} is not on {API}"
+        raise ValueError(msg)
+    request = urllib.request.Request(  # noqa: S310 - https on GitHub's API only, checked above
+        url,
+        method=method,
+        headers={
+            "Accept": "application/vnd.github+json",
+            "X-GitHub-Api-Version": "2022-11-28",
+            "User-Agent": "pandoscope",
+        },
+    )
+    with urllib.request.urlopen(request, timeout=30, context=ssl.create_default_context()) as answer:  # noqa: S310
+        body: bytes = answer.read()
+    return body
 
 
-def convert(code: str, run: Run) -> dict[str, Any]:
+def reach(fetch: Fetch) -> None:
+    """
+    Make sure GitHub's API answers over verified TLS, before GitHub creates anything.
+
+    Raises RuntimeError saying nothing was created when it does not.
+    """
+    try:
+        fetch("GET", f"{API}/zen")
+    except Exception as error:  # noqa: BLE001 - any failure means the exchange would fail too
+        msg = f"cannot reach {API} ({error}); nothing was created"
+        raise RuntimeError(msg) from None
+
+
+def convert(code: str, fetch: Fetch) -> dict[str, Any]:
     """
     Exchange the one-time ``code`` for the new app's credentials.
 
     Returns GitHub's conversion: ``id``, ``slug``, ``client_id``, ``pem`` and more.
-    Raises ValueError when ``code`` is not a plain token, and what ``run`` raises.
+    Raises ValueError when ``code`` is not a plain token or the answer is
+    not an object, and RuntimeError, without the code, when the exchange fails.
     """
     if not PLAIN_TOKEN.fullmatch(code):
         msg = f"the code={code!r} is not a plain token"
         raise ValueError(msg)
-    # DECISION:SEC — gh's debug log (GH_DEBUG=api, or the older DEBUG)
-    # prints response bodies, and this response holds the private key;
-    # GH_HOST, or a gh whose default host is another, would send the code there.
+    # DECISION:SEC — one HTTPS request from this process, without a token
+    # (GitHub needs none for this): the code never sits in a command line
+    # other local users can read, and no tool's debug log or default host
+    # stands between it and api.github.com.
     try:
-        out = run(
-            [
-                *("env", "-u", "GH_DEBUG", "-u", "DEBUG", "-u", "GH_HOST"),
-                *("gh", "api", "--hostname", "github.com", "--method", "POST"),
-                f"app-manifests/{code}/conversions",
-            ],
-            None,
-        )
-    except RuntimeError as error:
-        # DECISION:SEC — the failed command names the code, which stays valid
-        # for an hour: the error says what failed without it, and drops the chain.
-        raise RuntimeError(str(error).replace(code, "«code»")) from None
+        out = fetch("POST", f"{API}/app-manifests/{code}/conversions")
+    except Exception as error:  # noqa: BLE001 - every failure gets the same masking
+        # DECISION:SEC — the code stays valid for an hour: the error says
+        # what failed without it, and drops the chain that may hold it.
+        msg = f"the code exchange with {API} failed: {str(error).replace(code, '«code»')}"
+        raise RuntimeError(msg) from None
     conversion = json.loads(out)
     if not isinstance(conversion, dict):
         msg = "the exchange answered with something other than an object"
