@@ -77,8 +77,9 @@ def reconcile(
     so a repo created before the run ends up on the stamp's branch.
     Generated confs and every script's state live under ``secrets``,
     the org's gitignored secrets directory.
-    A fresh ``secrets`` directory is seeded first,
-    which lays out the placeholder files for the secret material.
+    A ``secrets`` directory the credentials seed has not run in is seeded first,
+    which lays out the placeholder files for the secret material
+    and keeps any file already there, such as the release bot's key.
     ``creds`` None skips credentials: the release-bot app does not exist yet.
     Returns one outcome per reconciler.
     Raises RuntimeError naming the script and its output
