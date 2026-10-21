@@ -125,3 +125,26 @@ def test_an_existing_key_stops_the_flow_before_anything_happens(tmp_path: Path) 
     assert flow.states == []
     assert flow.opened == []
     assert flow.run.commands() == []
+
+
+@pytest.mark.xfail(strict=True)
+@pytest.mark.parametrize(
+    ("change", "named"),
+    [
+        ({"owner": {"login": "attacker", "type": "User"}}, "attacker"),
+        ({"name": "someone-elses-app"}, "someone-elses-app"),
+        ({"permissions": {**CONVERSION["permissions"], "administration": "write"}}, "administration"),  # type: ignore[dict-item]
+    ],
+    ids=["foreign-owner", "other-name", "other-permissions"],
+)
+def test_an_app_that_is_not_the_one_asked_for_is_refused_and_nothing_kept(
+    tmp_path: Path, change: dict[str, object], named: str
+) -> None:
+    flow = Flow()
+    flow.run = FakeRun({EXCHANGE: json.dumps({**CONVERSION, **change})})
+    with pytest.raises(ValueError, match=named):
+        go(flow, tmp_path)
+    secrets = tmp_path / ".secrets" / "orgs" / "o"
+    assert not (secrets / KEY_FILE).exists()
+    assert not (secrets / RECORD_FILE).exists()
+    assert flow.opened == ["http://127.0.0.1:9/"]
