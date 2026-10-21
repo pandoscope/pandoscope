@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import getpass
 import html
+import inspect
 import json
 import re
 import stat
+from collections.abc import Callable
 from pathlib import Path
 
 import pytest
@@ -48,8 +51,10 @@ class Flow:
         self.run = FakeRun({EXCHANGE: json.dumps(CONVERSION)})
         self.pastes = [REDIRECTED]
         self.prompts: list[str] = []
+        self.on_browse: Callable[[], None] = lambda: None
 
     def browse(self, url: str) -> bool:
+        self.on_browse()
         self.opened.append(url)
         if url.startswith("file://"):
             self.page_path = Path(url.removeprefix("file://"))
@@ -294,3 +299,86 @@ def test_odd_org_or_name_is_refused_before_the_flow(
         run_org_release_bot(args, run=flow.run, browse=flow.browse, ask=flow.ask)
     assert flow.prompts == []
     assert flow.opened == []
+
+
+@pytest.mark.xfail(strict=True, reason="round 2 P1: no instructions before the browser opens")
+def test_before_the_browser_opens_the_owner_learns_what_github_must_show(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    flow = Flow()
+    told: list[str] = []
+    flow.on_browse = lambda: told.append(capsys.readouterr().out) if not told else None
+    go(flow, tmp_path)
+    before = told[0]
+    assert "o-release-bot" in before
+    assert "for o" in before
+    assert APPS in before
+    assert "do not paste" in before
+
+
+@pytest.mark.xfail(strict=True, reason="round 2 P2: the paste is echoed")
+def test_the_paste_is_read_without_echo() -> None:
+    assert inspect.signature(run_org_release_bot).parameters["ask"].default is getpass.getpass
+
+
+@pytest.mark.xfail(strict=True, reason="round 2 P2: the note recommends generating a key")
+def test_a_stopped_flow_says_to_delete_the_app_not_to_generate_a_key(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    flow = Flow()
+    flow.pastes = [APPS + "?code=abc123&state=forged"] * 3
+    with pytest.raises(ValueError):
+        go(flow, tmp_path)
+    out = capsys.readouterr().out
+    assert "delete" in out
+    assert "generate" not in out.lower()
+
+
+@pytest.mark.xfail(strict=True, reason="round 2 P3: rmdir of the page dir throws the code away")
+def test_a_stray_file_in_the_page_directory_does_not_lose_the_code(tmp_path: Path) -> None:
+    flow = Flow()
+
+    def paste_and_litter(prompt: str) -> str:
+        assert flow.page_path is not None
+        (flow.page_path.parent / ".DS_Store").write_text("")
+        return REDIRECTED.format(state=flow.state())
+
+    flow.ask = paste_and_litter  # type: ignore[method-assign]
+    assert go(flow, tmp_path) == 0
+    assert flow.run.commands() == [EXCHANGE]
+    assert flow.page_path is not None
+    assert not flow.page_path.parent.exists()
+
+
+@pytest.mark.xfail(strict=True, reason="round 2 P4: an odd conversion raises AttributeError")
+@pytest.mark.parametrize(
+    "answer",
+    ['["synthetic key material"]', '"synthetic key material"', json.dumps({**CONVERSION, "owner": "o"}), json.dumps({**CONVERSION, "owner": [1]})],
+    ids=["list", "string", "owner-string", "owner-list"],
+)
+def test_a_conversion_of_another_shape_is_refused_with_the_apps_note(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], answer: str
+) -> None:
+    flow = Flow()
+    flow.run = FakeRun({EXCHANGE: answer})
+    with pytest.raises(ValueError):
+        go(flow, tmp_path)
+    out = capsys.readouterr().out
+    assert APPS in out
+    assert "synthetic key material" not in out
+    assert not (tmp_path / ".secrets" / "orgs" / "o" / KEY_FILE).exists()
+
+
+@pytest.mark.xfail(strict=True, reason="round 2 P5: the note prints though nothing was sent")
+def test_a_browser_that_fails_to_open_prints_no_app_note(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    flow = Flow()
+
+    def no_browser() -> None:
+        raise OSError("no browser")
+
+    flow.on_browse = no_browser
+    with pytest.raises(OSError, match="no browser"):
+        go(flow, tmp_path)
+    assert "If GitHub created" not in capsys.readouterr().out
