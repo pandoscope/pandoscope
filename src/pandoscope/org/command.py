@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import secrets as tokens
 import tempfile
 import webbrowser
 from collections.abc import Callable
@@ -50,9 +51,7 @@ def run_org_init(
     if release_bot:
         app, client_id = release_bot
         creds = Credentials(app_slug=app, client_id=client_id, board_url=board_url)
-    secrets = (
-        Path(args.secrets) if args.secrets else meta / ".secrets" / "orgs" / args.org
-    )
+    secrets = _secrets(args)
 
     def bound_reconcile(org: str, plan: list[Repo]) -> list[reconcile.Outcome]:
         return reconcile.reconcile(
@@ -95,7 +94,27 @@ def run_org_release_bot(
     Raises FileExistsError before anything else when the secrets directory
     already holds a key, and what any step raises.
     """
-    raise NotImplementedError
+    secrets = _secrets(args)
+    key = secrets / releasebot.KEY_FILE
+    if key.exists():
+        msg = f"{key} already holds the org's release-bot key; move it away to replace the app"
+        raise FileExistsError(msg)
+    name = args.name or f"{args.org}-release-bot"
+    state = tokens.token_urlsafe(24)
+    callback = listen(state)
+    app = releasebot.manifest(args.org, name, callback.url + "/callback")
+    print(f"Opening {callback.url}/ to send the manifest of {name} to GitHub.")
+    print('Confirm "Create GitHub App" there; this command waits for GitHub.')
+    browse(callback.url + "/")
+    code = callback.wait(releasebot.form_page(args.org, app, state))
+    record = releasebot.store(secrets, releasebot.convert(code, run))
+    install = releasebot.install_url(record["slug"])
+    print(f"Created {record['slug']} (app id {record['app_id']}).")
+    print(f"Client ID: {record['client_id']}")
+    print(f"Private key: {key}")
+    print(f"Install it on {args.org}, all repositories: {install}")
+    browse(install)
+    return 0
 
 
 def run_org_plan(args: argparse.Namespace) -> int:
@@ -127,6 +146,13 @@ def _plan(args: argparse.Namespace) -> list[Repo]:
         description=args.description,
         approvers=args.approver,
     )
+
+
+def _secrets(args: argparse.Namespace) -> Path:
+    """Return the org's secrets directory: ``--secrets``, else under ``--meta``."""
+    if args.secrets:
+        return Path(args.secrets)
+    return Path(args.meta) / ".secrets" / "orgs" / args.org
 
 
 def _release_bot(args: argparse.Namespace) -> tuple[str, str] | None:

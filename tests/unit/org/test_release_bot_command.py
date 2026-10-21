@@ -71,7 +71,6 @@ def go(flow: Flow, meta: Path, *extra: str) -> int:
     )
 
 
-@pytest.mark.xfail(strict=True)
 def test_the_flow_creates_the_app_and_keeps_its_key_in_the_orgs_secrets(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -87,7 +86,6 @@ def test_the_flow_creates_the_app_and_keeps_its_key_in_the_orgs_secrets(
     assert "not-kept" not in out
 
 
-@pytest.mark.xfail(strict=True)
 def test_the_browser_gets_the_manifest_page_then_the_install_page(tmp_path: Path) -> None:
     flow = Flow()
     go(flow, tmp_path)
@@ -101,14 +99,12 @@ def test_the_browser_gets_the_manifest_page_then_the_install_page(tmp_path: Path
     assert len(flow.states[0]) >= 22
 
 
-@pytest.mark.xfail(strict=True)
 def test_the_name_flag_names_the_app(tmp_path: Path) -> None:
     flow = Flow()
     go(flow, tmp_path, "--name", "ada-release-bot")
     assert flow.manifest()["name"] == "ada-release-bot"
 
 
-@pytest.mark.xfail(strict=True)
 def test_an_existing_key_stops_the_flow_before_anything_happens(tmp_path: Path) -> None:
     secrets = tmp_path / "s"
     secrets.mkdir()
