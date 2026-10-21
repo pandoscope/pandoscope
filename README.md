@@ -234,7 +234,9 @@ the path is walked from `/` as the system walks it,
 so every directory above it must be yours or root's and writable by no one else unless sticky,
 a symlink on the way must be root's in a directory only root can change,
 `..` is refused, and missing directories are created with mode 0700.
-A second run waits a few seconds for the lock, then gives up.
+A second run waits a few seconds for the lock, then gives up;
+`org init` takes the same directory the same way.
+The command also makes sure `gh` is logged in to github.com before GitHub creates anything.
 The command then opens a page in your browser, from a file only you can read,
 that sends the app's manifest to GitHub:
 owned by the **org** and installable only there,
@@ -251,10 +253,13 @@ and asks again, up to three times, for anything else.
 If the browser lands anywhere else, don't paste: delete the new app on the **org**'s apps page.
 No local server listens, so no other local process can end the flow or take it over.
 The command exchanges the code for the app's credentials at once,
-without `gh`'s debug log, which would print the response, and without `GH_HOST`,
+on github.com whatever `gh`'s default host,
+without `gh`'s debug log, which would print the response,
 and keeps them only if the app belongs to the **org**,
-carries the requested name, holds exactly the release bot's permissions and subscribes to no events:
+carries the requested name and the slug that name gives,
+holds exactly the release bot's permissions and subscribes to no events:
 the state alone cannot prove the code is this flow's.
+An app it refuses is to be deleted, never kept.
 The private key goes to `RELEASE_BOT_PRIVATE_KEY.pem` in the secrets directory,
 where the credentials step of `org init` reads it;
 org, slug, app id and client ID go to `release-bot.json` next to it, first,
