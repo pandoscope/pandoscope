@@ -6,7 +6,7 @@ import inspect
 import json
 import re
 import stat
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from pathlib import Path
 
 import pytest
@@ -419,3 +419,103 @@ def test_a_key_kept_by_another_run_meanwhile_is_never_to_be_overwritten(
     out = capsys.readouterr().out
     assert "save it as" not in out
     assert "delete" in out
+
+
+@pytest.mark.xfail(strict=True, reason="round 3 Q1: a refused app is offered a new key")
+@pytest.mark.parametrize(
+    "change",
+    [{"permissions": {**CONVERSION["permissions"], "administration": "write"}}, {"owner": {"login": "attacker"}}],  # type: ignore[dict-item]
+    ids=["in-org", "foreign-owner"],
+)
+def test_a_refused_app_is_to_be_deleted_never_kept(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], change: dict[str, object]
+) -> None:
+    flow = Flow()
+    flow.on_browse = lambda: capsys.readouterr() and None  # only what comes after counts
+    flow.run = FakeRun({EXCHANGE: json.dumps({**CONVERSION, **change})})
+    with pytest.raises(ValueError):
+        go(flow, tmp_path)
+    out = capsys.readouterr().out
+    assert APPS in out
+    assert "delete" in out.lower()
+    assert "generate" not in out.lower()
+    assert "save it as" not in out
+
+
+@pytest.mark.xfail(strict=True, reason="round 3 Q3: the slug is not tied to the name")
+def test_an_app_whose_slug_is_not_its_names_is_refused_and_not_installed(tmp_path: Path) -> None:
+    flow = Flow()
+    flow.run = FakeRun({EXCHANGE: json.dumps({**CONVERSION, "slug": "evil-public-app"})})
+    with pytest.raises(ValueError, match="slug"):
+        go(flow, tmp_path)
+    assert len(flow.opened) == 1
+    assert not (tmp_path / ".secrets" / "orgs" / "o" / KEY_FILE).exists()
+
+
+@pytest.mark.xfail(strict=True, reason="round 3 Q4: an interrupt after the link says the key was not kept")
+def test_an_interrupt_after_the_key_landed_says_it_is_kept(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from pandoscope.org import secretsdir
+
+    real_sync = secretsdir.full_sync
+    calls: list[int] = []
+
+    def sync_then_interrupt(fd: int) -> None:
+        calls.append(fd)
+        real_sync(fd)
+        if len(calls) == 4:  # record file, record dir, key file, then the key's directory
+            raise KeyboardInterrupt
+
+    monkeypatch.setattr(secretsdir, "full_sync", sync_then_interrupt)
+    flow = Flow()
+    with pytest.raises(KeyboardInterrupt):
+        go(flow, tmp_path)
+    assert (tmp_path / ".secrets" / "orgs" / "o" / KEY_FILE).read_text() == CONVERSION["pem"]
+    out = capsys.readouterr().out
+    assert "not kept" not in out
+    assert "https://github.com/apps/o-release-bot/installations/new" in out
+
+
+@pytest.mark.xfail(strict=True, reason="round 3 Q5: gh is not checked before GitHub creates the app")
+def test_a_gh_that_is_not_logged_in_stops_the_flow_before_github(tmp_path: Path) -> None:
+    flow = Flow()
+
+    def logged_out(cmd: Sequence[str], cwd: Path | None = None) -> str:
+        if tuple(cmd[:3]) == ("gh", "auth", "status"):
+            raise RuntimeError("not logged in to github.com")
+        return flow_run(cmd, cwd)
+
+    flow_run = flow.run
+    flow.run = logged_out  # type: ignore[assignment]
+    with pytest.raises(RuntimeError, match="not logged in"):
+        go(flow, tmp_path)
+    assert flow.opened == []
+
+
+@pytest.mark.parametrize("where", ["ask", "run"])
+def test_an_interrupt_before_the_key_is_in_hand_names_the_apps_page_and_cleans_up(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], where: str
+) -> None:
+    flow = Flow()
+    flow.on_browse = lambda: capsys.readouterr() and None  # only what comes after counts
+
+    def interrupt(*args: object) -> str:
+        raise KeyboardInterrupt
+
+    if where == "ask":
+        flow.ask = interrupt  # type: ignore[method-assign]
+    else:
+        flow_run = flow.run
+
+        def interrupt_the_exchange(cmd: Sequence[str], cwd: Path | None = None) -> str:
+            if "app-manifests/abc123/conversions" in cmd:
+                raise KeyboardInterrupt
+            return flow_run(cmd, cwd)
+
+        flow.run = interrupt_the_exchange  # type: ignore[assignment]
+    with pytest.raises(KeyboardInterrupt):
+        go(flow, tmp_path)
+    assert APPS in capsys.readouterr().out
+    assert flow.page_path is not None
+    assert not flow.page_path.parent.exists()

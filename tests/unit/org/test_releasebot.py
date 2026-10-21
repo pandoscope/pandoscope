@@ -517,3 +517,11 @@ def test_the_exchange_never_goes_to_another_gh_host() -> None:
 def test_an_app_that_subscribes_to_events_is_refused() -> None:
     with pytest.raises(ValueError, match="events"):
         check({**CONVERSION, "events": ["push"]}, "o", "o-release-bot")
+
+
+@pytest.mark.xfail(strict=True, reason="round 3 Q2: gh's default host may not be github.com")
+def test_the_exchange_names_github_com_as_its_host() -> None:
+    run = FakeRun({("env",): json.dumps(CONVERSION)})
+    convert("abc123", run)
+    (command,) = run.commands()
+    assert command[command.index("--hostname") + 1] == "github.com"
