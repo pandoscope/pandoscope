@@ -36,6 +36,10 @@ PERMISSIONS = {
     "pull_requests": "write",
     "workflows": "write",
 }
+# The slug and client ID end up inside a bash file the credentials sync
+# sources, and in URLs: only what GitHub issues, never a quote or a $.
+SLUG = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")
+CLIENT_ID = re.compile(r"[A-Za-z0-9.]+")
 KEY_FILE = "RELEASE_BOT_PRIVATE_KEY.pem"
 RECORD_FILE = "release-bot.json"
 
@@ -236,19 +240,21 @@ def store(secrets: Path, conversion: dict[str, Any]) -> dict[str, Any]:
     to ``RECORD_FILE``. The client secret is not kept.
     Raises FileExistsError when ``secrets`` already holds a key.
     """
+    record = _valid_record(
+        {"slug": conversion.get("slug"), "app_id": conversion.get("id"), "client_id": conversion.get("client_id")}
+    )
+    pem = conversion.get("pem")
+    if not isinstance(pem, str) or not pem.strip():
+        msg = "the conversion carries no private key"
+        raise ValueError(msg)
     secrets.mkdir(parents=True, exist_ok=True)
     # DECISION:IRREV — O_EXCL: a key in use is never replaced, not even by a race;
     # replacing the app is a deliberate step (move the key away first).
     fd = os.open(secrets / KEY_FILE, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
     with os.fdopen(fd, "w") as key:
-        key.write(conversion["pem"])
+        key.write(pem)
     # DECISION:SEC — the client secret is not kept: no workflow uses it,
     # and a secret that is never written cannot leak.
-    record = {
-        "slug": conversion["slug"],
-        "app_id": conversion["id"],
-        "client_id": conversion["client_id"],
-    }
     (secrets / RECORD_FILE).write_text(json.dumps(record, indent=2) + "\n")
     return record
 
@@ -258,8 +264,22 @@ def recorded(secrets: Path) -> dict[str, Any] | None:
     path = secrets / RECORD_FILE
     if not path.exists():
         return None
-    record: dict[str, Any] = json.loads(path.read_text())
-    return record
+    return _valid_record(json.loads(path.read_text()))
+
+
+def _valid_record(record: dict[str, Any]) -> dict[str, Any]:
+    """Return ``record`` if slug, app id and client ID have GitHub's shapes."""
+    slug, app_id, client_id = record.get("slug"), record.get("app_id"), record.get("client_id")
+    if not isinstance(slug, str) or not SLUG.fullmatch(slug):
+        msg = f"release bot slug={slug!r} is not an app slug"
+        raise ValueError(msg)
+    if not isinstance(app_id, int) or isinstance(app_id, bool) or app_id <= 0:
+        msg = f"release bot app_id={app_id!r} is not an app id"
+        raise ValueError(msg)
+    if not isinstance(client_id, str) or not CLIENT_ID.fullmatch(client_id):
+        msg = f"release bot client_id={client_id!r} is not a client ID"
+        raise ValueError(msg)
+    return {"slug": slug, "app_id": app_id, "client_id": client_id}
 
 
 def install_url(slug: str) -> str:
