@@ -151,7 +151,6 @@ def test_an_app_that_is_not_the_one_asked_for_is_refused_and_nothing_kept(
     assert flow.opened == ["http://127.0.0.1:9/"]
 
 
-@pytest.mark.xfail(strict=True)
 def test_a_seeded_directory_with_an_empty_key_placeholder_is_filled(tmp_path: Path) -> None:
     secrets = tmp_path / ".secrets" / "orgs" / "o"
     secrets.mkdir(parents=True)

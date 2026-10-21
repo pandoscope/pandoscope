@@ -98,7 +98,7 @@ def run_org_release_bot(
     """
     secrets = _secrets(args)
     key = secrets / releasebot.KEY_FILE
-    if key.exists():
+    if releasebot.key_in_use(secrets):
         msg = f"{key} already holds the org's release-bot key; move it away to replace the app"
         raise FileExistsError(msg)
     # DECISION:IFACE — one app per org, named after it by default;

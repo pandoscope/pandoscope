@@ -18,6 +18,8 @@ import html
 import json
 import os
 import re
+import stat
+import tempfile
 import time
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
@@ -238,7 +240,9 @@ def store(secrets: Path, conversion: dict[str, Any]) -> dict[str, Any]:
 
     The key goes to ``KEY_FILE`` with mode 0600; slug, app id and client ID go
     to ``RECORD_FILE``. The client secret is not kept.
-    Raises FileExistsError when ``secrets`` already holds a key.
+    Raises ValueError naming the field when the conversion lacks the key or
+    holds a slug, app id or client ID of another shape, before anything is
+    written, and FileExistsError when ``secrets`` already holds a key.
     """
     record = _valid_record(
         {"slug": conversion.get("slug"), "app_id": conversion.get("id"), "client_id": conversion.get("client_id")}
@@ -247,16 +251,48 @@ def store(secrets: Path, conversion: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(pem, str) or not pem.strip():
         msg = "the conversion carries no private key"
         raise ValueError(msg)
-    secrets.mkdir(parents=True, exist_ok=True)
-    # DECISION:IRREV — O_EXCL: a key in use is never replaced, not even by a race;
-    # replacing the app is a deliberate step (move the key away first).
-    fd = os.open(secrets / KEY_FILE, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-    with os.fdopen(fd, "w") as key:
-        key.write(pem)
+    secrets.mkdir(mode=0o700, parents=True, exist_ok=True)
+    key = secrets / KEY_FILE
+    # DECISION:IRREV — the key is written to a temp file and linked into
+    # place: link refuses any existing entry (a key in use, a symlink), and
+    # a crash leaves no half-written key. Replacing the app is a deliberate
+    # step (move the key away first). Only the empty placeholder the
+    # credentials seed lays out is replaced.
+    _place(secrets, key, pem, replace=is_placeholder(key))
     # DECISION:SEC — the client secret is not kept: no workflow uses it,
     # and a secret that is never written cannot leak.
-    (secrets / RECORD_FILE).write_text(json.dumps(record, indent=2) + "\n")
+    _place(secrets, secrets / RECORD_FILE, json.dumps(record, indent=2) + "\n", replace=True)
     return record
+
+
+def is_placeholder(key: Path) -> bool:
+    """Return whether ``key`` is the empty file the credentials seed lays out."""
+    try:
+        info = key.lstat()
+    except FileNotFoundError:
+        return False
+    return stat.S_ISREG(info.st_mode) and info.st_size == 0
+
+
+def key_in_use(secrets: Path) -> bool:
+    """Return whether ``secrets`` holds a release-bot key: anything but a placeholder."""
+    key = secrets / KEY_FILE
+    return os.path.lexists(key) and not is_placeholder(key)
+
+
+def _place(directory: Path, path: Path, text: str, *, replace: bool) -> None:
+    """Write ``text`` to ``path`` (mode 0600) through a temp file in ``directory``."""
+    fd, temp = tempfile.mkstemp(dir=directory, prefix=".pandoscope-")
+    try:
+        with os.fdopen(fd, "w") as handle:
+            handle.write(text)
+        if replace:
+            os.replace(temp, path)
+        else:
+            os.link(temp, path)
+    finally:
+        if os.path.lexists(temp):
+            os.unlink(temp)
 
 
 def recorded(secrets: Path) -> dict[str, Any] | None:

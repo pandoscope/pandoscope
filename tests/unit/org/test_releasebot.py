@@ -256,7 +256,6 @@ def test_a_planted_record_with_shell_characters_is_refused_on_reading(tmp_path: 
         recorded(tmp_path)
 
 
-@pytest.mark.xfail(strict=True)
 def test_the_secrets_directory_and_record_are_private_to_their_owner(tmp_path: Path) -> None:
     secrets = tmp_path / "orgs" / "o"
     store(secrets, CONVERSION)
@@ -276,7 +275,6 @@ def test_a_symlink_at_the_key_path_is_refused_and_its_target_untouched(tmp_path:
     assert not (secrets / RECORD_FILE).exists()
 
 
-@pytest.mark.xfail(strict=True)
 def test_an_empty_placeholder_key_is_replaced(tmp_path: Path) -> None:
     placeholder = tmp_path / KEY_FILE
     placeholder.write_text("")
