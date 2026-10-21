@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import errno
+import fcntl
 import html
 import json
 import os
@@ -8,6 +10,7 @@ import stat
 import subprocess
 import sys
 import tempfile
+import threading
 from pathlib import Path
 
 import pytest
@@ -154,9 +157,10 @@ def test_the_key_is_kept_readable_by_its_owner_only(tmp_path: Path) -> None:
     assert stat.S_IMODE(key.stat().st_mode) == 0o600
 
 
+@pytest.mark.xfail(strict=True, reason="the record names no org yet")
 def test_the_record_names_the_app_and_keeps_no_secret(tmp_path: Path) -> None:
     record = store(tmp_path, CONVERSION, "o")
-    assert record == {"slug": "o-release-bot", "app_id": 4711, "client_id": "Iv23abc"}
+    assert record == {"org": "o", "slug": "o-release-bot", "app_id": 4711, "client_id": "Iv23abc"}
     text = (tmp_path / RECORD_FILE).read_text()
     assert json.loads(text) == record
     assert "not-kept" not in text
@@ -170,6 +174,70 @@ def test_an_existing_key_is_never_overwritten(tmp_path: Path) -> None:
         store(tmp_path, CONVERSION, "o")
     assert (tmp_path / KEY_FILE).read_text() == "the key in use\n"
     assert not (tmp_path / RECORD_FILE).exists()
+
+
+@pytest.mark.xfail(strict=True, reason="the record names no org yet")
+def test_a_record_of_another_org_is_refused(tmp_path: Path) -> None:
+    store(tmp_path, CONVERSION, "o")
+    assert recorded(tmp_path, "O") is not None
+    with pytest.raises(ValueError, match="org"):
+        recorded(tmp_path, "other")
+
+
+@pytest.mark.xfail(strict=True, reason="the record names no org yet")
+def test_a_record_that_names_no_org_is_refused(tmp_path: Path) -> None:
+    (tmp_path / RECORD_FILE).write_text(
+        '{"slug": "o-release-bot", "app_id": 4711, "client_id": "Iv23abc"}\n'
+    )
+    with pytest.raises(ValueError, match="org"):
+        recorded(tmp_path, "o")
+
+
+@pytest.mark.xfail(strict=True, reason="the key is placed before the record")
+def test_a_key_that_cannot_be_placed_leaves_the_record_and_a_rerun_succeeds(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def broken(*args: object, **kwargs: object) -> None:
+        raise OSError(errno.EIO, "disk said no")
+
+    with monkeypatch.context() as patched:
+        patched.setattr(os, "link", broken)
+        with pytest.raises(OSError, match="disk said no"):
+            store(tmp_path, CONVERSION, "o")
+    assert not (tmp_path / KEY_FILE).exists()
+    assert recorded(tmp_path, "o") is not None
+    store(tmp_path, CONVERSION, "o")
+    assert (tmp_path / KEY_FILE).read_text() == CONVERSION["pem"]
+
+
+@pytest.mark.xfail(strict=True, reason="store takes no lock")
+def test_a_store_waits_for_the_lock_and_then_sees_the_key_another_run_kept(
+    tmp_path: Path,
+) -> None:
+    secrets = tmp_path / "s"
+    secrets.mkdir(mode=0o700)
+    (secrets / KEY_FILE).write_text("")
+    held = os.open(secrets, os.O_RDONLY)
+    fcntl.flock(held, fcntl.LOCK_EX)
+    raised: list[BaseException] = []
+
+    def second() -> None:
+        try:
+            store(secrets, CONVERSION, "o")
+        except BaseException as error:  # noqa: BLE001 - handed to the test
+            raised.append(error)
+
+    worker = threading.Thread(target=second, daemon=True)
+    worker.start()
+    worker.join(0.5)
+    waited = worker.is_alive()
+    (secrets / KEY_FILE).write_text("the first run's key\n")
+    fcntl.flock(held, fcntl.LOCK_UN)
+    os.close(held)
+    worker.join(5)
+    assert waited
+    assert [type(error) for error in raised] == [FileExistsError]
+    assert (secrets / KEY_FILE).read_text() == "the first run's key\n"
 
 
 def test_no_record_means_no_release_bot(tmp_path: Path) -> None:
