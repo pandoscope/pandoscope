@@ -190,7 +190,6 @@ def test_the_page_file_is_readable_by_its_owner_only() -> None:
 
 
 
-@pytest.mark.xfail(strict=True, reason="page_file writes in the locale's encoding")
 def test_the_page_file_is_utf8_whatever_the_locale(tmp_path: Path) -> None:
     # An ASCII locale, as a bare C locale gives when Python does not coerce it.
     env = {
@@ -209,7 +208,6 @@ def test_the_page_file_is_utf8_whatever_the_locale(tmp_path: Path) -> None:
     assert Path(done.stdout.strip()).read_bytes() == "<p>\u2026</p>".encode()
 
 
-@pytest.mark.xfail(strict=True, reason="page_file leaves its directory behind on failure")
 def test_a_page_file_that_cannot_be_written_leaves_nothing_behind(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

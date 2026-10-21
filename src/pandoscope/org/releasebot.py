@@ -65,9 +65,15 @@ def page_file(page: str) -> Path:
     # to pass off a code for someone else's app.
     directory = Path(tempfile.mkdtemp(prefix="pandoscope-release-bot-"))
     path = directory / "create-release-bot.html"
-    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-    with os.fdopen(fd, "w") as handle:
-        handle.write(page)
+    try:
+        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        # The page says charset=utf-8, whatever the terminal's locale.
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            handle.write(page)
+    except BaseException:
+        path.unlink(missing_ok=True)
+        directory.rmdir()
+        raise
     return path
 
 
