@@ -118,14 +118,24 @@ def run_org_release_bot(
         if releasebot.key_in_use_at(directory):
             msg = f"{key} already holds the org's release-bot key; move it away to replace the app"
             raise FileExistsError(msg)
+        # Without a working gh the exchange fails after GitHub created the app.
+        run(["gh", "auth", "status", "--hostname", "github.com"], None)
         conversion = _converted(args.org, name, key, run=run, browse=browse, ask=ask)
         try:
             releasebot.check(conversion, args.org, name)
+        except BaseException:
+            print(releasebot.refused_note(conversion, args.org, name))
+            raise
+        try:
             record = releasebot.store_at(directory, secrets, conversion, args.org)
         except BaseException as error:
-            # The key exists only in the conversion: say where the app is, then fail.
-            in_use = isinstance(error, FileExistsError)
-            print(releasebot.lost_key_note(conversion, args.org, key, key_in_use=in_use))
+            # Say what is on disk now, not what the exception suggests.
+            if not releasebot.key_in_use_at(directory):
+                print(releasebot.lost_key_note(conversion, args.org, key))
+            elif isinstance(error, FileExistsError):
+                print(releasebot.lost_key_note(conversion, args.org, key, key_in_use=True))
+            else:
+                print(releasebot.kept_note(conversion, args.org, key))
             raise
     install = releasebot.install_url(record["slug"])
     print(f"Created {record['slug']} (app id {record['app_id']}).")

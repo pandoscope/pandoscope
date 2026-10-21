@@ -133,7 +133,7 @@ CONVERSION = {
 }
 EXCHANGE = (
     "env", "-u", "GH_DEBUG", "-u", "DEBUG", "-u", "GH_HOST",
-    "gh", "api", "--method", "POST", "app-manifests/abc123/conversions",
+    "gh", "api", "--hostname", "github.com", "--method", "POST", "app-manifests/abc123/conversions",
 )
 
 
@@ -519,7 +519,6 @@ def test_an_app_that_subscribes_to_events_is_refused() -> None:
         check({**CONVERSION, "events": ["push"]}, "o", "o-release-bot")
 
 
-@pytest.mark.xfail(strict=True, reason="round 3 Q2: gh's default host may not be github.com")
 def test_the_exchange_names_github_com_as_its_host() -> None:
     run = FakeRun({("env",): json.dumps(CONVERSION)})
     convert("abc123", run)

@@ -166,12 +166,13 @@ def convert(code: str, run: Run) -> dict[str, Any]:
         raise ValueError(msg)
     # DECISION:SEC — gh's debug log (GH_DEBUG=api, or the older DEBUG)
     # prints response bodies, and this response holds the private key;
-    # GH_HOST would send the code to another host.
+    # GH_HOST, or a gh whose default host is another, would send the code there.
     try:
         out = run(
             [
                 *("env", "-u", "GH_DEBUG", "-u", "DEBUG", "-u", "GH_HOST"),
-                *("gh", "api", "--method", "POST", f"app-manifests/{code}/conversions"),
+                *("gh", "api", "--hostname", "github.com", "--method", "POST"),
+                f"app-manifests/{code}/conversions",
             ],
             None,
         )
@@ -205,6 +206,11 @@ def check(conversion: dict[str, Any], org: str, name: str) -> None:
         raise ValueError(msg)
     if conversion.get("permissions") != PERMISSIONS:
         msg = f"the app holds permissions={conversion.get('permissions')!r}, not {PERMISSIONS!r}"
+        raise ValueError(msg)
+    # GitHub derives the slug from the name; the install page is built from it.
+    slug = re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
+    if conversion.get("slug") != slug:
+        msg = f"the app's slug={conversion.get('slug')!r} is not {slug!r}, the one its name gives"
         raise ValueError(msg)
     if conversion.get("events", []) != []:
         msg = f"the app subscribes to events={conversion.get('events')!r}, not to none"
@@ -468,23 +474,29 @@ def _valid_record(record: dict[str, Any]) -> dict[str, Any]:
     return {"org": org, "slug": slug, "app_id": app_id, "client_id": client_id}
 
 
+def refused_note(conversion: dict[str, Any], org: str, name: str) -> str:
+    """Return what to do with an app `check` refused: delete it, never keep a key for it."""
+    owner = _owner(conversion)
+    if owner is not None and owner.lower() != org.lower():
+        return (
+            f"That code was for an app outside {org}: someone else knew this run's state. "
+            f"If GitHub created {name}, delete it at {apps_url(org)} and run again."
+        )
+    return (
+        f"GitHub created an app in {org} that is not the one asked for: "
+        f"delete it at {_app_page(conversion, org)} and run again; keep no key for it."
+    )
+
+
 def lost_key_note(conversion: dict[str, Any], org: str, key: Path, *, key_in_use: bool = False) -> str:
     """
-    Return what to do when a converted app's key could not be kept.
+    Return what to do when the checked app's key could not be kept.
 
-    An app of ``org`` stays behind with no key on disk: its settings page
-    can generate a new key or delete the app; with ``key_in_use``, another
-    app's key is at ``key``, so only deleting is right. A code for an app
-    outside ``org`` left nothing behind in the org.
+    The app stays behind with no key on disk: its settings page can
+    generate a new key or delete the app; with ``key_in_use``, another
+    app's key is at ``key``, so only deleting is right.
     """
-    owner = _owner(conversion)
-    slug = conversion.get("slug")
-    if owner is not None and owner.lower() != org.lower():
-        return f"That code was for an app outside {org}; nothing was kept."
-    if not isinstance(slug, str) or not SLUG.fullmatch(slug):
-        page = f"https://github.com/organizations/{quote(org, safe='')}/settings/apps"
-    else:
-        page = f"https://github.com/organizations/{quote(org, safe='')}/settings/apps/{slug}"
+    page = _app_page(conversion, org)
     if key_in_use:
         return (
             f"The app now exists in {org}, but {key} already holds another app's key, "
@@ -494,6 +506,22 @@ def lost_key_note(conversion: dict[str, Any], org: str, key: Path, *, key_in_use
         f"The app now exists in {org}, but its key was not kept. "
         f"Generate a new private key at {page} and save it as {key}, or delete the app there."
     )
+
+
+def kept_note(conversion: dict[str, Any], org: str, key: Path) -> str:
+    """Return what to do when the run stopped after the key was kept."""
+    return (
+        f"{key} holds the new app's key, but the run stopped before it finished. "
+        f"Install it on {org}, all repositories: {install_url(str(conversion['slug']))}"
+    )
+
+
+def _app_page(conversion: dict[str, Any], org: str) -> str:
+    """The app's settings page in ``org``, or the org's apps page when the slug is odd."""
+    slug = conversion.get("slug")
+    if isinstance(slug, str) and SLUG.fullmatch(slug):
+        return f"{apps_url(org)}/{slug}"
+    return apps_url(org)
 
 
 def unconverted_note(org: str, name: str, key: Path) -> str:
