@@ -235,6 +235,92 @@ def test_a_store_waits_for_the_lock_and_then_sees_the_key_another_run_kept(
     assert (secrets / KEY_FILE).read_text() == "the first run's key\n"
 
 
+@pytest.mark.xfail(strict=True, reason="no fallback when hard links are unsupported")
+@pytest.mark.parametrize("code", [errno.ENOTSUP, errno.EOPNOTSUPP, errno.EPERM], ids=["ENOTSUP", "EOPNOTSUPP", "EPERM"])
+def test_a_filesystem_without_hard_links_still_gets_the_key(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, code: int
+) -> None:
+    def unsupported(*args: object, **kwargs: object) -> None:
+        raise OSError(code, "no hard links here")
+
+    monkeypatch.setattr(os, "link", unsupported)
+    store(tmp_path, CONVERSION, "o")
+    key = tmp_path / KEY_FILE
+    assert key.read_text() == CONVERSION["pem"]
+    assert stat.S_IMODE(key.stat().st_mode) == 0o600
+    assert sorted(path.name for path in tmp_path.iterdir()) == sorted([KEY_FILE, RECORD_FILE])
+
+
+@pytest.mark.xfail(strict=True, reason="parents take the umask's mode")
+def test_missing_parents_are_created_private(tmp_path: Path) -> None:
+    secrets = tmp_path / "meta" / ".secrets" / "orgs" / "o"
+    store(secrets, CONVERSION, "o")
+    for directory in (tmp_path / "meta", tmp_path / "meta" / ".secrets", secrets.parent):
+        assert stat.S_IMODE(directory.stat().st_mode) == 0o700, directory
+
+
+@pytest.mark.xfail(strict=True, reason="only the secrets directory itself is checked")
+def test_a_parent_others_can_write_is_refused(tmp_path: Path) -> None:
+    shared = tmp_path / "shared"
+    shared.mkdir()
+    shared.chmod(0o777)
+    with pytest.raises(ValueError, match="writable"):
+        store(shared / "orgs" / "o", CONVERSION, "o")
+    assert list(shared.iterdir()) == []
+
+
+def test_a_sticky_parent_others_can_write_is_fine(tmp_path: Path) -> None:
+    shared = tmp_path / "tmp"
+    shared.mkdir()
+    shared.chmod(0o1777)
+    store(shared / "o", CONVERSION, "o")
+    assert (shared / "o" / KEY_FILE).read_text() == CONVERSION["pem"]
+
+
+@pytest.mark.xfail(strict=True, reason="nothing is synced before the key is linked")
+def test_the_key_reaches_the_disk_before_it_is_linked(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    calls: list[str] = []
+    real_fsync, real_link = os.fsync, os.link
+
+    def fsync(fd: int) -> None:
+        calls.append("fsync")
+        real_fsync(fd)
+
+    def link(*args: object, **kwargs: object) -> None:
+        calls.append("link")
+        real_link(*args, **kwargs)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(os, "fsync", fsync)
+    monkeypatch.setattr(os, "link", link)
+    store(tmp_path, CONVERSION, "o")
+    assert "link" in calls
+    assert "fsync" in calls[: calls.index("link")]
+
+
+@pytest.mark.xfail(strict=True, reason="store writes by path, not through the directory it checked")
+def test_a_secrets_directory_swapped_after_its_check_gets_nothing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    secrets = tmp_path / "s"
+    secrets.mkdir(mode=0o700)
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    real_flock = fcntl.flock
+
+    def flock_then_swap(fd: int, operation: int) -> None:
+        real_flock(fd, operation)
+        if operation == fcntl.LOCK_EX:
+            secrets.rename(tmp_path / "checked")
+            secrets.symlink_to(elsewhere)
+
+    monkeypatch.setattr(fcntl, "flock", flock_then_swap)
+    store(secrets, CONVERSION, "o")
+    assert list(elsewhere.iterdir()) == []
+    assert (tmp_path / "checked" / KEY_FILE).read_text() == CONVERSION["pem"]
+
+
 def test_no_record_means_no_release_bot(tmp_path: Path) -> None:
     assert recorded(tmp_path, "o") is None
 
