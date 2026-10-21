@@ -11,6 +11,7 @@ anything else is a usage or conf error.
 
 from __future__ import annotations
 
+import contextlib
 import os
 import subprocess
 from collections.abc import Callable
@@ -24,6 +25,7 @@ from pandoscope.org.confs import (
     retarget_excepts,
     with_setting,
 )
+from pandoscope.org import releasebot
 from pandoscope.org.plan import Repo
 
 Exec = Callable[[list[str], dict[str, str]], tuple[int, str]]
@@ -84,15 +86,35 @@ def reconcile(
     Returns one outcome per reconciler.
     Raises RuntimeError naming the script and its output
     on an exit other than 0 or 1,
-    and ValueError when a meta conf cannot be retargeted.
+    and ValueError when a meta conf cannot be retargeted,
+    or when ``secrets`` or a directory above it fails the checks
+    `releasebot.secrets_directory` makes, before any script runs.
     """
+    # DECISION:SEC — the same directory org release-bot keeps the key in,
+    # taken the same way: walked and checked from /, made 0700, and locked,
+    # so the seed cannot lay out a placeholder while a key is being kept.
+    with releasebot.secrets_directory(secrets) as directory:
+        with contextlib.suppress(FileExistsError):
+            os.mkdir("confs", 0o700, dir_fd=directory)
+        return _reconcile(org, plan, meta, secrets, creds, dry_run=dry_run, exec_=exec_)
+
+
+def _reconcile(
+    org: str,
+    plan: list[Repo],
+    meta: Path,
+    secrets: Path,
+    creds: Credentials | None,
+    *,
+    dry_run: bool,
+    exec_: Exec,
+) -> list[Outcome]:
     scripts = meta / "scripts"
     confs = secrets / "confs"
     # Mirrored pair: meta's scripts/lib/gh-credentials-seed.sh writes this
     # README when it seeds. The directory alone proves nothing: org
     # release-bot creates it with the key before org init ever runs.
     seed_credentials = not (secrets / SEED_MARKER).exists()
-    confs.mkdir(parents=True, exist_ok=True)
     direct = [repo.name for repo in plan if repo.direct_pushes]
     planned = f"only:{','.join(repo.name for repo in plan)}"
 

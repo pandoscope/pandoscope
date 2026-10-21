@@ -155,7 +155,6 @@ def test_an_oversized_record_is_refused(tmp_path: Path) -> None:
         recorded(tmp_path, "o")
 
 
-@pytest.mark.xfail(strict=True, reason="round 3 R2: the sweep takes any .pandoscope- file")
 def test_the_sweep_takes_only_its_own_temp_files(tmp_path: Path) -> None:
     marker = tmp_path / ".pandoscope-compose"
     marker.write_text("a managed install\n")
@@ -167,7 +166,6 @@ def test_the_sweep_takes_only_its_own_temp_files(tmp_path: Path) -> None:
     assert marker.exists() and other.exists() and folder.is_dir()
 
 
-@pytest.mark.xfail(strict=True, reason="round 3 R3: a placeholder laid out just before the link loses the key")
 def test_a_placeholder_laid_out_just_before_the_link_is_still_filled(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -183,7 +181,6 @@ def test_a_placeholder_laid_out_just_before_the_link_is_still_filled(
     assert (tmp_path / KEY_FILE).read_text() == CONVERSION["pem"]
 
 
-@pytest.mark.xfail(strict=True, reason="round 3: walk asks for the working directory even for an absolute path")
 def test_an_absolute_secrets_path_works_from_a_deleted_working_directory(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

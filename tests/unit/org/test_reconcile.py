@@ -178,7 +178,6 @@ def test_a_secrets_dir_holding_only_the_release_bot_is_seeded(tmp_path: Path) ->
     assert "sync-gh-actions-credentials.sh --seed" in fake.scripts()
 
 
-@pytest.mark.xfail(strict=True, reason="round 3 R1: org init creates the secrets directory with the umask's mode")
 def test_a_fresh_secrets_directory_and_its_parents_are_created_private(tmp_path: Path) -> None:
     meta = fake_meta(tmp_path)
     secrets = meta / ".secrets" / "orgs" / "o"
@@ -187,7 +186,6 @@ def test_a_fresh_secrets_directory_and_its_parents_are_created_private(tmp_path:
         assert stat.S_IMODE(directory.stat().st_mode) == 0o700, directory
 
 
-@pytest.mark.xfail(strict=True, reason="round 3 R1: org init does not check the secrets directory")
 def test_a_secrets_directory_others_can_write_is_refused_before_any_script(tmp_path: Path) -> None:
     meta, secrets = fake_meta(tmp_path), tmp_path / "secrets"
     secrets.mkdir()

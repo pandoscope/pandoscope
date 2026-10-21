@@ -38,7 +38,7 @@ def walk(path: Path, *, create: bool) -> int:
     # component at a time through descriptors: a check of its realpath
     # would skip the directories that hold its symlinks, and `..` would be
     # resolved differently by the check and by the open.
-    given = Path(os.path.join(os.getcwd(), path))
+    given = path if path.is_absolute() else Path(os.getcwd()) / path
     if ".." in given.parts:
         msg = f"secrets path {path} contains '..'"
         raise ValueError(msg)
@@ -78,8 +78,9 @@ def walk(path: Path, *, create: bool) -> int:
                 target = os.readlink(name, dir_fd=fd)
                 parts = [part for part in Path(target).parts if part not in ("", ".")]
                 if target.startswith("/"):
+                    root = os.open("/", os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC)
                     os.close(fd)
-                    fd = os.open("/", os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC)
+                    fd = root
                     where = Path("/")
                     parts = parts[1:]
                 pending = [*parts, *pending]
