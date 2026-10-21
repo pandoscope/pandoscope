@@ -158,7 +158,8 @@ def _stopped_note(
     if not releasebot.key_in_use_at(directory):
         if not checked:
             return releasebot.unchecked_note(conversion, org)
-        return releasebot.lost_key_note(conversion, org, key)
+        recorded = releasebot.record_at(directory)
+        return releasebot.lost_key_note(conversion, org, key, recorded=recorded)
     if isinstance(error, FileExistsError):
         return releasebot.lost_key_note(conversion, org, key, key_in_use=True)
     return releasebot.kept_note(conversion, org, key)

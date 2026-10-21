@@ -22,7 +22,6 @@ def tls_context(opener: urllib.request.OpenerDirector) -> ssl.SSLContext:
     return context
 
 
-@pytest.mark.xfail(strict=True, reason="round 5 V1: no opener of its own yet")
 def test_the_exchange_writes_no_tls_key_log(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("SSLKEYLOGFILE", str(tmp_path / "keys"))
     context = tls_context(releasebot._opener())
@@ -57,7 +56,6 @@ def redirecting() -> Iterator[str]:
         server.server_close()
 
 
-@pytest.mark.xfail(strict=True, reason="round 5 V2: redirects are followed")
 @pytest.mark.parametrize("method", ["GET", "POST"])
 def test_the_exchange_follows_no_redirect(redirecting: str, method: str) -> None:
     request = urllib.request.Request(redirecting, method=method, data=b"" if method == "POST" else None)
@@ -66,7 +64,6 @@ def test_the_exchange_follows_no_redirect(redirecting: str, method: str) -> None
     assert error.value.code == 302
 
 
-@pytest.mark.xfail(strict=True, reason="round 5: fetch does not go through the opener")
 def test_fetch_sends_through_the_opener_without_a_token_and_with_a_timeout(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

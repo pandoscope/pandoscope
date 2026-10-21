@@ -181,14 +181,27 @@ def fetch(method: str, url: str) -> bytes:
             "User-Agent": "pandoscope",
         },
     )
-    with urllib.request.urlopen(request, timeout=30, context=ssl.create_default_context()) as answer:  # noqa: S310
+    with _opener().open(request, timeout=30) as answer:
         body: bytes = answer.read()
     return body
 
 
 def _opener() -> urllib.request.OpenerDirector:
     """Return the opener `fetch` sends through: verified TLS, no key log, no redirects."""
-    raise NotImplementedError
+    # DECISION:SEC — not create_default_context: it honours SSLKEYLOGFILE,
+    # set for debugging elsewhere, and would write the keys that decrypt the
+    # answer holding the private key. PROTOCOL_TLS_CLIENT verifies the
+    # certificate and the host name, as that context does.
+    context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+    context.load_default_certs()
+    return urllib.request.build_opener(urllib.request.HTTPSHandler(context=context), _NoRedirect)
+
+
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    """Every redirect ends the request: the answer must come from api.github.com itself."""
+
+    def redirect_request(self, *args: Any, **kwargs: Any) -> None:
+        return None
 
 
 def reach(fetch: Fetch) -> None:
@@ -296,6 +309,11 @@ def key_in_use_at(directory: int) -> bool:
     """Return whether the open secrets ``directory`` holds a key: anything but the empty placeholder."""
     held = _entry(directory, KEY_FILE)
     return held is not None and not _is_empty_file(held)
+
+
+def record_at(directory: int) -> bool:
+    """Return whether the open secrets ``directory`` holds a release-bot record."""
+    return _entry(directory, RECORD_FILE) is not None
 
 
 def store(secrets: Path, conversion: dict[str, Any], org: str) -> dict[str, Any]:
@@ -544,13 +562,16 @@ def refused_note(conversion: dict[str, Any], org: str, name: str) -> str:
     )
 
 
-def lost_key_note(conversion: dict[str, Any], org: str, key: Path, *, key_in_use: bool = False) -> str:
+def lost_key_note(
+    conversion: dict[str, Any], org: str, key: Path, *, key_in_use: bool = False, recorded: bool = True
+) -> str:
     """
     Return what to do when the checked app's key could not be kept.
 
     The app stays behind with no key on disk: its settings page can
     generate a new key or delete the app; with ``key_in_use``, another
-    app's key is at ``key``, so only deleting is right.
+    app's key is at ``key``, so only deleting is right. Without ``recorded``,
+    org init needs the app named by its flags.
     """
     page = _app_page(conversion, org)
     if key_in_use:
@@ -558,10 +579,16 @@ def lost_key_note(conversion: dict[str, Any], org: str, key: Path, *, key_in_use
             f"The app now exists in {org}, but {key} already holds another app's key, "
             f"which stays as it is. Delete this run's app at {page}."
         )
-    return (
+    note = (
         f"The app now exists in {org}, but its key was not kept. "
         f"Generate a new private key at {page} and save it as {key}, or delete the app there."
     )
+    if not recorded:
+        note += (
+            " No record was kept either: give org init the app's slug and client ID"
+            " from that page with --release-bot-app and --release-bot-client-id."
+        )
+    return note
 
 
 def unchecked_note(conversion: dict[str, Any], org: str) -> str:
