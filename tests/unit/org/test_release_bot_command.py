@@ -31,7 +31,10 @@ CONVERSION = {
     },
     "pem": "synthetic key material\n",
 }
-EXCHANGE = ("gh", "api", "--method", "POST", "app-manifests/abc123/conversions")
+EXCHANGE = (
+    "env", "-u", "GH_DEBUG", "-u", "DEBUG",
+    "gh", "api", "--method", "POST", "app-manifests/abc123/conversions",
+)
 
 
 class FakeCallback:
@@ -91,6 +94,7 @@ def go(flow: Flow, meta: Path, *extra: str) -> int:
     )
 
 
+@pytest.mark.xfail(strict=True)
 def test_the_flow_creates_the_app_and_keeps_its_key_in_the_orgs_secrets(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -106,6 +110,7 @@ def test_the_flow_creates_the_app_and_keeps_its_key_in_the_orgs_secrets(
     assert "not-kept" not in out
 
 
+@pytest.mark.xfail(strict=True)
 def test_the_browser_gets_the_manifest_page_from_a_private_file_then_the_install_page(
     tmp_path: Path,
 ) -> None:
@@ -123,6 +128,7 @@ def test_the_browser_gets_the_manifest_page_from_a_private_file_then_the_install
     assert len(flow.states[0]) >= 22
 
 
+@pytest.mark.xfail(strict=True)
 def test_the_name_flag_names_the_app(tmp_path: Path) -> None:
     flow = Flow()
     named = {**CONVERSION, "name": "ada-release-bot", "slug": "ada-release-bot"}
@@ -143,6 +149,7 @@ def test_an_existing_key_stops_the_flow_before_anything_happens(tmp_path: Path) 
     assert flow.run.commands() == []
 
 
+@pytest.mark.xfail(strict=True)
 @pytest.mark.parametrize(
     ("change", "named"),
     [
@@ -166,6 +173,7 @@ def test_an_app_that_is_not_the_one_asked_for_is_refused_and_nothing_kept(
     assert flow.callback.closed
 
 
+@pytest.mark.xfail(strict=True)
 def test_a_seeded_directory_with_an_empty_key_placeholder_is_filled(tmp_path: Path) -> None:
     secrets = tmp_path / ".secrets" / "orgs" / "o"
     secrets.mkdir(parents=True)
@@ -185,3 +193,36 @@ def test_a_refused_conversion_shows_no_key_material(
     shown = str(error.value) + capsys.readouterr().out
     assert "synthetic key material" not in shown
     assert "not-kept" not in shown
+
+
+@pytest.mark.xfail(strict=True)
+def test_a_refusal_after_the_exchange_points_at_the_orgs_new_app(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    flow = Flow()
+    odd = {**CONVERSION, "owner": {"login": "o"}, "permissions": {"contents": "write"}}
+    flow.run = FakeRun({EXCHANGE: json.dumps(odd)})
+    with pytest.raises(ValueError):
+        go(flow, tmp_path)
+    out = capsys.readouterr().out
+    assert "https://github.com/organizations/o/settings/apps/o-release-bot" in out
+    assert "synthetic key material" not in out
+
+
+@pytest.mark.xfail(strict=True)
+def test_a_key_that_appears_during_the_wait_points_at_the_new_app(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    flow = Flow()
+    secrets = tmp_path / ".secrets" / "orgs" / "o"
+
+    def second_run_won() -> str:
+        secrets.mkdir(parents=True, mode=0o700, exist_ok=True)
+        (secrets / KEY_FILE).write_text("another run's key\n")
+        return "abc123"
+
+    flow.callback.wait = second_run_won  # type: ignore[method-assign]
+    with pytest.raises(FileExistsError):
+        go(flow, tmp_path)
+    assert "https://github.com/organizations/o/settings/apps/o-release-bot" in capsys.readouterr().out
+    assert (secrets / KEY_FILE).read_text() == "another run's key\n"
