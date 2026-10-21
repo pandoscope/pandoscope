@@ -46,6 +46,8 @@ CLIENT_ID = re.compile(r"[A-Za-z0-9.]+")
 # an app name is at most 34 characters.
 LOGIN = re.compile(r"[A-Za-z0-9](?:[A-Za-z0-9]|-(?=[A-Za-z0-9])){0,38}")
 APP_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9 ._-]{0,33}")
+# The one-time code goes into an API path: never a path or query of its own.
+PLAIN_TOKEN = re.compile(r"[A-Za-z0-9_-]+")
 BOARD_URL = re.compile(r"https://github\.com/orgs/[A-Za-z0-9-]+/projects/[0-9]+")
 KEY_FILE = "RELEASE_BOT_PRIVATE_KEY.pem"
 RECORD_FILE = "release-bot.json"
@@ -223,7 +225,7 @@ def form_page(org: str, app_manifest: dict[str, Any], state: str) -> str:
 
 def apps_url(org: str) -> str:
     """Return ``org``'s GitHub Apps settings page: where GitHub sends the browser back."""
-    raise NotImplementedError
+    return f"https://github.com/organizations/{quote(org, safe='')}/settings/apps"
 
 
 def pasted_code(url: str, org: str, state: str) -> str | None:
@@ -233,7 +235,20 @@ def pasted_code(url: str, org: str, state: str) -> str | None:
     Only ``org``'s apps settings page on github.com with this flow's
     ``state`` and a plain-token code counts.
     """
-    raise NotImplementedError
+    # DECISION:SEC — the address must be the one this flow sent GitHub to:
+    # a pasted code from elsewhere, or from an earlier flow, is never exchanged.
+    parts = urlsplit(url.strip())
+    expected = urlsplit(apps_url(org))
+    if (parts.scheme, parts.netloc, parts.path) != (expected.scheme, expected.netloc, expected.path):
+        return None
+    query = parse_qs(parts.query)
+    codes, states = query.get("code", []), query.get("state", [])
+    if len(codes) != 1 or len(states) != 1 or not PLAIN_TOKEN.fullmatch(codes[0]):
+        return None
+    # Bytes: compare_digest refuses non-ASCII strings with a TypeError.
+    if not hmac.compare_digest(states[0].encode(), state.encode()):
+        return None
+    return codes[0]
 
 
 def callback_code(path: str, state: str) -> str | None:
@@ -263,8 +278,7 @@ def convert(code: str, run: Run) -> dict[str, Any]:
     Returns GitHub's conversion: ``id``, ``slug``, ``client_id``, ``pem`` and more.
     Raises ValueError when ``code`` is not a plain token, and what ``run`` raises.
     """
-    # The code goes into an API path: a plain token only, never a path or query.
-    if not re.fullmatch(r"[A-Za-z0-9_-]+", code):
+    if not PLAIN_TOKEN.fullmatch(code):
         msg = f"the callback's code={code!r} is not a plain token"
         raise ValueError(msg)
     # DECISION:SEC — gh's debug log (GH_DEBUG=api, or the older DEBUG)

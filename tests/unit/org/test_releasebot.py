@@ -95,12 +95,10 @@ def test_any_other_request_yields_no_code(path: str) -> None:
 APPS = "https://github.com/organizations/o/settings/apps"
 
 
-@pytest.mark.xfail(strict=True, reason="apps_url is a stub")
 def test_github_sends_the_browser_back_to_the_orgs_apps_settings() -> None:
     assert apps_url("o") == APPS
 
 
-@pytest.mark.xfail(strict=True, reason="pasted_code is a stub")
 @pytest.mark.parametrize(
     "pasted",
     [f"{APPS}?code=abc123&state=s-123", f"  {APPS}?state=s-123&code=abc123\n"],
@@ -110,7 +108,6 @@ def test_the_pasted_redirect_with_its_own_state_yields_the_code(pasted: str) -> 
     assert pasted_code(pasted, "o", "s-123") == "abc123"
 
 
-@pytest.mark.xfail(strict=True, reason="pasted_code is a stub")
 @pytest.mark.parametrize(
     "pasted",
     [
