@@ -90,6 +90,16 @@ CONVERSION = {
     "slug": "o-release-bot",
     "client_id": "Iv23abc",
     "client_secret": "not-kept",
+    "name": "o-release-bot",
+    "owner": {"login": "o", "type": "Organization"},
+    "permissions": {
+        "actions": "read",
+        "contents": "write",
+        "issues": "read",
+        "metadata": "read",
+        "pull_requests": "write",
+        "workflows": "write",
+    },
     "webhook_secret": None,
     "pem": "synthetic key material\n",
 }

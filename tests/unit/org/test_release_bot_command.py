@@ -18,6 +18,16 @@ CONVERSION = {
     "slug": "o-release-bot",
     "client_id": "Iv23abc",
     "client_secret": "not-kept",
+    "name": "o-release-bot",
+    "owner": {"login": "o", "type": "Organization"},
+    "permissions": {
+        "actions": "read",
+        "contents": "write",
+        "issues": "read",
+        "metadata": "read",
+        "pull_requests": "write",
+        "workflows": "write",
+    },
     "pem": "synthetic key material\n",
 }
 EXCHANGE = ("gh", "api", "--method", "POST", "app-manifests/abc123/conversions")
