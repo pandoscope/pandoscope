@@ -18,6 +18,8 @@ import html
 import json
 import os
 import re
+import time
+from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, quote, urlsplit
 from typing import Any, Protocol
@@ -56,7 +58,62 @@ def listen(state: str, timeout: float = 600) -> Callback:
     redirect with this ``state``, and returns that redirect's code.
     Raises TimeoutError from ``wait`` when no code arrives within ``timeout`` seconds.
     """
-    raise NotImplementedError
+    return _LocalCallback(state, timeout)
+
+
+class _LocalCallback:
+    """One-shot HTTP endpoint on 127.0.0.1; the port is the system's choice."""
+
+    def __init__(self, state: str, timeout: float) -> None:
+        self._state = state
+        self._timeout = timeout
+        self._page = ""
+        self._code: str | None = None
+        self._server = HTTPServer(("127.0.0.1", 0), self._handler())
+        self._server.timeout = 1
+        self.url = f"http://127.0.0.1:{self._server.server_address[1]}"
+
+    def _handler(self) -> type[BaseHTTPRequestHandler]:
+        outer = self
+
+        class Handler(BaseHTTPRequestHandler):
+            def do_GET(self) -> None:  # noqa: N802 - the http.server hook name
+                if urlsplit(self.path).path == "/":
+                    self._answer(200, outer._page)
+                    return
+                code = callback_code(self.path, outer._state)
+                if code is None:
+                    self._answer(400, "This is not the release bot's callback.")
+                    return
+                outer._code = code
+                self._answer(200, "The app exists. Back to the terminal.")
+
+            def _answer(self, status: int, text: str) -> None:
+                body = text.encode()
+                self.send_response(status)
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+
+            def log_message(self, format: str, *args: Any) -> None:  # noqa: A002
+                """Keep the terminal quiet: the command prints what matters."""
+
+        return Handler
+
+    def wait(self, page: str) -> str:
+        """Serve ``page`` until the callback brings this flow's code; return it."""
+        self._page = page
+        deadline = time.monotonic() + self._timeout
+        try:
+            while self._code is None:
+                if time.monotonic() > deadline:
+                    msg = f"no callback reached {self.url} within {self._timeout} s"
+                    raise TimeoutError(msg)
+                self._server.handle_request()
+        finally:
+            self._server.server_close()
+        return self._code
 
 
 def manifest(org: str, name: str, redirect_url: str) -> dict[str, Any]:

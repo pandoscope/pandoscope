@@ -153,7 +153,6 @@ def get(url: str) -> tuple[int, str]:
         return error.code, error.read().decode()
 
 
-@pytest.mark.xfail(strict=True)
 def test_the_local_callback_serves_the_page_and_returns_its_own_code() -> None:
     callback = listen("s-123", timeout=10)
     assert callback.url.startswith("http://127.0.0.1:")
