@@ -6,7 +6,7 @@ import re
 
 import pytest
 
-from pandoscope.org.releasebot import form_page, manifest
+from pandoscope.org.releasebot import callback_code, form_page, manifest
 
 CALLBACK = "http://127.0.0.1:8123/callback"
 
@@ -45,3 +45,25 @@ def test_the_page_posts_the_manifest_to_the_orgs_new_app_form() -> None:
     value = re.search(r'name="manifest" value="([^"]*)"', page)
     assert value is not None
     assert json.loads(html.unescape(value.group(1))) == app
+
+
+@pytest.mark.xfail(strict=True)
+def test_the_callback_with_its_own_state_yields_the_code() -> None:
+    assert callback_code("/callback?code=abc123&state=s-123", "s-123") == "abc123"
+
+
+@pytest.mark.xfail(strict=True)
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/callback?code=abc123&state=forged",
+        "/callback?code=abc123",
+        "/callback?state=s-123",
+        "/callback?code=&state=s-123",
+        "/elsewhere?code=abc123&state=s-123",
+        "/",
+    ],
+    ids=["wrong-state", "no-state", "no-code", "empty-code", "other-path", "root"],
+)
+def test_any_other_request_yields_no_code(path: str) -> None:
+    assert callback_code(path, "s-123") is None
