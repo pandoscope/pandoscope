@@ -372,3 +372,54 @@ def test_a_non_ascii_state_is_refused_quietly(capfd: pytest.CaptureFixture[str])
 
 def test_callback_code_refuses_a_non_ascii_state() -> None:
     assert callback_code("/callback?code=x&state=%C3%A9", "s-123") is None
+
+
+@pytest.mark.xfail(strict=True)
+def test_a_secrets_path_that_is_a_symlink_is_refused(tmp_path: Path) -> None:
+    real = tmp_path / "real"
+    real.mkdir(mode=0o700)
+    (tmp_path / "link").symlink_to(real)
+    with pytest.raises(ValueError, match="symlink"):
+        store(tmp_path / "link", CONVERSION)
+    assert list(real.iterdir()) == []
+
+
+@pytest.mark.xfail(strict=True)
+def test_a_secrets_directory_others_can_write_is_refused(tmp_path: Path) -> None:
+    shared = tmp_path / "shared"
+    shared.mkdir()
+    shared.chmod(0o777)
+    with pytest.raises(ValueError, match="writable"):
+        store(shared, CONVERSION)
+    assert list(shared.iterdir()) == []
+
+
+@pytest.mark.xfail(strict=True)
+def test_an_existing_secrets_directory_ends_up_private(tmp_path: Path) -> None:
+    secrets = tmp_path / "s"
+    secrets.mkdir()
+    secrets.chmod(0o755)
+    store(secrets, CONVERSION)
+    assert stat.S_IMODE(secrets.stat().st_mode) == 0o700
+
+
+@pytest.mark.xfail(strict=True)
+def test_a_temp_file_swapped_for_a_symlink_is_never_linked(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    secrets = tmp_path / "s"
+    secrets.mkdir(mode=0o700)
+    victim = tmp_path / "victim"
+    victim.write_text("someone else's file\n")
+    swapped = secrets / ".pandoscope-swapped"
+    swapped.symlink_to(victim)
+    written = tmp_path / "written"
+
+    def fake_mkstemp(dir: Path, prefix: str) -> tuple[int, str]:  # noqa: A002
+        return os.open(written, os.O_WRONLY | os.O_CREAT, 0o600), str(swapped)
+
+    monkeypatch.setattr("pandoscope.org.releasebot.tempfile.mkstemp", fake_mkstemp)
+    with pytest.raises(ValueError, match="temp"):
+        store(secrets, CONVERSION)
+    assert not (secrets / KEY_FILE).exists()
+    assert victim.read_text() == "someone else's file\n"
