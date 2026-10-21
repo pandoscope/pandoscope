@@ -292,6 +292,7 @@ def store(secrets: Path, conversion: dict[str, Any]) -> dict[str, Any]:
         msg = "the conversion carries no private key"
         raise ValueError(msg)
     secrets.mkdir(mode=0o700, parents=True, exist_ok=True)
+    _own_private_directory(secrets)
     key = secrets / KEY_FILE
     # DECISION:IRREV — the key is written to a temp file and linked into
     # place: link refuses any existing entry (a key in use, a symlink), and
@@ -320,16 +321,54 @@ def key_in_use(secrets: Path) -> bool:
     return os.path.lexists(key) and not is_placeholder(key)
 
 
+def _own_private_directory(directory: Path) -> None:
+    """
+    Make sure ``directory`` is the current user's own, then make it 0700.
+
+    Raises ValueError when it is a symlink, not a directory, owned by
+    someone else, or writable by group or others: whoever can write it can
+    swap the key's temp file.
+    """
+    info = directory.lstat()
+    if stat.S_ISLNK(info.st_mode):
+        msg = f"secrets directory {directory} is a symlink"
+        raise ValueError(msg)
+    if not stat.S_ISDIR(info.st_mode):
+        msg = f"secrets path {directory} is not a directory"
+        raise ValueError(msg)
+    if info.st_uid != os.getuid():
+        msg = f"secrets directory {directory} belongs to uid {info.st_uid}, not to you"
+        raise ValueError(msg)
+    if info.st_mode & 0o022:
+        msg = f"secrets directory {directory} is writable by group or others"
+        raise ValueError(msg)
+    os.chmod(directory, 0o700)
+
+
 def _place(directory: Path, path: Path, text: str, *, replace: bool) -> None:
-    """Write ``text`` to ``path`` (mode 0600) through a temp file in ``directory``."""
+    """
+    Write ``text`` to ``path`` (mode 0600) through a temp file in ``directory``.
+
+    Raises ValueError when the temp file is no longer the file written
+    (swapped, for a symlink or another file) before it is put in place.
+    """
     fd, temp = tempfile.mkstemp(dir=directory, prefix=".pandoscope-")
     try:
         with os.fdopen(fd, "w") as handle:
             handle.write(text)
+            handle.flush()
+            written = os.fstat(handle.fileno())
+        current = os.lstat(temp)
+        if not stat.S_ISREG(current.st_mode) or (current.st_dev, current.st_ino) != (
+            written.st_dev,
+            written.st_ino,
+        ):
+            msg = f"the temp file {temp} was replaced before it was put in place"
+            raise ValueError(msg)
         if replace:
             os.replace(temp, path)
         else:
-            os.link(temp, path)
+            os.link(temp, path, follow_symlinks=False)
     finally:
         if os.path.lexists(temp):
             os.unlink(temp)

@@ -375,7 +375,6 @@ def test_callback_code_refuses_a_non_ascii_state() -> None:
     assert callback_code("/callback?code=x&state=%C3%A9", "s-123") is None
 
 
-@pytest.mark.xfail(strict=True)
 def test_a_secrets_path_that_is_a_symlink_is_refused(tmp_path: Path) -> None:
     real = tmp_path / "real"
     real.mkdir(mode=0o700)
@@ -385,7 +384,6 @@ def test_a_secrets_path_that_is_a_symlink_is_refused(tmp_path: Path) -> None:
     assert list(real.iterdir()) == []
 
 
-@pytest.mark.xfail(strict=True)
 def test_a_secrets_directory_others_can_write_is_refused(tmp_path: Path) -> None:
     shared = tmp_path / "shared"
     shared.mkdir()
@@ -395,7 +393,6 @@ def test_a_secrets_directory_others_can_write_is_refused(tmp_path: Path) -> None
     assert list(shared.iterdir()) == []
 
 
-@pytest.mark.xfail(strict=True)
 def test_an_existing_secrets_directory_ends_up_private(tmp_path: Path) -> None:
     secrets = tmp_path / "s"
     secrets.mkdir()
@@ -404,7 +401,6 @@ def test_an_existing_secrets_directory_ends_up_private(tmp_path: Path) -> None:
     assert stat.S_IMODE(secrets.stat().st_mode) == 0o700
 
 
-@pytest.mark.xfail(strict=True)
 def test_a_temp_file_swapped_for_a_symlink_is_never_linked(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
