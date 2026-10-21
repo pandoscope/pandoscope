@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import argparse
 import tempfile
+import webbrowser
+from collections.abc import Callable
 from pathlib import Path
 
-from pandoscope.org import forge, reconcile
+from pandoscope.org import forge, reconcile, releasebot
 from pandoscope.org.confs import Credentials
 from pandoscope.org.init import init_org
 from pandoscope.org.plan import Repo, default_plan
@@ -75,6 +77,25 @@ def run_org_init(
         for line in outcome.lines:
             print(f"  {line}")
     return 1 if any(outcome.code == 1 for outcome in result.outcomes) else 0
+
+
+def run_org_release_bot(
+    args: argparse.Namespace,
+    *,
+    run: forge.Run = forge.run,
+    listen: Callable[[str], releasebot.Callback] = releasebot.listen,
+    browse: Callable[[str], object] = webbrowser.open,
+) -> int:
+    """
+    Create the org's release bot through the app-manifest flow; return 0.
+
+    Opens the manifest page and, once the app exists, its install page in the
+    principal's browser, and prints the client ID. The key goes to the org's
+    secrets directory and is never printed.
+    Raises FileExistsError before anything else when the secrets directory
+    already holds a key, and what any step raises.
+    """
+    raise NotImplementedError
 
 
 def run_org_plan(args: argparse.Namespace) -> int:
