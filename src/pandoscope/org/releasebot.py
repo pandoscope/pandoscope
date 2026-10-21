@@ -17,7 +17,6 @@ from __future__ import annotations
 
 import contextlib
 import errno
-import fcntl
 import hmac
 import html
 import json
@@ -30,6 +29,7 @@ from pathlib import Path
 from urllib.parse import parse_qs, quote, urlsplit
 from typing import Any
 
+from pandoscope.org import secretsdir
 from pandoscope.org.forge import Run
 
 # The factory's own release bot (pandoscope-release-bot) holds these;
@@ -218,15 +218,50 @@ def _owner(conversion: dict[str, Any]) -> str | None:
     return login if isinstance(login, str) and LOGIN.fullmatch(login) else None
 
 
-def store(secrets: Path, conversion: dict[str, Any], org: str) -> dict[str, Any]:
+@contextlib.contextmanager
+def secrets_directory(secrets: Path) -> Iterator[int]:
     """
-    Keep ``org``'s app's private key and record under ``secrets``; return the record.
+    Open, check and lock ``secrets`` (creating it 0700); yield its descriptor.
 
-    The key goes to ``KEY_FILE`` with mode 0600; org, slug, app id and client
-    ID go to ``RECORD_FILE``, first. The client secret is not kept.
+    The lock is held until the block ends: one run per directory.
+    Raises ValueError when the directory or one above it fails its check,
+    or another run holds the lock beyond ``LOCK_WAIT``.
+    """
+    fd = secretsdir.walk(secrets, create=True)
+    try:
+        # Checked before the lock too: a directory others can open must not
+        # keep this run waiting for a lock they hold.
+        secretsdir.check_private(fd, secrets)
+        secretsdir.lock(fd, secrets, LOCK_WAIT)
+        secretsdir.check_private(fd, secrets)
+        os.fchmod(fd, 0o700)
+        yield fd
+    finally:
+        os.close(fd)
+
+
+def key_in_use_at(directory: int) -> bool:
+    """Return whether the open secrets ``directory`` holds a key: anything but the empty placeholder."""
+    held = _entry(directory, KEY_FILE)
+    return held is not None and not _is_empty_file(held)
+
+
+def store(secrets: Path, conversion: dict[str, Any], org: str) -> dict[str, Any]:
+    """Keep ``org``'s app's key and record under ``secrets``, as `store_at` does; return the record."""
+    with secrets_directory(secrets) as directory:
+        return store_at(directory, secrets, conversion, org)
+
+
+def store_at(directory: int, secrets: Path, conversion: dict[str, Any], org: str) -> dict[str, Any]:
+    """
+    Keep ``org``'s app's private key and record in the open, locked ``directory``; return the record.
+
+    ``secrets`` is the directory's path, for messages. The key goes to
+    ``KEY_FILE`` with mode 0600; org, slug, app id and client ID go to
+    ``RECORD_FILE``, first. The client secret is not kept.
     Raises ValueError naming the field when the conversion lacks the key or
     holds a slug, app id or client ID of another shape, before anything is
-    written, and FileExistsError when ``secrets`` already holds a key.
+    written, and FileExistsError when the directory already holds a key.
     """
     record = _valid_record(
         {
@@ -240,32 +275,26 @@ def store(secrets: Path, conversion: dict[str, Any], org: str) -> dict[str, Any]
     if not isinstance(pem, str) or not pem.strip():
         msg = "the conversion carries no private key"
         raise ValueError(msg)
-    _private_parents(secrets.parent)
-    with contextlib.suppress(FileExistsError):
-        secrets.mkdir(mode=0o700)
-    key = secrets / KEY_FILE
     # DECISION:SEC — every step goes through the directory as opened and
-    # checked, never by path again: a directory swapped afterwards gets nothing.
-    # One store per directory at a time, and the key checked again under the
-    # lock: two runs that both found the empty placeholder would otherwise
-    # both replace it, and the first app's key would be lost.
-    with _locked_private_directory(secrets) as directory:
-        held = _entry(directory, KEY_FILE)
-        placeholder = held is not None and _is_empty_file(held)
-        if held is not None and not placeholder:
-            msg = f"{key} already holds a release-bot key"
-            raise FileExistsError(msg)
-        # DECISION:SEC — the client secret is not kept: no workflow uses it,
-        # and a secret that is never written cannot leak.
-        # The record goes first: if the key then fails, a rerun finds no key
-        # in the way and writes both again.
-        _place(directory, RECORD_FILE, json.dumps(record, indent=2) + "\n", replace=True)
-        # DECISION:IRREV — the key is written to a temp file and linked into
-        # place: link refuses any existing entry (a key in use, a symlink), and
-        # a crash leaves no half-written key. Replacing the app is a deliberate
-        # step (move the key away first). Only the empty placeholder the
-        # credentials seed lays out is replaced.
-        _place(directory, KEY_FILE, pem, replace=placeholder)
+    # checked, never by path again; the caller holds its lock. The key is
+    # checked again here: a key kept meanwhile is never replaced.
+    held = _entry(directory, KEY_FILE)
+    placeholder = held is not None and _is_empty_file(held)
+    if held is not None and not placeholder:
+        msg = f"{secrets / KEY_FILE} already holds a release-bot key"
+        raise FileExistsError(msg)
+    _sweep(directory)
+    # DECISION:SEC — the client secret is not kept: no workflow uses it,
+    # and a secret that is never written cannot leak.
+    # The record goes first: if the key then fails, a rerun finds no key
+    # in the way and writes both again.
+    _place(directory, RECORD_FILE, json.dumps(record, indent=2) + "\n", replace=True)
+    # DECISION:IRREV — the key is written to a temp file and linked into
+    # place: link refuses any existing entry (a key in use, a symlink), and
+    # a crash leaves no half-written key. Replacing the app is a deliberate
+    # step (move the key away first). Only the empty placeholder the
+    # credentials seed lays out is replaced.
+    _place(directory, KEY_FILE, pem, replace=placeholder)
     return record
 
 
@@ -296,77 +325,18 @@ def _entry(directory: int, name: str) -> os.stat_result | None:
         return None
 
 
-def _private_parents(directory: Path) -> None:
-    """
-    Make sure only the user or root can change ``directory`` and every one above it.
-
-    Creates the missing ones with mode 0700. A directory others may write
-    is fine only with the sticky bit (``/tmp``): there no one can rename
-    another's entries.
-    Raises ValueError naming the first directory that fails.
-    """
-    # DECISION:SEC — whoever can rename a parent can put another directory
-    # in the secrets directory's place between runs.
-    directory = Path(os.path.abspath(directory))
-    missing: list[Path] = []
-    existing = directory
-    while not os.path.lexists(existing):
-        missing.append(existing)
-        existing = existing.parent
-    real = Path(os.path.realpath(existing))
-    for ancestor in (real, *real.parents):
-        _check_parent(ancestor, ancestor.lstat())
-    for created in reversed(missing):
-        try:
-            os.mkdir(created, 0o700)
-        except FileExistsError:
-            pass
-        info = created.lstat()
-        if stat.S_ISLNK(info.st_mode) or not stat.S_ISDIR(info.st_mode):
-            msg = f"{created} appeared as something other than a directory"
-            raise ValueError(msg)
-        _check_parent(created, info)
+_TEMP_PREFIX = ".pandoscope-"
 
 
-def _check_parent(directory: Path, info: os.stat_result) -> None:
-    if info.st_uid not in (os.getuid(), 0):
-        msg = f"{directory} belongs to uid {info.st_uid}, neither you nor root"
-        raise ValueError(msg)
-    if info.st_mode & 0o022 and not info.st_mode & stat.S_ISVTX:
-        msg = f"{directory} is writable by group or others"
-        raise ValueError(msg)
-
-
-@contextlib.contextmanager
-def _locked_private_directory(directory: Path) -> Iterator[int]:
-    """
-    Open ``directory``, lock it, make sure it is the user's own, make it 0700; yield its fd.
-
-    Raises ValueError when it is a symlink, not a directory, owned by
-    someone else, or writable by group or others: whoever can write it can
-    swap the key's temp file.
-    """
-    info = directory.lstat()
-    if stat.S_ISLNK(info.st_mode):
-        msg = f"secrets directory {directory} is a symlink"
-        raise ValueError(msg)
-    if not stat.S_ISDIR(info.st_mode):
-        msg = f"secrets path {directory} is not a directory"
-        raise ValueError(msg)
-    fd = os.open(directory, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC)
-    try:
-        fcntl.flock(fd, fcntl.LOCK_EX)
-        opened = os.fstat(fd)
-        if opened.st_uid != os.getuid():
-            msg = f"secrets directory {directory} belongs to uid {opened.st_uid}, not to you"
-            raise ValueError(msg)
-        if opened.st_mode & 0o022:
-            msg = f"secrets directory {directory} is writable by group or others"
-            raise ValueError(msg)
-        os.fchmod(fd, 0o700)
-        yield fd
-    finally:
-        os.close(fd)
+def _sweep(directory: int) -> None:
+    """Remove the user's temp files an earlier, interrupted run left: they may hold a key."""
+    for name in os.listdir(directory):
+        if not name.startswith(_TEMP_PREFIX):
+            continue
+        info = _entry(directory, name)
+        if info is not None and stat.S_ISREG(info.st_mode) and info.st_uid == os.getuid():
+            with contextlib.suppress(FileNotFoundError):
+                os.unlink(name, dir_fd=directory)
 
 
 # What link(2) answers on a filesystem without hard links (exFAT, some network mounts).
@@ -385,7 +355,7 @@ def _place(directory: int, name: str, text: str, *, replace: bool) -> None:
     try:
         try:
             _write_all(fd, data)
-            os.fsync(fd)
+            secretsdir.full_sync(fd)
             written = os.fstat(fd)
         finally:
             os.close(fd)
@@ -406,7 +376,7 @@ def _place(directory: int, name: str, text: str, *, replace: bool) -> None:
                 if error.errno not in _NO_HARD_LINKS:
                     raise
                 _write_new(directory, name, data)
-        os.fsync(directory)
+        secretsdir.full_sync(directory)
     finally:
         with contextlib.suppress(FileNotFoundError):
             os.unlink(temp, dir_fd=directory)
@@ -415,7 +385,7 @@ def _place(directory: int, name: str, text: str, *, replace: bool) -> None:
 def _temp_file(directory: int) -> tuple[str, int]:
     """Create a new, private temp file in the open ``directory``; return its name and fd."""
     for _ in range(8):
-        name = f".pandoscope-{os.urandom(8).hex()}"
+        name = f"{_TEMP_PREFIX}{os.urandom(8).hex()}"
         try:
             flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC
             return name, os.open(name, flags, 0o600, dir_fd=directory)
@@ -434,7 +404,7 @@ def _write_new(directory: int, name: str, data: bytes) -> None:
     try:
         try:
             _write_all(fd, data)
-            os.fsync(fd)
+            secretsdir.full_sync(fd)
         finally:
             os.close(fd)
     except BaseException:
@@ -448,12 +418,27 @@ def _write_all(fd: int, data: bytes) -> None:
         view = view[os.write(fd, view) :]
 
 
+# A record holds four short fields; anything bigger is not one.
+_RECORD_LIMIT = 4096
+
+
 def recorded(secrets: Path, org: str) -> dict[str, Any] | None:
     """Return the release bot ``store`` recorded for ``org`` under ``secrets``, or None."""
     path = secrets / RECORD_FILE
-    if not path.exists():
+    try:
+        directory = secretsdir.walk(secrets, create=False)
+    except FileNotFoundError:
         return None
-    record = json.loads(path.read_text())
+    try:
+        secretsdir.check_private(directory, secrets)
+        data = secretsdir.read_small(
+            directory, RECORD_FILE, _RECORD_LIMIT, f"the release bot record {path}"
+        )
+    finally:
+        os.close(directory)
+    if data is None:
+        return None
+    record = json.loads(data)
     if not isinstance(record, dict):
         msg = f"the release bot record in {path} is not an object"
         raise ValueError(msg)
@@ -483,13 +468,14 @@ def _valid_record(record: dict[str, Any]) -> dict[str, Any]:
     return {"org": org, "slug": slug, "app_id": app_id, "client_id": client_id}
 
 
-def lost_key_note(conversion: dict[str, Any], org: str, key: Path) -> str:
+def lost_key_note(conversion: dict[str, Any], org: str, key: Path, *, key_in_use: bool = False) -> str:
     """
     Return what to do when a converted app's key could not be kept.
 
     An app of ``org`` stays behind with no key on disk: its settings page
-    can generate a new key or delete the app. A code for an app outside
-    ``org`` left nothing behind in the org.
+    can generate a new key or delete the app; with ``key_in_use``, another
+    app's key is at ``key``, so only deleting is right. A code for an app
+    outside ``org`` left nothing behind in the org.
     """
     owner = _owner(conversion)
     slug = conversion.get("slug")
@@ -499,6 +485,11 @@ def lost_key_note(conversion: dict[str, Any], org: str, key: Path) -> str:
         page = f"https://github.com/organizations/{quote(org, safe='')}/settings/apps"
     else:
         page = f"https://github.com/organizations/{quote(org, safe='')}/settings/apps/{slug}"
+    if key_in_use:
+        return (
+            f"The app now exists in {org}, but {key} already holds another app's key, "
+            f"which stays as it is. Delete this run's app at {page}."
+        )
     return (
         f"The app now exists in {org}, but its key was not kept. "
         f"Generate a new private key at {page} and save it as {key}, or delete the app there."

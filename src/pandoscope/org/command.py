@@ -11,6 +11,7 @@ import tempfile
 import webbrowser
 from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
 from pandoscope.org import forge, reconcile, releasebot
 from pandoscope.org.confs import Credentials
@@ -102,52 +103,30 @@ def run_org_release_bot(
     already holds a key, and what any step raises.
     """
     _check_shapes(args)
-    secrets = _secrets(args)
-    key = secrets / releasebot.KEY_FILE
-    if releasebot.key_in_use(secrets):
-        msg = f"{key} already holds the org's release-bot key; move it away to replace the app"
-        raise FileExistsError(msg)
     # DECISION:IFACE — one app per org, named after it by default;
     # --name for an org that already chose another (ada-release-bot).
     name = args.name or f"{args.org}-release-bot"
     if not releasebot.APP_NAME.fullmatch(name):
         msg = f"app name={name!r} is not a GitHub App name (up to 34 letters, digits, ' ._-')"
         raise ValueError(msg)
-    state = tokens.token_urlsafe(24)
-    # DECISION:SEC — GitHub sends the browser back to the org's own apps
-    # page and the principal pastes that address: no local port to squat,
-    # no local server to flood.
-    apps = releasebot.apps_url(args.org)
-    app = releasebot.manifest(args.org, name, apps)
-    sent = False
-    try:
-        page = releasebot.page_file(releasebot.form_page(args.org, app, state))
+    secrets = _secrets(args)
+    key = secrets / releasebot.KEY_FILE
+    # DECISION:SEC — the secrets directory is checked and locked before
+    # GitHub creates anything, and stays locked until the key is kept: a
+    # directory that cannot take the key must not leave an app behind.
+    with releasebot.secrets_directory(secrets) as directory:
+        if releasebot.key_in_use_at(directory):
+            msg = f"{key} already holds the org's release-bot key; move it away to replace the app"
+            raise FileExistsError(msg)
+        conversion = _converted(args.org, name, key, run=run, browse=browse, ask=ask)
         try:
-            print(f"Opening {page}: it sends the manifest of {name} to GitHub.")
-            print(f'On GitHub, check that the page creates {name} for {args.org}, then confirm "Create GitHub App".')
-            print(f"GitHub then opens {apps}?code=…&state=…: paste that address here (it is not shown).")
-            print(f"If the browser lands anywhere else, do not paste: delete any new app at {apps} and run again.")
-            browse(page.as_uri())
-            sent = True
-            code = _pasted_code(ask, args.org, state)
-        finally:
-            # Best effort: a stray file in the directory must not cost the code.
-            with contextlib.suppress(OSError):
-                page.unlink(missing_ok=True)
-            shutil.rmtree(page.parent, ignore_errors=True)
-        conversion = releasebot.convert(code, run)
-    except BaseException:
-        if sent:
-            # Whether GitHub created the app is unknown here: say where to look.
-            print(releasebot.unconverted_note(args.org, name, key))
-        raise
-    try:
-        releasebot.check(conversion, args.org, name)
-        record = releasebot.store(secrets, conversion, args.org)
-    except (ValueError, OSError):
-        # The key exists only in the conversion: say where the app is, then fail.
-        print(releasebot.lost_key_note(conversion, args.org, key))
-        raise
+            releasebot.check(conversion, args.org, name)
+            record = releasebot.store_at(directory, secrets, conversion, args.org)
+        except BaseException as error:
+            # The key exists only in the conversion: say where the app is, then fail.
+            in_use = isinstance(error, FileExistsError)
+            print(releasebot.lost_key_note(conversion, args.org, key, key_in_use=in_use))
+            raise
     install = releasebot.install_url(record["slug"])
     print(f"Created {record['slug']} (app id {record['app_id']}).")
     print(f"Client ID: {record['client_id']}")
@@ -155,6 +134,46 @@ def run_org_release_bot(
     print(f"Install it on {args.org}, all repositories: {install}")
     browse(install)
     return 0
+
+
+def _converted(
+    org: str,
+    name: str,
+    key: Path,
+    *,
+    run: forge.Run,
+    browse: Callable[[str], object],
+    ask: Callable[[str], str],
+) -> dict[str, Any]:
+    """Send the manifest through the browser, read the pasted redirect, return GitHub's conversion."""
+    state = tokens.token_urlsafe(24)
+    # DECISION:SEC — GitHub sends the browser back to the org's own apps
+    # page and the principal pastes that address: no local port to squat,
+    # no local server to flood.
+    apps = releasebot.apps_url(org)
+    app = releasebot.manifest(org, name, apps)
+    sent = False
+    try:
+        page = releasebot.page_file(releasebot.form_page(org, app, state))
+        try:
+            print(f"Opening {page}: it sends the manifest of {name} to GitHub.")
+            print(f'On GitHub, check that the page creates {name} for {org}, then confirm "Create GitHub App".')
+            print(f"GitHub then opens {apps}?code=…&state=…: paste that address here (it is not shown).")
+            print(f"If the browser lands anywhere else, do not paste: delete any new app at {apps} and run again.")
+            browse(page.as_uri())
+            sent = True
+            code = _pasted_code(ask, org, state)
+        finally:
+            # Best effort: a stray file in the directory must not cost the code.
+            with contextlib.suppress(OSError):
+                page.unlink(missing_ok=True)
+            shutil.rmtree(page.parent, ignore_errors=True)
+        return releasebot.convert(code, run)
+    except BaseException:
+        if sent:
+            # Whether GitHub created the app is unknown here: say where to look.
+            print(releasebot.unconverted_note(org, name, key))
+        raise
 
 
 def _pasted_code(ask: Callable[[str], str], org: str, state: str, tries: int = 3) -> str:

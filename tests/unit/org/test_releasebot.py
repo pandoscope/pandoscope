@@ -307,7 +307,7 @@ def test_a_secrets_directory_swapped_after_its_check_gets_nothing(
 
     def flock_then_swap(fd: int, operation: int) -> None:
         real_flock(fd, operation)
-        if operation == fcntl.LOCK_EX:
+        if operation & fcntl.LOCK_EX:
             secrets.rename(tmp_path / "checked")
             secrets.symlink_to(elsewhere)
 

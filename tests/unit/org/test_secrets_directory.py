@@ -33,7 +33,6 @@ def in_thread(work: Callable[[], object], seconds: float) -> tuple[bool, list[Ba
     return not worker.is_alive(), raised
 
 
-@pytest.mark.xfail(strict=True, reason="round 2 K2: realpath hides a symlink in a writable directory")
 def test_a_secrets_path_through_a_symlink_in_a_writable_directory_is_refused(tmp_path: Path) -> None:
     shared = tmp_path / "w"
     shared.mkdir()
@@ -46,7 +45,6 @@ def test_a_secrets_path_through_a_symlink_in_a_writable_directory_is_refused(tmp
     assert list(private.iterdir()) == []
 
 
-@pytest.mark.xfail(strict=True, reason="round 2 K2: '..' is collapsed before the check")
 def test_a_secrets_path_with_dot_dot_is_refused(tmp_path: Path) -> None:
     checked = tmp_path / "p"
     checked.mkdir(mode=0o700)
@@ -68,7 +66,6 @@ def test_a_root_owned_symlink_on_the_way_is_followed() -> None:
         shutil.rmtree(secrets.parent, ignore_errors=True)
 
 
-@pytest.mark.xfail(strict=True, reason="round 2 K5: flock blocks forever")
 def test_a_lock_held_elsewhere_ends_the_store_within_its_bound(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -87,7 +84,6 @@ def test_a_lock_held_elsewhere_ends_the_store_within_its_bound(
     assert not (secrets / KEY_FILE).exists()
 
 
-@pytest.mark.xfail(strict=True, reason="round 2 K5: the lock is taken before the checks")
 def test_a_writable_secrets_directory_is_refused_before_waiting_for_its_lock(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -106,7 +102,6 @@ def test_a_writable_secrets_directory_is_refused_before_waiting_for_its_lock(
     assert len(raised) == 1 and "writable" in str(raised[0])
 
 
-@pytest.mark.xfail(strict=True, reason="round 2 K6: stale temp copies stay")
 def test_a_stale_temp_copy_of_a_key_is_removed(tmp_path: Path) -> None:
     stale = tmp_path / ".pandoscope-0123456789abcdef"
     stale.write_text("an old key\n")
@@ -114,7 +109,6 @@ def test_a_stale_temp_copy_of_a_key_is_removed(tmp_path: Path) -> None:
     assert not stale.exists()
 
 
-@pytest.mark.xfail(strict=True, reason="round 2 K7: fsync does not reach the platter on macOS")
 @pytest.mark.skipif(not hasattr(fcntl, "F_FULLFSYNC"), reason="F_FULLFSYNC is macOS only")
 def test_the_key_is_flushed_to_the_drive_on_macos(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
@@ -132,7 +126,6 @@ def test_the_key_is_flushed_to_the_drive_on_macos(
     assert len(flushed) >= 2
 
 
-@pytest.mark.xfail(strict=True, reason="round 2 K8: recorded follows symlinks")
 def test_a_symlinked_record_is_refused(tmp_path: Path) -> None:
     elsewhere = tmp_path / "elsewhere.json"
     elsewhere.write_text('{"org": "o", "slug": "o-release-bot", "app_id": 4711, "client_id": "Iv23abc"}\n')
@@ -143,7 +136,6 @@ def test_a_symlinked_record_is_refused(tmp_path: Path) -> None:
         recorded(secrets, "o")
 
 
-@pytest.mark.xfail(strict=True, reason="round 2 K8: recorded blocks on a FIFO")
 def test_a_fifo_record_is_refused_without_waiting(tmp_path: Path) -> None:
     secrets = tmp_path / "s"
     secrets.mkdir(mode=0o700)
@@ -156,7 +148,6 @@ def test_a_fifo_record_is_refused_without_waiting(tmp_path: Path) -> None:
     assert len(raised) == 1 and isinstance(raised[0], ValueError)
 
 
-@pytest.mark.xfail(strict=True, reason="round 2 K8: recorded reads files of any size")
 def test_an_oversized_record_is_refused(tmp_path: Path) -> None:
     record = {"org": "o", "slug": "o-release-bot", "app_id": 4711, "client_id": "Iv23abc", "pad": "x" * 8000}
     (tmp_path / RECORD_FILE).write_text(json.dumps(record))
