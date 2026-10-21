@@ -357,3 +357,20 @@ def test_a_trickling_peer_neither_blocks_the_callback_nor_its_deadline() -> None
     assert time.monotonic() - started < 2
     late.close()
     stop_late.set()
+
+
+@pytest.mark.xfail(strict=True)
+def test_a_non_ascii_state_is_refused_quietly(capfd: pytest.CaptureFixture[str]) -> None:
+    callback = listen("s-123", timeout=5)
+    try:
+        status = get(callback.url + "/callback?code=x&state=%C3%A9")[0]
+    except http.client.RemoteDisconnected:
+        status = 0
+    callback.close()
+    assert status == 400
+    assert "Traceback" not in capfd.readouterr().err
+
+
+@pytest.mark.xfail(strict=True)
+def test_callback_code_refuses_a_non_ascii_state() -> None:
+    assert callback_code("/callback?code=x&state=%C3%A9", "s-123") is None
