@@ -15,6 +15,8 @@ Flow authority: GitHub's "Registering a GitHub App from a manifest" docs.
 
 from __future__ import annotations
 
+import contextlib
+import fcntl
 import hmac
 import html
 import json
@@ -22,6 +24,7 @@ import os
 import re
 import stat
 import tempfile
+from collections.abc import Iterator
 from pathlib import Path
 from urllib.parse import parse_qs, quote, urlsplit
 from typing import Any
@@ -202,14 +205,19 @@ def store(secrets: Path, conversion: dict[str, Any], org: str) -> dict[str, Any]
     """
     Keep ``org``'s app's private key and record under ``secrets``; return the record.
 
-    The key goes to ``KEY_FILE`` with mode 0600; slug, app id and client ID go
-    to ``RECORD_FILE``. The client secret is not kept.
+    The key goes to ``KEY_FILE`` with mode 0600; org, slug, app id and client
+    ID go to ``RECORD_FILE``, first. The client secret is not kept.
     Raises ValueError naming the field when the conversion lacks the key or
     holds a slug, app id or client ID of another shape, before anything is
     written, and FileExistsError when ``secrets`` already holds a key.
     """
     record = _valid_record(
-        {"slug": conversion.get("slug"), "app_id": conversion.get("id"), "client_id": conversion.get("client_id")}
+        {
+            "org": org,
+            "slug": conversion.get("slug"),
+            "app_id": conversion.get("id"),
+            "client_id": conversion.get("client_id"),
+        }
     )
     pem = conversion.get("pem")
     if not isinstance(pem, str) or not pem.strip():
@@ -218,16 +226,36 @@ def store(secrets: Path, conversion: dict[str, Any], org: str) -> dict[str, Any]
     secrets.mkdir(mode=0o700, parents=True, exist_ok=True)
     _own_private_directory(secrets)
     key = secrets / KEY_FILE
-    # DECISION:IRREV — the key is written to a temp file and linked into
-    # place: link refuses any existing entry (a key in use, a symlink), and
-    # a crash leaves no half-written key. Replacing the app is a deliberate
-    # step (move the key away first). Only the empty placeholder the
-    # credentials seed lays out is replaced.
-    _place(secrets, key, pem, replace=is_placeholder(key))
-    # DECISION:SEC — the client secret is not kept: no workflow uses it,
-    # and a secret that is never written cannot leak.
-    _place(secrets, secrets / RECORD_FILE, json.dumps(record, indent=2) + "\n", replace=True)
+    # DECISION:SEC — one store per directory at a time, and the key checked
+    # again under the lock: two runs that both found the empty placeholder
+    # would otherwise both replace it, and the first app's key would be lost.
+    with _locked(secrets):
+        if key_in_use(secrets):
+            msg = f"{key} already holds a release-bot key"
+            raise FileExistsError(msg)
+        # DECISION:SEC — the client secret is not kept: no workflow uses it,
+        # and a secret that is never written cannot leak.
+        # The record goes first: if the key then fails, a rerun finds no key
+        # in the way and writes both again.
+        _place(secrets, secrets / RECORD_FILE, json.dumps(record, indent=2) + "\n", replace=True)
+        # DECISION:IRREV — the key is written to a temp file and linked into
+        # place: link refuses any existing entry (a key in use, a symlink), and
+        # a crash leaves no half-written key. Replacing the app is a deliberate
+        # step (move the key away first). Only the empty placeholder the
+        # credentials seed lays out is replaced.
+        _place(secrets, key, pem, replace=is_placeholder(key))
     return record
+
+
+@contextlib.contextmanager
+def _locked(directory: Path) -> Iterator[None]:
+    """Hold an exclusive lock on ``directory`` for the duration."""
+    fd = os.open(directory, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX)
+        yield
+    finally:
+        os.close(fd)
 
 
 def is_placeholder(key: Path) -> bool:
@@ -307,11 +335,19 @@ def recorded(secrets: Path, org: str) -> dict[str, Any] | None:
     if not isinstance(record, dict):
         msg = f"the release bot record in {path} is not an object"
         raise ValueError(msg)
-    return _valid_record(record)
+    valid = _valid_record(record)
+    if valid["org"].lower() != org.lower():
+        msg = f"the release bot record in {path} is for org={valid['org']!r}, not {org!r}"
+        raise ValueError(msg)
+    return valid
 
 
 def _valid_record(record: dict[str, Any]) -> dict[str, Any]:
-    """Return ``record`` if slug, app id and client ID have GitHub's shapes."""
+    """Return ``record`` if org, slug, app id and client ID have GitHub's shapes."""
+    org = record.get("org")
+    if not isinstance(org, str) or not LOGIN.fullmatch(org):
+        msg = f"release bot org={org!r} is not an org login"
+        raise ValueError(msg)
     slug, app_id, client_id = record.get("slug"), record.get("app_id"), record.get("client_id")
     if not isinstance(slug, str) or not SLUG.fullmatch(slug):
         msg = f"release bot slug={slug!r} is not an app slug"
@@ -322,7 +358,7 @@ def _valid_record(record: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(client_id, str) or not CLIENT_ID.fullmatch(client_id):
         msg = f"release bot client_id={client_id!r} is not a client ID"
         raise ValueError(msg)
-    return {"slug": slug, "app_id": app_id, "client_id": client_id}
+    return {"org": org, "slug": slug, "app_id": app_id, "client_id": client_id}
 
 
 def lost_key_note(conversion: dict[str, Any], org: str, key: Path) -> str:

@@ -157,7 +157,6 @@ def test_the_key_is_kept_readable_by_its_owner_only(tmp_path: Path) -> None:
     assert stat.S_IMODE(key.stat().st_mode) == 0o600
 
 
-@pytest.mark.xfail(strict=True, reason="the record names no org yet")
 def test_the_record_names_the_app_and_keeps_no_secret(tmp_path: Path) -> None:
     record = store(tmp_path, CONVERSION, "o")
     assert record == {"org": "o", "slug": "o-release-bot", "app_id": 4711, "client_id": "Iv23abc"}
@@ -176,7 +175,6 @@ def test_an_existing_key_is_never_overwritten(tmp_path: Path) -> None:
     assert not (tmp_path / RECORD_FILE).exists()
 
 
-@pytest.mark.xfail(strict=True, reason="the record names no org yet")
 def test_a_record_of_another_org_is_refused(tmp_path: Path) -> None:
     store(tmp_path, CONVERSION, "o")
     assert recorded(tmp_path, "O") is not None
@@ -184,7 +182,6 @@ def test_a_record_of_another_org_is_refused(tmp_path: Path) -> None:
         recorded(tmp_path, "other")
 
 
-@pytest.mark.xfail(strict=True, reason="the record names no org yet")
 def test_a_record_that_names_no_org_is_refused(tmp_path: Path) -> None:
     (tmp_path / RECORD_FILE).write_text(
         '{"slug": "o-release-bot", "app_id": 4711, "client_id": "Iv23abc"}\n'
@@ -193,7 +190,6 @@ def test_a_record_that_names_no_org_is_refused(tmp_path: Path) -> None:
         recorded(tmp_path, "o")
 
 
-@pytest.mark.xfail(strict=True, reason="the key is placed before the record")
 def test_a_key_that_cannot_be_placed_leaves_the_record_and_a_rerun_succeeds(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -210,7 +206,6 @@ def test_a_key_that_cannot_be_placed_leaves_the_record_and_a_rerun_succeeds(
     assert (tmp_path / KEY_FILE).read_text() == CONVERSION["pem"]
 
 
-@pytest.mark.xfail(strict=True, reason="store takes no lock")
 def test_a_store_waits_for_the_lock_and_then_sees_the_key_another_run_kept(
     tmp_path: Path,
 ) -> None:
@@ -317,7 +312,7 @@ def test_a_conversion_with_a_missing_or_odd_field_is_refused_before_any_write(
 
 def test_a_planted_record_with_shell_characters_is_refused_on_reading(tmp_path: Path) -> None:
     (tmp_path / RECORD_FILE).write_text(
-        '{"slug": "x$(touch pwned)", "app_id": 1, "client_id": "Iv23abc"}\n'
+        '{"org": "o", "slug": "x$(touch pwned)", "app_id": 1, "client_id": "Iv23abc"}\n'
     )
     with pytest.raises(ValueError, match="slug"):
         recorded(tmp_path, "o")

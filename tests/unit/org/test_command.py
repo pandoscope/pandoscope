@@ -312,7 +312,7 @@ def test_without_bot_flags_org_init_uses_the_recorded_release_bot(tmp_path: Path
     secrets = tmp_path / "s"
     secrets.mkdir()
     (secrets / "release-bot.json").write_text(
-        '{"slug": "o-release-bot", "app_id": 4711, "client_id": "Iv23rec"}\n'
+        '{"org": "o", "slug": "o-release-bot", "app_id": 4711, "client_id": "Iv23rec"}\n'
     )
     plan = tmp_path / "org.yml"
     plan.write_text(PLAN_FILE)
