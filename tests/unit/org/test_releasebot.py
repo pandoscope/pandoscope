@@ -3,10 +3,21 @@ from __future__ import annotations
 import html
 import json
 import re
+import stat
+from pathlib import Path
 
 import pytest
 
-from pandoscope.org.releasebot import callback_code, convert, form_page, manifest
+from pandoscope.org.releasebot import (
+    KEY_FILE,
+    RECORD_FILE,
+    callback_code,
+    convert,
+    form_page,
+    manifest,
+    recorded,
+    store,
+)
 
 from .fakes import FakeRun
 
@@ -92,3 +103,36 @@ def test_a_code_that_is_no_plain_token_is_refused_before_any_call(code: str) -> 
     with pytest.raises(ValueError, match="code"):
         convert(code, fake)
     assert fake.commands() == []
+
+
+@pytest.mark.xfail(strict=True)
+def test_the_key_is_kept_readable_by_its_owner_only(tmp_path: Path) -> None:
+    store(tmp_path, CONVERSION)
+    key = tmp_path / KEY_FILE
+    assert key.read_text() == CONVERSION["pem"]
+    assert stat.S_IMODE(key.stat().st_mode) == 0o600
+
+
+@pytest.mark.xfail(strict=True)
+def test_the_record_names_the_app_and_keeps_no_secret(tmp_path: Path) -> None:
+    record = store(tmp_path, CONVERSION)
+    assert record == {"slug": "o-release-bot", "app_id": 4711, "client_id": "Iv23abc"}
+    text = (tmp_path / RECORD_FILE).read_text()
+    assert json.loads(text) == record
+    assert "not-kept" not in text
+    assert "synthetic key material" not in text
+    assert recorded(tmp_path) == record
+
+
+@pytest.mark.xfail(strict=True)
+def test_an_existing_key_is_never_overwritten(tmp_path: Path) -> None:
+    (tmp_path / KEY_FILE).write_text("the key in use\n")
+    with pytest.raises(FileExistsError):
+        store(tmp_path, CONVERSION)
+    assert (tmp_path / KEY_FILE).read_text() == "the key in use\n"
+    assert not (tmp_path / RECORD_FILE).exists()
+
+
+@pytest.mark.xfail(strict=True)
+def test_no_record_means_no_release_bot(tmp_path: Path) -> None:
+    assert recorded(tmp_path) is None
