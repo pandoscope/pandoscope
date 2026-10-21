@@ -54,6 +54,8 @@ APP_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9 ._-]{0,33}")
 PLAIN_TOKEN = re.compile(r"[A-Za-z0-9_-]+")
 BOARD_URL = re.compile(r"https://github\.com/orgs/[A-Za-z0-9-]+/projects/[0-9]+")
 KEY_FILE = "RELEASE_BOT_PRIVATE_KEY.pem"
+# How long a run waits for another run's lock on the secrets directory, in seconds.
+LOCK_WAIT = 5.0
 RECORD_FILE = "release-bot.json"
 
 
