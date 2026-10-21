@@ -59,26 +59,37 @@ def listen(state: str, timeout: float = 600, read_timeout: float = 5) -> Callbac
     Raises TimeoutError from ``wait`` when no code arrives within ``timeout`` seconds.
     ``read_timeout`` bounds how long one connection may take to send its request.
     """
-    return _LocalCallback(state, timeout)
+    return _LocalCallback(state, timeout, read_timeout)
 
 
 class _LocalCallback:
     """One-shot HTTP endpoint on 127.0.0.1; the port is the system's choice."""
 
-    def __init__(self, state: str, timeout: float) -> None:
+    def __init__(self, state: str, timeout: float, read_timeout: float) -> None:
         self._state = state
         self._timeout = timeout
+        self._read_timeout = read_timeout
         self._page = ""
         self._code: str | None = None
         self._server = HTTPServer(("127.0.0.1", 0), self._handler())
         self._server.timeout = 1
-        self.url = f"http://127.0.0.1:{self._server.server_address[1]}"
+        self._host = f"127.0.0.1:{self._server.server_address[1]}"
+        self.url = f"http://{self._host}"
 
     def _handler(self) -> type[BaseHTTPRequestHandler]:
         outer = self
 
         class Handler(BaseHTTPRequestHandler):
+            # A peer that connects and sends nothing must not hold the
+            # single-threaded server past the flow's timeout.
+            timeout = outer._read_timeout
+
             def do_GET(self) -> None:  # noqa: N802 - the http.server hook name
+                # DECISION:SEC — only requests addressed to this very host and
+                # port: a DNS-rebound name in the browser must not read the state.
+                if self.headers.get("Host") != outer._host:
+                    self._answer(400, "Wrong host.")
+                    return
                 if urlsplit(self.path).path == "/":
                     self._answer(200, outer._page)
                     return

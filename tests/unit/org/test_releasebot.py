@@ -190,7 +190,6 @@ def get_as(url: str, host: str, path: str) -> int:
     return status
 
 
-@pytest.mark.xfail(strict=True)
 def test_the_local_callback_answers_only_its_own_host() -> None:
     callback = listen("s-123", timeout=10)
     got: list[str] = []
@@ -204,7 +203,6 @@ def test_the_local_callback_answers_only_its_own_host() -> None:
     assert got == ["zz"]
 
 
-@pytest.mark.xfail(strict=True)
 def test_an_idle_connection_does_not_hold_the_callback_past_its_timeout() -> None:
     callback = listen("s-123", timeout=1, read_timeout=0.5)
     port = int(callback.url.rsplit(":", 1)[1])
