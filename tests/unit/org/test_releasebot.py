@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import html
+import http.client
 import json
+import socket
+import time
 import re
 import stat
 import threading
@@ -176,3 +179,47 @@ def test_the_local_callback_serves_the_page_and_returns_its_own_code() -> None:
     assert status == 200
     waiter.join(5)
     assert got == ["zz"]
+
+
+def get_as(url: str, host: str, path: str) -> int:
+    port = int(url.rsplit(":", 1)[1])
+    connection = http.client.HTTPConnection("127.0.0.1", port, timeout=5)
+    connection.request("GET", path, headers={"Host": host})
+    status = connection.getresponse().status
+    connection.close()
+    return status
+
+
+@pytest.mark.xfail(strict=True)
+def test_the_local_callback_answers_only_its_own_host() -> None:
+    callback = listen("s-123", timeout=10)
+    got: list[str] = []
+    waiter = threading.Thread(target=lambda: got.append(callback.wait("<p>s-123</p>")))
+    waiter.start()
+    own = callback.url.removeprefix("http://")
+    assert get_as(callback.url, "rebind.attacker.example", "/") == 400
+    assert get_as(callback.url, "localhost:1", "/callback?code=evil&state=s-123") == 400
+    assert get_as(callback.url, own, "/callback?code=zz&state=s-123") == 200
+    waiter.join(5)
+    assert got == ["zz"]
+
+
+@pytest.mark.xfail(strict=True)
+def test_an_idle_connection_does_not_hold_the_callback_past_its_timeout() -> None:
+    callback = listen("s-123", timeout=1, read_timeout=0.5)
+    port = int(callback.url.rsplit(":", 1)[1])
+    idle = socket.create_connection(("127.0.0.1", port))
+    raised: list[BaseException] = []
+
+    def wait() -> None:
+        try:
+            callback.wait("<p>page</p>")
+        except TimeoutError as error:
+            raised.append(error)
+
+    waiter = threading.Thread(target=wait, daemon=True)
+    waiter.start()
+    waiter.join(4)
+    idle.close()
+    assert not waiter.is_alive()
+    assert len(raised) == 1
