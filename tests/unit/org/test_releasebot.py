@@ -33,7 +33,6 @@ def test_the_manifest_app_stays_in_the_org_and_has_no_webhook() -> None:
     assert app["url"] == "https://github.com/o"
 
 
-@pytest.mark.xfail(strict=True)
 def test_the_page_posts_the_manifest_to_the_orgs_new_app_form() -> None:
     app = manifest("o", "o-release-bot", CALLBACK)
     page = form_page("o", app, "s-123")

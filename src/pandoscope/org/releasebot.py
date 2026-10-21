@@ -13,7 +13,10 @@ Flow authority: GitHub's "Registering a GitHub App from a manifest" docs.
 
 from __future__ import annotations
 
+import html
+import json
 from pathlib import Path
+from urllib.parse import quote
 from typing import Any, Protocol
 
 from pandoscope.org.forge import Run
@@ -69,7 +72,20 @@ def form_page(org: str, app_manifest: dict[str, Any], state: str) -> str:
     ``state`` travels with the request and comes back with the code,
     so a callback can tell its own redirect from a forged one.
     """
-    raise NotImplementedError
+    action = (
+        f"https://github.com/organizations/{quote(org)}/settings/apps/new"
+        f"?state={quote(state)}"
+    )
+    value = html.escape(json.dumps(app_manifest), quote=True)
+    return (
+        "<!doctype html><meta charset=utf-8><title>Create the release bot</title>"
+        f'<form id="create" action="{html.escape(action, quote=True)}" method="post">'
+        f'<input type="hidden" name="manifest" value="{value}">'
+        "<p>Sending the release bot's manifest to GitHub…</p>"
+        '<button type="submit">Continue to GitHub</button>'
+        "</form>"
+        '<script>document.getElementById("create").submit()</script>'
+    )
 
 
 def callback_code(path: str, state: str) -> str | None:
