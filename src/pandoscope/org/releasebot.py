@@ -221,6 +221,21 @@ def form_page(org: str, app_manifest: dict[str, Any], state: str) -> str:
     )
 
 
+def apps_url(org: str) -> str:
+    """Return ``org``'s GitHub Apps settings page: where GitHub sends the browser back."""
+    raise NotImplementedError
+
+
+def pasted_code(url: str, org: str, state: str) -> str | None:
+    """
+    Return the code the address the principal pasted carries, or None.
+
+    Only ``org``'s apps settings page on github.com with this flow's
+    ``state`` and a plain-token code counts.
+    """
+    raise NotImplementedError
+
+
 def callback_code(path: str, state: str) -> str | None:
     """
     Return the code a request for ``path`` carries, or None.

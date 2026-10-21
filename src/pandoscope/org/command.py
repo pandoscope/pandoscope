@@ -87,6 +87,7 @@ def run_org_release_bot(
     run: forge.Run = forge.run,
     listen: Callable[[str], releasebot.Callback] = releasebot.listen,
     browse: Callable[[str], object] = webbrowser.open,
+    ask: Callable[[str], str] = input,
 ) -> int:
     """
     Create the org's release bot through the app-manifest flow; return 0.
