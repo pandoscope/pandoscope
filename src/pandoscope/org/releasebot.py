@@ -50,13 +50,14 @@ class Callback(Protocol):
         ...
 
 
-def listen(state: str, timeout: float = 600) -> Callback:
+def listen(state: str, timeout: float = 600, read_timeout: float = 5) -> Callback:
     """
     Open a callback on 127.0.0.1 for the flow that sent ``state``.
 
     Its ``wait`` serves the page at ``/``, ignores every request but the
     redirect with this ``state``, and returns that redirect's code.
     Raises TimeoutError from ``wait`` when no code arrives within ``timeout`` seconds.
+    ``read_timeout`` bounds how long one connection may take to send its request.
     """
     return _LocalCallback(state, timeout)
 
