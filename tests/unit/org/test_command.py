@@ -308,7 +308,6 @@ def test_missing_plan_flags_are_refused_before_any_forge_call(tmp_path: Path) ->
     assert fake.commands() == []
 
 
-@pytest.mark.xfail(strict=True)
 def test_without_bot_flags_org_init_uses_the_recorded_release_bot(tmp_path: Path) -> None:
     secrets = tmp_path / "s"
     secrets.mkdir()

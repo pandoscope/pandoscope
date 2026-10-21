@@ -30,6 +30,8 @@ def run_org_init(
 
     Returns 0 when every reconciler converged, 1 when any reported drift
     or a manual step.
+    Without the release-bot flags it uses the app ``org release-bot``
+    recorded in the org's secrets directory, if any.
     Without ``--board-url`` it finds or creates the org's project board,
     and the credentials point the add-to-project workflow at it.
     The repo plan comes from ``--plan``,
@@ -161,7 +163,11 @@ def _release_bot(args: argparse.Namespace) -> tuple[str, str] | None:
         msg = "--release-bot-app and --release-bot-client-id go together"
         raise ValueError(msg)
     if not app:
-        return None
+        # Without the flags, the app `org release-bot` created for this org.
+        record = releasebot.recorded(_secrets(args))
+        if record is None:
+            return None
+        return str(record["slug"]), str(record["client_id"])
     return app, client_id
 
 
