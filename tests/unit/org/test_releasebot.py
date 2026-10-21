@@ -4,6 +4,9 @@ import html
 import json
 import re
 import stat
+import threading
+import urllib.error
+import urllib.request
 from pathlib import Path
 
 import pytest
@@ -15,6 +18,7 @@ from pandoscope.org.releasebot import (
     convert,
     form_page,
     install_url,
+    listen,
     manifest,
     recorded,
     store,
@@ -139,3 +143,27 @@ def test_the_install_page_is_the_apps_own() -> None:
     assert install_url("o-release-bot") == (
         "https://github.com/apps/o-release-bot/installations/new"
     )
+
+
+def get(url: str) -> tuple[int, str]:
+    try:
+        with urllib.request.urlopen(url, timeout=5) as answer:  # noqa: S310 - local test server
+            return answer.status, answer.read().decode()
+    except urllib.error.HTTPError as error:
+        return error.code, error.read().decode()
+
+
+@pytest.mark.xfail(strict=True)
+def test_the_local_callback_serves_the_page_and_returns_its_own_code() -> None:
+    callback = listen("s-123", timeout=10)
+    assert callback.url.startswith("http://127.0.0.1:")
+    got: list[str] = []
+    waiter = threading.Thread(target=lambda: got.append(callback.wait("<p>the page</p>")))
+    waiter.start()
+    assert get(callback.url + "/") == (200, "<p>the page</p>")
+    status, _ = get(callback.url + "/callback?code=zz&state=forged")
+    assert status == 400
+    status, _ = get(callback.url + "/callback?code=zz&state=s-123")
+    assert status == 200
+    waiter.join(5)
+    assert got == ["zz"]
