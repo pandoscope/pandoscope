@@ -42,6 +42,11 @@ PERMISSIONS = {
 # sources, and in URLs: only what GitHub issues, never a quote or a $.
 SLUG = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")
 CLIENT_ID = re.compile(r"[A-Za-z0-9.]+")
+# GitHub's own rules: a login is 1-39 letters, digits or single inner hyphens;
+# an app name is at most 34 characters.
+LOGIN = re.compile(r"[A-Za-z0-9](?:[A-Za-z0-9]|-(?=[A-Za-z0-9])){0,38}")
+APP_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9 ._-]{0,33}")
+BOARD_URL = re.compile(r"https://github\.com/orgs/[A-Za-z0-9-]+/projects/[0-9]+")
 KEY_FILE = "RELEASE_BOT_PRIVATE_KEY.pem"
 RECORD_FILE = "release-bot.json"
 
@@ -387,7 +392,11 @@ def recorded(secrets: Path) -> dict[str, Any] | None:
     path = secrets / RECORD_FILE
     if not path.exists():
         return None
-    return _valid_record(json.loads(path.read_text()))
+    record = json.loads(path.read_text())
+    if not isinstance(record, dict):
+        msg = f"the release bot record in {path} is not an object"
+        raise ValueError(msg)
+    return _valid_record(record)
 
 
 def _valid_record(record: dict[str, Any]) -> dict[str, Any]:

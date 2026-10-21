@@ -327,7 +327,6 @@ def test_without_bot_flags_org_init_uses_the_recorded_release_bot(tmp_path: Path
     assert '"var|RELEASE_BOT_CLIENT_ID|all|Iv23rec"' in conf
 
 
-@pytest.mark.xfail(strict=True)
 @pytest.mark.parametrize(
     ("extra", "named"),
     [
@@ -353,7 +352,6 @@ def test_odd_flag_values_are_refused_before_any_forge_call(
     assert fake.commands() == []
 
 
-@pytest.mark.xfail(strict=True)
 @pytest.mark.parametrize("org", ["../escape", 'o"x', "dash-", "o/sub"])
 def test_an_org_that_is_no_github_login_is_refused(tmp_path: Path, org: str) -> None:
     argv = ["org", "init", org, "--meta", str(fake_meta(tmp_path)), "--dry-run"]

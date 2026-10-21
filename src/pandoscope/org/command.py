@@ -41,6 +41,7 @@ def run_org_init(
     or when neither a plan file nor every plan flag is given,
     and what any step raises.
     """
+    _check_shapes(args)
     meta = Path(args.meta)
     if not (meta / "scripts" / "sync-gh-repo-settings.sh").exists():
         msg = f"--meta {meta} has no scripts/sync-gh-repo-settings.sh"
@@ -96,6 +97,7 @@ def run_org_release_bot(
     Raises FileExistsError before anything else when the secrets directory
     already holds a key, and what any step raises.
     """
+    _check_shapes(args)
     secrets = _secrets(args)
     key = secrets / releasebot.KEY_FILE
     if releasebot.key_in_use(secrets):
@@ -104,6 +106,9 @@ def run_org_release_bot(
     # DECISION:IFACE — one app per org, named after it by default;
     # --name for an org that already chose another (ada-release-bot).
     name = args.name or f"{args.org}-release-bot"
+    if not releasebot.APP_NAME.fullmatch(name):
+        msg = f"app name={name!r} is not a GitHub App name (up to 34 letters, digits, ' ._-')"
+        raise ValueError(msg)
     state = tokens.token_urlsafe(24)
     callback = listen(state)
     app = releasebot.manifest(args.org, name, callback.url + "/callback")
@@ -164,6 +169,27 @@ def _plan(args: argparse.Namespace) -> list[Repo]:
         description=args.description,
         approvers=args.approver,
     )
+
+
+def _check_shapes(args: argparse.Namespace) -> None:
+    """
+    Refuse values that would leave their place in a path, URL or the sourced conf.
+
+    Raises ValueError naming the argument.
+    """
+    if not releasebot.LOGIN.fullmatch(args.org):
+        msg = f"org={args.org!r} is not a GitHub org name"
+        raise ValueError(msg)
+    checks = [
+        ("release_bot_app", "--release-bot-app", releasebot.SLUG),
+        ("release_bot_client_id", "--release-bot-client-id", releasebot.CLIENT_ID),
+        ("board_url", "--board-url", releasebot.BOARD_URL),
+    ]
+    for attr, flag, shape in checks:
+        value = getattr(args, attr, None)
+        if value is not None and not shape.fullmatch(value):
+            msg = f"{flag}={value!r} does not have the shape GitHub gives it"
+            raise ValueError(msg)
 
 
 def _secrets(args: argparse.Namespace) -> Path:

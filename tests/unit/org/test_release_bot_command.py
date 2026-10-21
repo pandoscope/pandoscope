@@ -221,7 +221,6 @@ def test_a_key_that_appears_during_the_wait_points_at_the_new_app(
     assert (secrets / KEY_FILE).read_text() == "another run's key\n"
 
 
-@pytest.mark.xfail(strict=True)
 @pytest.mark.parametrize(
     ("org", "extra", "named"),
     [("../escape", (), "org"), ("o", ("--name", 'bot"><x'), "name"), ("o", ("--name", "x" * 35), "name")],

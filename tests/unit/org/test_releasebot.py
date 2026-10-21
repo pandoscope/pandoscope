@@ -425,7 +425,6 @@ def test_a_temp_file_swapped_for_a_symlink_is_never_linked(
     assert victim.read_text() == "someone else's file\n"
 
 
-@pytest.mark.xfail(strict=True)
 @pytest.mark.parametrize("text", ["[]\n", '"slug"\n', "null\n"])
 def test_a_record_that_is_no_object_is_refused(tmp_path: Path, text: str) -> None:
     (tmp_path / RECORD_FILE).write_text(text)
