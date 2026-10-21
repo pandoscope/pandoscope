@@ -186,6 +186,11 @@ def fetch(method: str, url: str) -> bytes:
     return body
 
 
+def _opener() -> urllib.request.OpenerDirector:
+    """Return the opener `fetch` sends through: verified TLS, no key log, no redirects."""
+    raise NotImplementedError
+
+
 def reach(fetch: Fetch) -> None:
     """
     Make sure GitHub's API answers over verified TLS, before GitHub creates anything.
