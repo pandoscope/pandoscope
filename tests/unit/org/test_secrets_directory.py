@@ -103,7 +103,7 @@ def test_a_writable_secrets_directory_is_refused_before_waiting_for_its_lock(
 
 
 def test_a_stale_temp_copy_of_a_key_is_removed(tmp_path: Path) -> None:
-    stale = tmp_path / ".pandoscope-0123456789abcdef"
+    stale = tmp_path / ".pandoscope-release-bot-0123456789abcdef"
     stale.write_text("an old key\n")
     store(tmp_path, CONVERSION, "o")
     assert not stale.exists()
@@ -153,3 +153,61 @@ def test_an_oversized_record_is_refused(tmp_path: Path) -> None:
     (tmp_path / RECORD_FILE).write_text(json.dumps(record))
     with pytest.raises(ValueError, match="record"):
         recorded(tmp_path, "o")
+
+
+@pytest.mark.xfail(strict=True, reason="round 3 R2: the sweep takes any .pandoscope- file")
+def test_the_sweep_takes_only_its_own_temp_files(tmp_path: Path) -> None:
+    marker = tmp_path / ".pandoscope-compose"
+    marker.write_text("a managed install\n")
+    other = tmp_path / ".pandoscope-notes"
+    other.write_text("notes\n")
+    folder = tmp_path / ".pandoscope-dir"
+    folder.mkdir()
+    store(tmp_path, CONVERSION, "o")
+    assert marker.exists() and other.exists() and folder.is_dir()
+
+
+@pytest.mark.xfail(strict=True, reason="round 3 R3: a placeholder laid out just before the link loses the key")
+def test_a_placeholder_laid_out_just_before_the_link_is_still_filled(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    real_link = os.link
+
+    def seed_then_link(src: str, dst: str, **kwargs: object) -> None:
+        if dst == KEY_FILE:
+            (tmp_path / KEY_FILE).write_text("")
+        real_link(src, dst, **kwargs)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(os, "link", seed_then_link)
+    store(tmp_path, CONVERSION, "o")
+    assert (tmp_path / KEY_FILE).read_text() == CONVERSION["pem"]
+
+
+@pytest.mark.xfail(strict=True, reason="round 3: walk asks for the working directory even for an absolute path")
+def test_an_absolute_secrets_path_works_from_a_deleted_working_directory(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    gone = tmp_path / "gone"
+    gone.mkdir()
+    monkeypatch.chdir(gone)
+    gone.rmdir()
+    store(tmp_path / "s", CONVERSION, "o")
+    assert (tmp_path / "s" / KEY_FILE).read_text() == CONVERSION["pem"]
+
+
+def test_a_users_own_symlink_on_the_way_is_refused(tmp_path: Path) -> None:
+    private = tmp_path / "p"
+    private.mkdir(mode=0o700)
+    target = tmp_path / "t"
+    target.mkdir(mode=0o700)
+    (private / "link").symlink_to(target)
+    with pytest.raises(ValueError, match="symlink"):
+        store(private / "link" / "s", CONVERSION, "o")
+    assert list(target.iterdir()) == []
+
+
+def test_a_record_in_a_directory_others_can_write_is_refused(tmp_path: Path) -> None:
+    store(tmp_path / "s", CONVERSION, "o")
+    (tmp_path / "s").chmod(0o777)
+    with pytest.raises(ValueError, match="writable"):
+        recorded(tmp_path / "s", "o")
