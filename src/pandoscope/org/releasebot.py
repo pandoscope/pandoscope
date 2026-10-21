@@ -18,6 +18,16 @@ from typing import Any, Protocol
 
 from pandoscope.org.forge import Run
 
+# The factory's own release bot (pandoscope-release-bot) holds these;
+# every stamped workflow that mints its token needs no more.
+PERMISSIONS = {
+    "actions": "read",
+    "contents": "write",
+    "issues": "read",
+    "metadata": "read",
+    "pull_requests": "write",
+    "workflows": "write",
+}
 KEY_FILE = "RELEASE_BOT_PRIVATE_KEY.pem"
 RECORD_FILE = "release-bot.json"
 
@@ -40,7 +50,16 @@ def manifest(org: str, name: str, redirect_url: str) -> dict[str, Any]:
     and no events, and has the factory release bot's permissions.
     GitHub sends the browser to ``redirect_url`` with the one-time code.
     """
-    raise NotImplementedError
+    return {
+        "name": name,
+        "url": f"https://github.com/{org}",
+        "description": f"Release bot of the {org} org: merges, releases, template updates.",
+        "public": False,
+        "hook_attributes": {"url": f"https://github.com/{org}", "active": False},
+        "redirect_url": redirect_url,
+        "default_permissions": dict(PERMISSIONS),
+        "default_events": [],
+    }
 
 
 def form_page(org: str, app_manifest: dict[str, Any], state: str) -> str:
