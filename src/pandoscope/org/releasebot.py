@@ -303,8 +303,8 @@ def store_at(directory: int, secrets: Path, conversion: dict[str, Any], org: str
     try:
         _place(directory, KEY_FILE, pem, replace=placeholder)
     except FileExistsError:
-        # The credentials seed, run outside this lock, may lay out its empty
-        # placeholder between the check above and the link: fill that too.
+        # A credentials seed run by hand, outside this lock, may lay out its
+        # empty placeholder between the check above and the link: fill that too.
         now = _entry(directory, KEY_FILE)
         if placeholder or now is None or not _is_empty_file(now):
             raise
