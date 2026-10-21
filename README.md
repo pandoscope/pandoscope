@@ -234,11 +234,18 @@ no webhook, no events,
 and the permissions of the factory's own release bot.
 You confirm "Create GitHub App";
 GitHub sends the browser back to a one-time callback on `127.0.0.1`,
-which accepts only the request carrying the flow's random `state`.
-The command exchanges the callback's code for the app's credentials.
-The private key goes to `RELEASE_BOT_PRIVATE_KEY.pem` in the secrets directory (mode 0600),
+which answers only requests addressed to its own host and port
+and accepts only the redirect carrying the flow's random `state`.
+The command exchanges the callback's code for the app's credentials
+and keeps them only if the app belongs to the **org**,
+carries the requested name and holds exactly the release bot's permissions:
+the state alone cannot prove the code is this flow's.
+The private key goes to `RELEASE_BOT_PRIVATE_KEY.pem` in the secrets directory,
 where the credentials step of `org init` reads it;
 slug, app id and client ID go to `release-bot.json` next to it.
+Both are written through temp files (mode 0600) into a directory created with mode 0700,
+and slug and client ID must have GitHub's shapes before anything is written,
+because they end up in a conf the credentials sync sources.
 The client secret is not kept, and nothing secret is printed.
 Installing an app on an **org** has no API,
 so the command opens the app's install page last: choose all repositories there.
@@ -246,6 +253,10 @@ so the command opens the app's install page last: choose all repositories there.
 The name defaults to `<org>-release-bot`.
 An existing key stops the command before it opens anything;
 move the key away to replace the app.
+The empty placeholder the credentials seed lays out is not a key and gets filled.
+Either order of `org release-bot` and `org init` works:
+`org init` seeds every secrets directory the seed has not run in yet,
+and the seed keeps files already there.
 The host needs `gh` authenticated as an **org** owner.
 
 More commands land as the tool grows.
