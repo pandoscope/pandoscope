@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import builtins
+
 import email.message
 import getpass
 import html
@@ -521,3 +523,50 @@ def test_a_failed_in_process_exchange_never_shows_the_code(
     assert "abc123" not in str(error.value) + out
     assert error.value.__cause__ is None
     assert error.value.__suppress_context__
+
+
+@pytest.mark.xfail(strict=True, reason="round 4 S2: an interrupt in check prints the refused-app note")
+def test_an_interrupt_before_the_app_is_checked_says_delete_without_blaming_the_app(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def interrupted(*args: object) -> None:
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr("pandoscope.org.releasebot.check", interrupted)
+    flow = Flow()
+    flow.on_browse = lambda: capsys.readouterr() and None  # only what comes after counts
+    with pytest.raises(KeyboardInterrupt):
+        go(flow, tmp_path)
+    out = capsys.readouterr().out
+    assert "not the one asked for" not in out
+    assert "https://github.com/organizations/o/settings/apps/o-release-bot" in out
+    assert "delete" in out.lower()
+    assert "generate" not in out.lower()
+
+
+@pytest.mark.xfail(strict=True, reason="round 4 S3: an interrupt after the key landed, before the report, prints nothing")
+def test_an_interrupt_before_the_report_still_says_the_key_is_kept(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    real_print = builtins.print
+
+    def print_until_the_report(*args: object, **kwargs: object) -> None:
+        if args and str(args[0]).startswith("Created "):
+            raise KeyboardInterrupt
+        real_print(*args, **kwargs)  # type: ignore[call-overload]
+
+    monkeypatch.setattr(builtins, "print", print_until_the_report)
+    flow = Flow()
+    with pytest.raises(KeyboardInterrupt):
+        go(flow, tmp_path)
+    assert (tmp_path / ".secrets" / "orgs" / "o" / KEY_FILE).read_text() == CONVERSION["pem"]
+    assert "holds the new app's key" in capsys.readouterr().out
+
+
+@pytest.mark.xfail(strict=True, reason="round 4 U2: names with spaces, dots or underscores pass")
+@pytest.mark.parametrize("name", ["Ada Bot", "ada.bot", "ada_bot", "ada--bot", "ada-"])
+def test_a_name_whose_slug_github_might_spell_differently_is_refused(tmp_path: Path, name: str) -> None:
+    flow = Flow()
+    with pytest.raises(ValueError, match="name"):
+        go(flow, tmp_path, f"--name={name}")
+    assert flow.opened == []
