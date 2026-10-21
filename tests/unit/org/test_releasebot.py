@@ -47,12 +47,10 @@ def test_the_page_posts_the_manifest_to_the_orgs_new_app_form() -> None:
     assert json.loads(html.unescape(value.group(1))) == app
 
 
-@pytest.mark.xfail(strict=True)
 def test_the_callback_with_its_own_state_yields_the_code() -> None:
     assert callback_code("/callback?code=abc123&state=s-123", "s-123") == "abc123"
 
 
-@pytest.mark.xfail(strict=True)
 @pytest.mark.parametrize(
     "path",
     [

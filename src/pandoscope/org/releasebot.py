@@ -13,10 +13,11 @@ Flow authority: GitHub's "Registering a GitHub App from a manifest" docs.
 
 from __future__ import annotations
 
+import hmac
 import html
 import json
 from pathlib import Path
-from urllib.parse import quote
+from urllib.parse import parse_qs, quote, urlsplit
 from typing import Any, Protocol
 
 from pandoscope.org.forge import Run
@@ -94,7 +95,15 @@ def callback_code(path: str, state: str) -> str | None:
 
     Only ``/callback`` with the expected ``state`` and a code counts.
     """
-    raise NotImplementedError
+    parts = urlsplit(path)
+    if parts.path != "/callback":
+        return None
+    query = parse_qs(parts.query)
+    given = query.get("state", [""])[0]
+    code = query.get("code", [""])[0]
+    if not code or not hmac.compare_digest(given, state):
+        return None
+    return code
 
 
 def convert(code: str, run: Run) -> dict[str, Any]:
