@@ -35,6 +35,8 @@ EXCHANGE = (
     "env", "-u", "GH_DEBUG", "-u", "DEBUG",
     "gh", "api", "--method", "POST", "app-manifests/abc123/conversions",
 )
+APPS = "https://github.com/organizations/o/settings/apps"
+REDIRECTED = APPS + "?code=abc123&state={state}"
 
 
 class FakeCallback:
@@ -61,6 +63,8 @@ class Flow:
         self.page_mode = 0
         self.page_path: Path | None = None
         self.run = FakeRun({EXCHANGE: json.dumps(CONVERSION)})
+        self.pastes = [REDIRECTED]
+        self.prompts: list[str] = []
 
     def listen(self, state: str) -> FakeCallback:
         self.states.append(state)
@@ -73,6 +77,24 @@ class Flow:
             self.page = self.page_path.read_text()
             self.page_mode = stat.S_IMODE(self.page_path.stat().st_mode)
         return True
+
+    def no_listen(self, state: str) -> FakeCallback:
+        """A flow that pastes never waits for a callback."""
+        self.states.append(state)
+        callback = FakeCallback()
+
+        def waited() -> str:
+            raise AssertionError("the flow waited for a local callback")
+
+        callback.wait = waited  # type: ignore[method-assign]
+        return callback
+
+    def ask(self, prompt: str) -> str:
+        """Paste the next address, with the state the manifest page sent GitHub."""
+        self.prompts.append(prompt)
+        state = re.search(r"[?&]amp;state=([^\"&]*)|[?&]state=([^\"&]*)", self.page)
+        assert state is not None
+        return self.pastes.pop(0).format(state=state.group(1) or state.group(2))
 
     def manifest(self) -> dict[str, object]:
         value = re.search(r'name="manifest" value="([^"]*)"', self.page)
@@ -92,6 +114,88 @@ def go(flow: Flow, meta: Path, *extra: str) -> int:
         listen=flow.listen,
         browse=flow.browse,
     )
+
+
+def paste(flow: Flow, meta: Path, *extra: str) -> int:
+    return run_org_release_bot(
+        bot_args(meta, *extra),  # type: ignore[arg-type]
+        run=flow.run,
+        listen=flow.no_listen,
+        browse=flow.browse,
+        ask=flow.ask,
+    )
+
+
+@pytest.mark.xfail(strict=True, reason="the command still waits for a local callback")
+def test_the_pasted_redirect_is_exchanged_and_the_key_kept(tmp_path: Path) -> None:
+    flow = Flow()
+    assert paste(flow, tmp_path) == 0
+    assert flow.run.commands() == [EXCHANGE]
+    assert (tmp_path / ".secrets" / "orgs" / "o" / KEY_FILE).read_text() == CONVERSION["pem"]
+    assert flow.manifest()["redirect_url"] == APPS
+    assert len(flow.prompts) == 1
+
+
+@pytest.mark.xfail(strict=True, reason="the command still waits for a local callback")
+def test_a_paste_that_is_not_the_redirect_is_asked_for_again(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    flow = Flow()
+    flow.pastes = ["https://github.com.evil.example/x?code=abc123&state={state}", REDIRECTED]
+    assert paste(flow, tmp_path) == 0
+    assert len(flow.prompts) == 2
+    assert flow.run.commands() == [EXCHANGE]
+
+
+@pytest.mark.xfail(strict=True, reason="the command still waits for a local callback")
+def test_three_wrong_pastes_end_the_flow_and_point_at_the_orgs_apps(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    flow = Flow()
+    flow.pastes = [APPS + "?code=abc123&state=forged"] * 3
+    with pytest.raises(ValueError, match="redirect"):
+        paste(flow, tmp_path)
+    assert flow.run.commands() == []
+    assert APPS in capsys.readouterr().out
+    assert flow.page_path is not None
+    assert not flow.page_path.parent.exists()
+
+
+@pytest.mark.xfail(strict=True, reason="the command still waits for a local callback")
+def test_input_that_ends_points_at_the_orgs_apps(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    flow = Flow()
+
+    def ended(prompt: str) -> str:
+        raise EOFError
+
+    flow.ask = ended  # type: ignore[method-assign]
+    with pytest.raises(EOFError):
+        paste(flow, tmp_path)
+    assert APPS in capsys.readouterr().out
+    assert flow.run.commands() == []
+
+
+@pytest.mark.xfail(strict=True, reason="the command still waits for a local callback")
+def test_a_failed_exchange_points_at_the_orgs_apps_and_never_shows_the_code(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    flow = Flow()
+
+    def refused(cmd: object, cwd: object) -> str:
+        # What forge.run raises: the command, with the code in its API path.
+        msg = f"command failed (exit 1) in cwd=None: {' '.join(EXCHANGE)}\nstderr: abc123 expired"
+        raise RuntimeError(msg)
+
+    flow.run = refused  # type: ignore[assignment]
+    with pytest.raises(RuntimeError) as error:
+        paste(flow, tmp_path)
+    out = capsys.readouterr().out
+    assert APPS in out
+    assert "abc123" not in str(error.value) + out
+    assert error.value.__cause__ is None
+    assert error.value.__suppress_context__
 
 
 def test_the_flow_creates_the_app_and_keeps_its_key_in_the_orgs_secrets(
