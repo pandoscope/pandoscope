@@ -107,7 +107,7 @@ def run_org_release_bot(
     # --name for an org that already chose another (ada-release-bot).
     name = args.name or f"{args.org}-release-bot"
     if not releasebot.APP_NAME.fullmatch(name):
-        msg = f"app name={name!r} is not a GitHub App name (up to 34 letters, digits, ' ._-')"
+        msg = f"app name={name!r} is not a name this command takes (up to 34 letters, digits and single inner hyphens)"
         raise ValueError(msg)
     secrets = _secrets(args)
     key = secrets / releasebot.KEY_FILE
@@ -121,29 +121,47 @@ def run_org_release_bot(
         # Without a reachable API the exchange fails after GitHub created the app.
         releasebot.reach(fetch)
         conversion = _converted(args.org, name, key, fetch=fetch, browse=browse, ask=ask)
+        checked = refused = False
         try:
-            releasebot.check(conversion, args.org, name)
-        except BaseException:
-            print(releasebot.refused_note(conversion, args.org, name))
-            raise
-        try:
+            try:
+                releasebot.check(conversion, args.org, name)
+            except ValueError:
+                refused = True
+                print(releasebot.refused_note(conversion, args.org, name))
+                raise
+            checked = True
             record = releasebot.store_at(directory, secrets, conversion, args.org)
+            install = releasebot.install_url(record["slug"])
+            print(f"Created {record['slug']} (app id {record['app_id']}).")
+            print(f"Client ID: {record['client_id']}")
+            print(f"Private key: {key}")
+            print(f"Install it on {args.org}, all repositories: {install}")
         except BaseException as error:
             # Say what is on disk now, not what the exception suggests.
-            if not releasebot.key_in_use_at(directory):
-                print(releasebot.lost_key_note(conversion, args.org, key))
-            elif isinstance(error, FileExistsError):
-                print(releasebot.lost_key_note(conversion, args.org, key, key_in_use=True))
-            else:
-                print(releasebot.kept_note(conversion, args.org, key))
+            if not refused:
+                print(_stopped_note(directory, conversion, args.org, key, checked=checked, error=error))
             raise
-    install = releasebot.install_url(record["slug"])
-    print(f"Created {record['slug']} (app id {record['app_id']}).")
-    print(f"Client ID: {record['client_id']}")
-    print(f"Private key: {key}")
-    print(f"Install it on {args.org}, all repositories: {install}")
     browse(install)
     return 0
+
+
+def _stopped_note(
+    directory: int,
+    conversion: dict[str, Any],
+    org: str,
+    key: Path,
+    *,
+    checked: bool,
+    error: BaseException,
+) -> str:
+    """Return the note for a run that stopped after the conversion, from what is on disk."""
+    if not releasebot.key_in_use_at(directory):
+        if not checked:
+            return releasebot.unchecked_note(conversion, org)
+        return releasebot.lost_key_note(conversion, org, key)
+    if isinstance(error, FileExistsError):
+        return releasebot.lost_key_note(conversion, org, key, key_in_use=True)
+    return releasebot.kept_note(conversion, org, key)
 
 
 def _converted(

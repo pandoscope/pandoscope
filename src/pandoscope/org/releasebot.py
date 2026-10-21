@@ -48,9 +48,11 @@ PERMISSIONS = {
 SLUG = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")
 CLIENT_ID = re.compile(r"[A-Za-z0-9.]+")
 # GitHub's own rules: a login is 1-39 letters, digits or single inner hyphens;
-# an app name is at most 34 characters.
+# an app name is at most 34 characters. This command takes only names whose
+# lowercase is their slug under any rule GitHub might apply: letters,
+# digits and single inner hyphens.
 LOGIN = re.compile(r"[A-Za-z0-9](?:[A-Za-z0-9]|-(?=[A-Za-z0-9])){0,38}")
-APP_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9 ._-]{0,33}")
+APP_NAME = re.compile(r"(?=[A-Za-z0-9-]{1,34}\Z)[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*")
 # The one-time code goes into an API path: never a path or query of its own.
 PLAIN_TOKEN = re.compile(r"[A-Za-z0-9_-]+")
 BOARD_URL = re.compile(r"https://github\.com/orgs/[A-Za-z0-9-]+/projects/[0-9]+")
@@ -554,6 +556,14 @@ def lost_key_note(conversion: dict[str, Any], org: str, key: Path, *, key_in_use
     return (
         f"The app now exists in {org}, but its key was not kept. "
         f"Generate a new private key at {page} and save it as {key}, or delete the app there."
+    )
+
+
+def unchecked_note(conversion: dict[str, Any], org: str) -> str:
+    """Return what to do when the run stopped before the converted app was checked."""
+    return (
+        f"The run stopped before the new app was checked, and its key was not kept: "
+        f"delete it at {_app_page(conversion, org)} and run again."
     )
 
 

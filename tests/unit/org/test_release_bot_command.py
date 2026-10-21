@@ -525,7 +525,6 @@ def test_a_failed_in_process_exchange_never_shows_the_code(
     assert error.value.__suppress_context__
 
 
-@pytest.mark.xfail(strict=True, reason="round 4 S2: an interrupt in check prints the refused-app note")
 def test_an_interrupt_before_the_app_is_checked_says_delete_without_blaming_the_app(
     tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -544,7 +543,6 @@ def test_an_interrupt_before_the_app_is_checked_says_delete_without_blaming_the_
     assert "generate" not in out.lower()
 
 
-@pytest.mark.xfail(strict=True, reason="round 4 S3: an interrupt after the key landed, before the report, prints nothing")
 def test_an_interrupt_before_the_report_still_says_the_key_is_kept(
     tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -563,7 +561,6 @@ def test_an_interrupt_before_the_report_still_says_the_key_is_kept(
     assert "holds the new app's key" in capsys.readouterr().out
 
 
-@pytest.mark.xfail(strict=True, reason="round 4 U2: names with spaces, dots or underscores pass")
 @pytest.mark.parametrize("name", ["Ada Bot", "ada.bot", "ada_bot", "ada--bot", "ada-"])
 def test_a_name_whose_slug_github_might_spell_differently_is_refused(tmp_path: Path, name: str) -> None:
     flow = Flow()
