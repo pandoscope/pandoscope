@@ -114,7 +114,6 @@ EXCHANGE = (
 )
 
 
-@pytest.mark.xfail(strict=True)
 def test_the_code_is_exchanged_for_the_apps_credentials() -> None:
     fake = FakeRun({EXCHANGE: json.dumps(CONVERSION)})
     assert convert("abc123", fake) == CONVERSION

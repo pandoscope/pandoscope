@@ -247,7 +247,15 @@ def convert(code: str, run: Run) -> dict[str, Any]:
     if not re.fullmatch(r"[A-Za-z0-9_-]+", code):
         msg = f"the callback's code={code!r} is not a plain token"
         raise ValueError(msg)
-    out = run(["gh", "api", "--method", "POST", f"app-manifests/{code}/conversions"], None)
+    # DECISION:SEC — gh's debug log (GH_DEBUG=api, or the older DEBUG)
+    # prints response bodies, and this response holds the private key.
+    out = run(
+        [
+            *("env", "-u", "GH_DEBUG", "-u", "DEBUG"),
+            *("gh", "api", "--method", "POST", f"app-manifests/{code}/conversions"),
+        ],
+        None,
+    )
     conversion: dict[str, Any] = json.loads(out)
     return conversion
 
@@ -395,6 +403,28 @@ def _valid_record(record: dict[str, Any]) -> dict[str, Any]:
         msg = f"release bot client_id={client_id!r} is not a client ID"
         raise ValueError(msg)
     return {"slug": slug, "app_id": app_id, "client_id": client_id}
+
+
+def lost_key_note(conversion: dict[str, Any], org: str, key: Path) -> str:
+    """
+    Return what to do when a converted app's key could not be kept.
+
+    An app of ``org`` stays behind with no key on disk: its settings page
+    can generate a new key or delete the app. A code for an app outside
+    ``org`` left nothing behind in the org.
+    """
+    owner = (conversion.get("owner") or {}).get("login")
+    slug = conversion.get("slug")
+    if not isinstance(owner, str) or owner.lower() != org.lower():
+        return f"That code was for an app outside {org}; nothing was kept."
+    if not isinstance(slug, str) or not SLUG.fullmatch(slug):
+        page = f"https://github.com/organizations/{quote(org, safe='')}/settings/apps"
+    else:
+        page = f"https://github.com/organizations/{quote(org, safe='')}/settings/apps/{slug}"
+    return (
+        f"The app now exists in {org}, but its key was not kept. "
+        f"Generate a new private key at {page} and save it as {key}, or delete the app there."
+    )
 
 
 def install_url(slug: str) -> str:

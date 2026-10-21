@@ -114,8 +114,13 @@ def run_org_release_bot(
         browse(page.as_uri())
         code = callback.wait()
         conversion = releasebot.convert(code, run)
-        releasebot.check(conversion, args.org, name)
-        record = releasebot.store(secrets, conversion)
+        try:
+            releasebot.check(conversion, args.org, name)
+            record = releasebot.store(secrets, conversion)
+        except (ValueError, OSError):
+            # The key exists only in the conversion: say where the app is, then fail.
+            print(releasebot.lost_key_note(conversion, args.org, key))
+            raise
     finally:
         # The port stays taken until the code is converted and checked.
         callback.close()
