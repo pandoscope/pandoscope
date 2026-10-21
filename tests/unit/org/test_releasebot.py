@@ -105,7 +105,6 @@ def test_a_code_that_is_no_plain_token_is_refused_before_any_call(code: str) -> 
     assert fake.commands() == []
 
 
-@pytest.mark.xfail(strict=True)
 def test_the_key_is_kept_readable_by_its_owner_only(tmp_path: Path) -> None:
     store(tmp_path, CONVERSION)
     key = tmp_path / KEY_FILE
@@ -113,7 +112,6 @@ def test_the_key_is_kept_readable_by_its_owner_only(tmp_path: Path) -> None:
     assert stat.S_IMODE(key.stat().st_mode) == 0o600
 
 
-@pytest.mark.xfail(strict=True)
 def test_the_record_names_the_app_and_keeps_no_secret(tmp_path: Path) -> None:
     record = store(tmp_path, CONVERSION)
     assert record == {"slug": "o-release-bot", "app_id": 4711, "client_id": "Iv23abc"}
@@ -124,7 +122,6 @@ def test_the_record_names_the_app_and_keeps_no_secret(tmp_path: Path) -> None:
     assert recorded(tmp_path) == record
 
 
-@pytest.mark.xfail(strict=True)
 def test_an_existing_key_is_never_overwritten(tmp_path: Path) -> None:
     (tmp_path / KEY_FILE).write_text("the key in use\n")
     with pytest.raises(FileExistsError):
@@ -133,6 +130,5 @@ def test_an_existing_key_is_never_overwritten(tmp_path: Path) -> None:
     assert not (tmp_path / RECORD_FILE).exists()
 
 
-@pytest.mark.xfail(strict=True)
 def test_no_record_means_no_release_bot(tmp_path: Path) -> None:
     assert recorded(tmp_path) is None

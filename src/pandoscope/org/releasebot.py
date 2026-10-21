@@ -16,6 +16,7 @@ from __future__ import annotations
 import hmac
 import html
 import json
+import os
 import re
 from pathlib import Path
 from urllib.parse import parse_qs, quote, urlsplit
@@ -131,12 +132,27 @@ def store(secrets: Path, conversion: dict[str, Any]) -> dict[str, Any]:
     to ``RECORD_FILE``. The client secret is not kept.
     Raises FileExistsError when ``secrets`` already holds a key.
     """
-    raise NotImplementedError
+    secrets.mkdir(parents=True, exist_ok=True)
+    # O_EXCL: a key in use is never replaced, not even by a race.
+    fd = os.open(secrets / KEY_FILE, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    with os.fdopen(fd, "w") as key:
+        key.write(conversion["pem"])
+    record = {
+        "slug": conversion["slug"],
+        "app_id": conversion["id"],
+        "client_id": conversion["client_id"],
+    }
+    (secrets / RECORD_FILE).write_text(json.dumps(record, indent=2) + "\n")
+    return record
 
 
 def recorded(secrets: Path) -> dict[str, Any] | None:
     """Return the release bot ``store`` recorded under ``secrets``, or None."""
-    raise NotImplementedError
+    path = secrets / RECORD_FILE
+    if not path.exists():
+        return None
+    record: dict[str, Any] = json.loads(path.read_text())
+    return record
 
 
 def install_url(slug: str) -> str:
