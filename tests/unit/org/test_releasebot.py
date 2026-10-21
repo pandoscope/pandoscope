@@ -325,3 +325,35 @@ def test_a_hostile_org_or_name_stays_inside_one_escaped_form(org: str, name: str
 
 def test_a_slug_with_a_slash_cannot_leave_the_apps_install_path() -> None:
     assert install_url("a/../../users").count("/") == 6
+
+
+def trickle(port: int, stop: threading.Event) -> None:
+    """Send a request one byte at a time, each well inside the read timeout."""
+    peer = socket.create_connection(("127.0.0.1", port))
+    for byte in b"GET /callback?code=slow&state=x HTTP/1.1\r\nHost: x\r\n":
+        if stop.is_set():
+            break
+        peer.send(bytes([byte]))
+        time.sleep(0.3)
+    peer.close()
+
+
+def test_a_trickling_peer_neither_blocks_the_callback_nor_its_deadline() -> None:
+    callback = listen("s-123", timeout=1.5, read_timeout=0.5)
+    port = int(callback.url.rsplit(":", 1)[1])
+    stop = threading.Event()
+    threading.Thread(target=trickle, args=(port, stop), daemon=True).start()
+    time.sleep(0.2)
+    assert get(callback.url + "/callback?code=zz&state=s-123")[0] == 200
+    assert callback.wait() == "zz"
+    callback.close()
+    stop.set()
+    late = listen("s-456", timeout=1.0, read_timeout=0.5)
+    stop_late = threading.Event()
+    threading.Thread(target=trickle, args=(int(late.url.rsplit(":", 1)[1]), stop_late), daemon=True).start()
+    started = time.monotonic()
+    with pytest.raises(TimeoutError):
+        late.wait()
+    assert time.monotonic() - started < 2
+    late.close()
+    stop_late.set()
