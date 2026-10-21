@@ -22,6 +22,7 @@ from pandoscope.org.releasebot import (
     form_page,
     install_url,
     listen,
+    page_file,
     manifest,
     recorded,
     store,
@@ -166,19 +167,41 @@ def get(url: str) -> tuple[int, str]:
         return error.code, error.read().decode()
 
 
-def test_the_local_callback_serves_the_page_and_returns_its_own_code() -> None:
+@pytest.mark.xfail(strict=True)
+def test_the_local_callback_serves_no_page_and_returns_only_its_own_code() -> None:
     callback = listen("s-123", timeout=10)
-    assert callback.url.startswith("http://127.0.0.1:")
     got: list[str] = []
-    waiter = threading.Thread(target=lambda: got.append(callback.wait("<p>the page</p>")))
+    waiter = threading.Thread(target=lambda: got.append(callback.wait()))
     waiter.start()
-    assert get(callback.url + "/") == (200, "<p>the page</p>")
-    status, _ = get(callback.url + "/callback?code=zz&state=forged")
-    assert status == 400
-    status, _ = get(callback.url + "/callback?code=zz&state=s-123")
-    assert status == 200
+    assert get(callback.url + "/")[0] == 404
+    assert get(callback.url + "/callback?code=zz&state=forged")[0] == 400
+    assert get(callback.url + "/callback?code=zz&state=s-123")[0] == 200
     waiter.join(5)
+    callback.close()
     assert got == ["zz"]
+
+
+@pytest.mark.xfail(strict=True)
+def test_the_port_stays_taken_until_close() -> None:
+    callback = listen("s-123", timeout=10)
+    port = int(callback.url.rsplit(":", 1)[1])
+    waiter = threading.Thread(target=callback.wait)
+    waiter.start()
+    get(callback.url + "/callback?code=zz&state=s-123")
+    waiter.join(5)
+    with pytest.raises(OSError):
+        socket.create_server(("127.0.0.1", port))
+    callback.close()
+    socket.create_server(("127.0.0.1", port)).close()
+
+
+@pytest.mark.xfail(strict=True)
+def test_the_page_file_is_readable_by_its_owner_only() -> None:
+    path = page_file("<p>state</p>")
+    assert path.read_text() == "<p>state</p>"
+    assert stat.S_IMODE(path.stat().st_mode) == 0o600
+    assert stat.S_IMODE(path.parent.stat().st_mode) == 0o700
+
 
 
 def get_as(url: str, host: str, path: str) -> int:
@@ -193,7 +216,7 @@ def get_as(url: str, host: str, path: str) -> int:
 def test_the_local_callback_answers_only_its_own_host() -> None:
     callback = listen("s-123", timeout=10)
     got: list[str] = []
-    waiter = threading.Thread(target=lambda: got.append(callback.wait("<p>s-123</p>")))
+    waiter = threading.Thread(target=lambda: got.append(callback.wait()))
     waiter.start()
     own = callback.url.removeprefix("http://")
     assert get_as(callback.url, "rebind.attacker.example", "/") == 400
@@ -211,7 +234,7 @@ def test_an_idle_connection_does_not_hold_the_callback_past_its_timeout() -> Non
 
     def wait() -> None:
         try:
-            callback.wait("<p>page</p>")
+            callback.wait()
         except TimeoutError as error:
             raised.append(error)
 

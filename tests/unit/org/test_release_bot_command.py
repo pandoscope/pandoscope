@@ -3,6 +3,7 @@ from __future__ import annotations
 import html
 import json
 import re
+import stat
 from pathlib import Path
 
 import pytest
@@ -34,16 +35,18 @@ EXCHANGE = ("gh", "api", "--method", "POST", "app-manifests/abc123/conversions")
 
 
 class FakeCallback:
-    """Stands in for the browser's round trip: returns a code, keeps the page."""
+    """Stands in for GitHub's redirect: returns a code, records its closing."""
 
     url = "http://127.0.0.1:9"
 
     def __init__(self) -> None:
-        self.page = ""
+        self.closed = False
 
-    def wait(self, page: str) -> str:
-        self.page = page
+    def wait(self) -> str:
         return "abc123"
+
+    def close(self) -> None:
+        self.closed = True
 
 
 class Flow:
@@ -51,6 +54,9 @@ class Flow:
         self.states: list[str] = []
         self.callback = FakeCallback()
         self.opened: list[str] = []
+        self.page = ""
+        self.page_mode = 0
+        self.page_path: Path | None = None
         self.run = FakeRun({EXCHANGE: json.dumps(CONVERSION)})
 
     def listen(self, state: str) -> FakeCallback:
@@ -59,10 +65,14 @@ class Flow:
 
     def browse(self, url: str) -> bool:
         self.opened.append(url)
+        if url.startswith("file://"):
+            self.page_path = Path(url.removeprefix("file://"))
+            self.page = self.page_path.read_text()
+            self.page_mode = stat.S_IMODE(self.page_path.stat().st_mode)
         return True
 
     def manifest(self) -> dict[str, object]:
-        value = re.search(r'name="manifest" value="([^"]*)"', self.callback.page)
+        value = re.search(r'name="manifest" value="([^"]*)"', self.page)
         assert value is not None
         parsed: dict[str, object] = json.loads(html.unescape(value.group(1)))
         return parsed
@@ -81,6 +91,7 @@ def go(flow: Flow, meta: Path, *extra: str) -> int:
     )
 
 
+@pytest.mark.xfail(strict=True)
 def test_the_flow_creates_the_app_and_keeps_its_key_in_the_orgs_secrets(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -96,19 +107,25 @@ def test_the_flow_creates_the_app_and_keeps_its_key_in_the_orgs_secrets(
     assert "not-kept" not in out
 
 
-def test_the_browser_gets_the_manifest_page_then_the_install_page(tmp_path: Path) -> None:
+@pytest.mark.xfail(strict=True)
+def test_the_browser_gets_the_manifest_page_from_a_private_file_then_the_install_page(
+    tmp_path: Path,
+) -> None:
     flow = Flow()
     go(flow, tmp_path)
-    assert flow.opened == [
-        "http://127.0.0.1:9/",
-        "https://github.com/apps/o-release-bot/installations/new",
-    ]
+    assert flow.opened[0].startswith("file://")
+    assert flow.opened[1:] == ["https://github.com/apps/o-release-bot/installations/new"]
+    assert flow.page_mode == 0o600
+    assert flow.page_path is not None
+    assert not flow.page_path.exists()
+    assert flow.callback.closed
     app = flow.manifest()
     assert app["name"] == "o-release-bot"
     assert app["redirect_url"] == "http://127.0.0.1:9/callback"
     assert len(flow.states[0]) >= 22
 
 
+@pytest.mark.xfail(strict=True)
 def test_the_name_flag_names_the_app(tmp_path: Path) -> None:
     flow = Flow()
     named = {**CONVERSION, "name": "ada-release-bot", "slug": "ada-release-bot"}
@@ -129,6 +146,7 @@ def test_an_existing_key_stops_the_flow_before_anything_happens(tmp_path: Path) 
     assert flow.run.commands() == []
 
 
+@pytest.mark.xfail(strict=True)
 @pytest.mark.parametrize(
     ("change", "named"),
     [
@@ -148,9 +166,11 @@ def test_an_app_that_is_not_the_one_asked_for_is_refused_and_nothing_kept(
     secrets = tmp_path / ".secrets" / "orgs" / "o"
     assert not (secrets / KEY_FILE).exists()
     assert not (secrets / RECORD_FILE).exists()
-    assert flow.opened == ["http://127.0.0.1:9/"]
+    assert len(flow.opened) == 1
+    assert flow.callback.closed
 
 
+@pytest.mark.xfail(strict=True)
 def test_a_seeded_directory_with_an_empty_key_placeholder_is_filled(tmp_path: Path) -> None:
     secrets = tmp_path / ".secrets" / "orgs" / "o"
     secrets.mkdir(parents=True)
@@ -160,6 +180,7 @@ def test_a_seeded_directory_with_an_empty_key_placeholder_is_filled(tmp_path: Pa
     assert (secrets / KEY_FILE).read_text() == CONVERSION["pem"]
 
 
+@pytest.mark.xfail(strict=True)
 def test_a_refused_conversion_shows_no_key_material(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
