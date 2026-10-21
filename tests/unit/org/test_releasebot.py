@@ -430,3 +430,19 @@ def test_a_record_that_is_no_object_is_refused(tmp_path: Path, text: str) -> Non
     (tmp_path / RECORD_FILE).write_text(text)
     with pytest.raises(ValueError, match="record"):
         recorded(tmp_path)
+
+
+def test_the_callback_answers_only_get_and_echoes_nothing_back() -> None:
+    callback = listen("s-123", timeout=5)
+    port = int(callback.url.rsplit(":", 1)[1])
+    own = callback.url.removeprefix("http://")
+    for method in ("POST", "HEAD", "PUT", "OPTIONS"):
+        connection = http.client.HTTPConnection("127.0.0.1", port, timeout=5)
+        connection.request(method, "/callback?code=x&state=s-123", headers={"Host": own})
+        assert connection.getresponse().status == 501
+        connection.close()
+    marker = "zz-echo-<b>marker</b>"
+    status, body = get(callback.url + "/callback?code=x&state=" + marker)
+    callback.close()
+    assert status == 400
+    assert "marker" not in body
