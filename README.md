@@ -247,9 +247,14 @@ carries the requested name and holds exactly the release bot's permissions:
 the state alone cannot prove the code is this flow's.
 The private key goes to `RELEASE_BOT_PRIVATE_KEY.pem` in the secrets directory,
 where the credentials step of `org init` reads it;
-slug, app id and client ID go to `release-bot.json` next to it.
+org, slug, app id and client ID go to `release-bot.json` next to it, first,
+and `org init` reads that record only for the org it names.
 Both are written through temp files (mode 0600) into a directory that must be yours,
-a real directory and writable by nobody else, and ends up with mode 0700;
+a real directory and writable by nobody else, and ends up with mode 0700,
+with every directory above it yours or root's and writable by no one else unless sticky
+(missing ones are created with mode 0700).
+One run at a time holds the directory, the key is synced before it is linked into place,
+and on a filesystem without hard links it is created in place, never over an existing file;
 and slug and client ID must have GitHub's shapes before anything is written,
 because they end up in a conf the credentials sync sources.
 The client secret is not kept, nothing secret is printed,
