@@ -16,6 +16,7 @@ from __future__ import annotations
 import hmac
 import html
 import json
+import re
 from pathlib import Path
 from urllib.parse import parse_qs, quote, urlsplit
 from typing import Any, Protocol
@@ -113,7 +114,13 @@ def convert(code: str, run: Run) -> dict[str, Any]:
     Returns GitHub's conversion: ``id``, ``slug``, ``client_id``, ``pem`` and more.
     Raises ValueError when ``code`` is not a plain token, and what ``run`` raises.
     """
-    raise NotImplementedError
+    # The code goes into an API path: a plain token only, never a path or query.
+    if not re.fullmatch(r"[A-Za-z0-9_-]+", code):
+        msg = f"the callback's code={code!r} is not a plain token"
+        raise ValueError(msg)
+    out = run(["gh", "api", "--method", "POST", f"app-manifests/{code}/conversions"], None)
+    conversion: dict[str, Any] = json.loads(out)
+    return conversion
 
 
 def store(secrets: Path, conversion: dict[str, Any]) -> dict[str, Any]:
