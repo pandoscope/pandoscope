@@ -567,3 +567,17 @@ def test_a_name_whose_slug_github_might_spell_differently_is_refused(tmp_path: P
     with pytest.raises(ValueError, match="name"):
         go(flow, tmp_path, f"--name={name}")
     assert flow.opened == []
+
+
+@pytest.mark.xfail(strict=True, reason="round 5 V3: the note leaves org init without the app")
+def test_a_record_that_cannot_be_kept_says_how_org_init_finds_the_app(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    flow = Flow()
+    flow.on_browse = lambda: capsys.readouterr() and None  # only what comes after counts
+    flow.fetch.answers[CONVERT] = json.dumps({**CONVERSION, "client_id": "not a client id"}).encode()
+    with pytest.raises(ValueError, match="client"):
+        go(flow, tmp_path)
+    out = capsys.readouterr().out
+    assert "--release-bot-app" in out
+    assert "--release-bot-client-id" in out
