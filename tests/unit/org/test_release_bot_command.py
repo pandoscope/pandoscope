@@ -376,3 +376,49 @@ def test_a_browser_that_fails_to_open_prints_no_app_note(
     with pytest.raises(OSError, match="no browser"):
         go(flow, tmp_path)
     assert "If GitHub created" not in capsys.readouterr().out
+
+
+@pytest.mark.xfail(strict=True, reason="round 2 K4: the directory is checked only after the app exists")
+def test_a_secrets_directory_others_can_write_stops_the_flow_before_github(tmp_path: Path) -> None:
+    shared = tmp_path / "shared"
+    shared.mkdir()
+    shared.chmod(0o777)
+    flow = Flow()
+    with pytest.raises(ValueError, match="writable"):
+        go(flow, tmp_path, "--secrets", str(shared))
+    assert flow.opened == []
+    assert flow.run.commands() == []
+
+
+@pytest.mark.xfail(strict=True, reason="round 2 K4: an interrupt while storing prints no note")
+def test_an_interrupt_while_storing_still_points_at_the_new_app(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def interrupted(*args: object, **kwargs: object) -> None:
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr("pandoscope.org.releasebot._place", interrupted)
+    flow = Flow()
+    with pytest.raises(KeyboardInterrupt):
+        go(flow, tmp_path)
+    assert "https://github.com/organizations/o/settings/apps/o-release-bot" in capsys.readouterr().out
+
+
+@pytest.mark.xfail(strict=True, reason="round 2 K4: the note says to save over another run's key")
+def test_a_key_kept_by_another_run_meanwhile_is_never_to_be_overwritten(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    flow = Flow()
+    secrets = tmp_path / ".secrets" / "orgs" / "o"
+
+    def another_run_kept_its_key(prompt: str) -> str:
+        secrets.mkdir(parents=True, mode=0o700, exist_ok=True)
+        (secrets / KEY_FILE).write_text("another run's key\n")
+        return REDIRECTED.format(state=flow.state())
+
+    flow.ask = another_run_kept_its_key  # type: ignore[method-assign]
+    with pytest.raises(FileExistsError):
+        go(flow, tmp_path)
+    out = capsys.readouterr().out
+    assert "save it as" not in out
+    assert "delete" in out
