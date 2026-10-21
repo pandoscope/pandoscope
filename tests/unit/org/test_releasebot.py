@@ -167,7 +167,6 @@ def get(url: str) -> tuple[int, str]:
         return error.code, error.read().decode()
 
 
-@pytest.mark.xfail(strict=True)
 def test_the_local_callback_serves_no_page_and_returns_only_its_own_code() -> None:
     callback = listen("s-123", timeout=10)
     got: list[str] = []
@@ -181,7 +180,6 @@ def test_the_local_callback_serves_no_page_and_returns_only_its_own_code() -> No
     assert got == ["zz"]
 
 
-@pytest.mark.xfail(strict=True)
 def test_the_port_stays_taken_until_close() -> None:
     callback = listen("s-123", timeout=10)
     port = int(callback.url.rsplit(":", 1)[1])
@@ -195,7 +193,6 @@ def test_the_port_stays_taken_until_close() -> None:
     socket.create_server(("127.0.0.1", port)).close()
 
 
-@pytest.mark.xfail(strict=True)
 def test_the_page_file_is_readable_by_its_owner_only() -> None:
     path = page_file("<p>state</p>")
     assert path.read_text() == "<p>state</p>"

@@ -20,8 +20,8 @@ import os
 import re
 import stat
 import tempfile
-import time
-from http.server import BaseHTTPRequestHandler, HTTPServer
+import threading
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, quote, urlsplit
 from typing import Any, Protocol
@@ -67,15 +67,23 @@ def page_file(page: str) -> Path:
     The page carries the flow's state, so it never goes over the network:
     the browser opens it from this file.
     """
-    raise NotImplementedError
+    # DECISION:SEC — the state is the flow's only secret: served over the
+    # local server, any local peer could read it, end the flow with a junk
+    # code and catch the real one on the freed port.
+    directory = Path(tempfile.mkdtemp(prefix="pandoscope-release-bot-"))
+    path = directory / "create-release-bot.html"
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    with os.fdopen(fd, "w") as handle:
+        handle.write(page)
+    return path
 
 
 def listen(state: str, timeout: float = 600, read_timeout: float = 5) -> Callback:
     """
     Open a callback on 127.0.0.1 for the flow that sent ``state``.
 
-    Its ``wait`` serves the page at ``/``, ignores every request but the
-    redirect with this ``state``, and returns that redirect's code.
+    It answers only ``/callback`` and returns, from ``wait``, the code of the
+    first redirect with this ``state``. The port stays taken until ``close``.
     Raises TimeoutError from ``wait`` when no code arrives within ``timeout`` seconds.
     ``read_timeout`` bounds how long one connection may take to send its request.
     """
@@ -83,41 +91,45 @@ def listen(state: str, timeout: float = 600, read_timeout: float = 5) -> Callbac
 
 
 class _LocalCallback:
-    """One-shot HTTP endpoint on 127.0.0.1; the port is the system's choice."""
+    """HTTP endpoint on 127.0.0.1, one thread per request; the port is the system's choice."""
 
     def __init__(self, state: str, timeout: float, read_timeout: float) -> None:
         self._state = state
         self._timeout = timeout
         self._read_timeout = read_timeout
-        self._page = ""
         self._code: str | None = None
-        self._server = HTTPServer(("127.0.0.1", 0), self._handler())
-        self._server.timeout = 1
+        self._lock = threading.Lock()
+        self._arrived = threading.Event()
+        self._server = ThreadingHTTPServer(("127.0.0.1", 0), self._handler())
+        self._server.daemon_threads = True
         self._host = f"127.0.0.1:{self._server.server_address[1]}"
         self.url = f"http://{self._host}"
+        self._thread = threading.Thread(
+            target=self._server.serve_forever, kwargs={"poll_interval": 0.2}, daemon=True
+        )
+        self._thread.start()
 
     def _handler(self) -> type[BaseHTTPRequestHandler]:
         outer = self
 
         class Handler(BaseHTTPRequestHandler):
-            # A peer that connects and sends nothing must not hold the
-            # single-threaded server past the flow's timeout.
+            # A peer that connects and sends nothing must not keep its thread forever.
             timeout = outer._read_timeout
 
             def do_GET(self) -> None:  # noqa: N802 - the http.server hook name
                 # DECISION:SEC — only requests addressed to this very host and
-                # port: a DNS-rebound name in the browser must not read the state.
+                # port: a DNS-rebound name in the browser gets nothing.
                 if self.headers.get("Host") != outer._host:
                     self._answer(400, "Wrong host.")
                     return
-                if urlsplit(self.path).path == "/":
-                    self._answer(200, outer._page)
+                if urlsplit(self.path).path != "/callback":
+                    self._answer(404, "Nothing here.")
                     return
                 code = callback_code(self.path, outer._state)
                 if code is None:
                     self._answer(400, "This is not the release bot's callback.")
                     return
-                outer._code = code
+                outer._accept(code)
                 self._answer(200, "The app exists. Back to the terminal.")
 
             def _answer(self, status: int, text: str) -> None:
@@ -133,22 +145,24 @@ class _LocalCallback:
 
         return Handler
 
-    def close(self) -> None:
-        """Release the port (stub: wait still closes it)."""
+    def _accept(self, code: str) -> None:
+        with self._lock:
+            if self._code is None:
+                self._code = code
+                self._arrived.set()
 
-    def wait(self, page: str = "") -> str:
-        """Serve ``page`` until the callback brings this flow's code; return it."""
-        self._page = page
-        deadline = time.monotonic() + self._timeout
-        try:
-            while self._code is None:
-                if time.monotonic() > deadline:
-                    msg = f"no callback reached {self.url} within {self._timeout} s"
-                    raise TimeoutError(msg)
-                self._server.handle_request()
-        finally:
-            self._server.server_close()
+    def wait(self) -> str:
+        """Return the code the first redirect with this flow's state brought."""
+        if not self._arrived.wait(self._timeout):
+            msg = f"no callback reached {self.url} within {self._timeout} s"
+            raise TimeoutError(msg)
+        assert self._code is not None  # set before the event
         return self._code
+
+    def close(self) -> None:
+        """Stop answering and release the port."""
+        self._server.shutdown()
+        self._server.server_close()
 
 
 def manifest(org: str, name: str, redirect_url: str) -> dict[str, Any]:

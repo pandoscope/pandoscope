@@ -91,7 +91,6 @@ def go(flow: Flow, meta: Path, *extra: str) -> int:
     )
 
 
-@pytest.mark.xfail(strict=True)
 def test_the_flow_creates_the_app_and_keeps_its_key_in_the_orgs_secrets(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -107,7 +106,6 @@ def test_the_flow_creates_the_app_and_keeps_its_key_in_the_orgs_secrets(
     assert "not-kept" not in out
 
 
-@pytest.mark.xfail(strict=True)
 def test_the_browser_gets_the_manifest_page_from_a_private_file_then_the_install_page(
     tmp_path: Path,
 ) -> None:
@@ -125,7 +123,6 @@ def test_the_browser_gets_the_manifest_page_from_a_private_file_then_the_install
     assert len(flow.states[0]) >= 22
 
 
-@pytest.mark.xfail(strict=True)
 def test_the_name_flag_names_the_app(tmp_path: Path) -> None:
     flow = Flow()
     named = {**CONVERSION, "name": "ada-release-bot", "slug": "ada-release-bot"}
@@ -146,7 +143,6 @@ def test_an_existing_key_stops_the_flow_before_anything_happens(tmp_path: Path) 
     assert flow.run.commands() == []
 
 
-@pytest.mark.xfail(strict=True)
 @pytest.mark.parametrize(
     ("change", "named"),
     [
@@ -170,7 +166,6 @@ def test_an_app_that_is_not_the_one_asked_for_is_refused_and_nothing_kept(
     assert flow.callback.closed
 
 
-@pytest.mark.xfail(strict=True)
 def test_a_seeded_directory_with_an_empty_key_placeholder_is_filled(tmp_path: Path) -> None:
     secrets = tmp_path / ".secrets" / "orgs" / "o"
     secrets.mkdir(parents=True)
@@ -180,7 +175,6 @@ def test_a_seeded_directory_with_an_empty_key_placeholder_is_filled(tmp_path: Pa
     assert (secrets / KEY_FILE).read_text() == CONVERSION["pem"]
 
 
-@pytest.mark.xfail(strict=True)
 def test_a_refused_conversion_shows_no_key_material(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
