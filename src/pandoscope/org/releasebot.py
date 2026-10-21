@@ -162,8 +162,8 @@ def form_page(org: str, app_manifest: dict[str, Any], state: str) -> str:
     so a callback can tell its own redirect from a forged one.
     """
     action = (
-        f"https://github.com/organizations/{quote(org)}/settings/apps/new"
-        f"?state={quote(state)}"
+        f"https://github.com/organizations/{quote(org, safe='')}/settings/apps/new"
+        f"?state={quote(state, safe='')}"
     )
     value = html.escape(json.dumps(app_manifest), quote=True)
     return (
@@ -320,4 +320,4 @@ def _valid_record(record: dict[str, Any]) -> dict[str, Any]:
 
 def install_url(slug: str) -> str:
     """Return the page that installs the app ``slug`` on an account."""
-    return f"https://github.com/apps/{quote(slug)}/installations/new"
+    return f"https://github.com/apps/{quote(slug, safe='')}/installations/new"
