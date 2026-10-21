@@ -135,7 +135,6 @@ def test_no_record_means_no_release_bot(tmp_path: Path) -> None:
     assert recorded(tmp_path) is None
 
 
-@pytest.mark.xfail(strict=True)
 def test_the_install_page_is_the_apps_own() -> None:
     assert install_url("o-release-bot") == (
         "https://github.com/apps/o-release-bot/installations/new"

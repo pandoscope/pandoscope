@@ -157,4 +157,4 @@ def recorded(secrets: Path) -> dict[str, Any] | None:
 
 def install_url(slug: str) -> str:
     """Return the page that installs the app ``slug`` on an account."""
-    raise NotImplementedError
+    return f"https://github.com/apps/{quote(slug)}/installations/new"
