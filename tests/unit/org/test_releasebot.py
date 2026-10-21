@@ -359,7 +359,6 @@ def test_a_trickling_peer_neither_blocks_the_callback_nor_its_deadline() -> None
     stop_late.set()
 
 
-@pytest.mark.xfail(strict=True)
 def test_a_non_ascii_state_is_refused_quietly(capfd: pytest.CaptureFixture[str]) -> None:
     callback = listen("s-123", timeout=5)
     try:
@@ -371,6 +370,5 @@ def test_a_non_ascii_state_is_refused_quietly(capfd: pytest.CaptureFixture[str])
     assert "Traceback" not in capfd.readouterr().err
 
 
-@pytest.mark.xfail(strict=True)
 def test_callback_code_refuses_a_non_ascii_state() -> None:
     assert callback_code("/callback?code=x&state=%C3%A9", "s-123") is None

@@ -90,6 +90,15 @@ def listen(state: str, timeout: float = 600, read_timeout: float = 5) -> Callbac
     return _LocalCallback(state, timeout, read_timeout)
 
 
+class _QuietServer(ThreadingHTTPServer):
+    """A request that fails is the peer's problem: no traceback on the owner's terminal."""
+
+    daemon_threads = True
+
+    def handle_error(self, request: Any, client_address: Any) -> None:
+        """Drop the error; the peer's connection closes."""
+
+
 class _LocalCallback:
     """HTTP endpoint on 127.0.0.1, one thread per request; the port is the system's choice."""
 
@@ -100,8 +109,7 @@ class _LocalCallback:
         self._code: str | None = None
         self._lock = threading.Lock()
         self._arrived = threading.Event()
-        self._server = ThreadingHTTPServer(("127.0.0.1", 0), self._handler())
-        self._server.daemon_threads = True
+        self._server = _QuietServer(("127.0.0.1", 0), self._handler())
         self._host = f"127.0.0.1:{self._server.server_address[1]}"
         self.url = f"http://{self._host}"
         self._thread = threading.Thread(
@@ -222,7 +230,8 @@ def callback_code(path: str, state: str) -> str | None:
     query = parse_qs(parts.query)
     given = query.get("state", [""])[0]
     code = query.get("code", [""])[0]
-    if not code or not hmac.compare_digest(given, state):
+    # Bytes: compare_digest refuses non-ASCII strings with a TypeError.
+    if not code or not hmac.compare_digest(given.encode(), state.encode()):
         return None
     return code
 
