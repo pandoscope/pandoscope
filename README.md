@@ -228,40 +228,48 @@ through GitHub's app-manifest flow.
 pandoscope org release-bot ada-digital-assistant --meta ~/src/meta --name ada-release-bot
 ```
 
-The command opens a page in your browser, from a file only you can read,
+Before GitHub sees anything, the command opens the secrets directory and locks it until the key is kept:
+the directory must be yours, a real directory and writable by nobody else, and ends up with mode 0700;
+the path is walked from `/` as the system walks it,
+so every directory above it must be yours or root's and writable by no one else unless sticky,
+a symlink on the way must be root's in a directory only root can change,
+`..` is refused, and missing directories are created with mode 0700.
+A second run waits a few seconds for the lock, then gives up.
+The command then opens a page in your browser, from a file only you can read,
 that sends the app's manifest to GitHub:
 owned by the **org** and installable only there,
 no webhook, no events,
 and the permissions of the factory's own release bot.
-You confirm "Create GitHub App";
-GitHub then sends the browser to the **org**'s apps settings page
+It first prints what to check:
+GitHub's page must create the app it names for the **org**,
+and after "Create GitHub App" the browser must land on `https://github.com/organizations/<org>/settings/apps`
 with a one-time code and the flow's random `state` in the address.
-Paste that address into the terminal:
-the command takes the code only from `https://github.com/organizations/<org>/settings/apps`
+Paste that address into the terminal (it is not shown):
+the command takes the code only from that page
 with this flow's state and one plain code,
 and asks again, up to three times, for anything else.
+If the browser lands anywhere else, don't paste: delete the new app on the **org**'s apps page.
 No local server listens, so no other local process can end the flow or take it over.
-The command exchanges the code for the app's credentials at once
+The command exchanges the code for the app's credentials at once,
+without `gh`'s debug log, which would print the response, and without `GH_HOST`,
 and keeps them only if the app belongs to the **org**,
-carries the requested name and holds exactly the release bot's permissions:
+carries the requested name, holds exactly the release bot's permissions and subscribes to no events:
 the state alone cannot prove the code is this flow's.
 The private key goes to `RELEASE_BOT_PRIVATE_KEY.pem` in the secrets directory,
 where the credentials step of `org init` reads it;
 org, slug, app id and client ID go to `release-bot.json` next to it, first,
-and `org init` reads that record only for the org it names.
-Both are written through temp files (mode 0600) into a directory that must be yours,
-a real directory and writable by nobody else, and ends up with mode 0700,
-with every directory above it yours or root's and writable by no one else unless sticky
-(missing ones are created with mode 0700).
-One run at a time holds the directory, the key is synced before it is linked into place,
-and on a filesystem without hard links it is created in place, never over an existing file;
-and slug and client ID must have GitHub's shapes before anything is written,
+and `org init` reads that record only for the org it names,
+only as a small regular file of yours, never through a symlink.
+Both are written through temp files (mode 0600) in the directory as it was opened and checked;
+the key is flushed to the drive before it is linked into place,
+on a filesystem without hard links it is created in place, never over an existing file,
+and temp files an interrupted run left behind are removed.
+Slug and client ID must have GitHub's shapes before anything is written,
 because they end up in a conf the credentials sync sources.
-The client secret is not kept, nothing secret is printed,
-and the exchange runs without `gh`'s debug log, which would print the response.
-If the flow stops before the key is kept, the command names the **org**'s apps settings page,
-where a new private key can be generated or the app deleted,
-and a failed exchange never shows the code.
+The client secret is not kept, nothing secret is printed, and a failed exchange never shows the code.
+If the flow stops before the key is kept, the command names the **org**'s apps page:
+delete the app there before running again,
+because a key fetched with its code stays valid until the app is gone.
 Installing an app on an **org** has no API,
 so the command opens the app's install page last: choose all repositories there.
 
