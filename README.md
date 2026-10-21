@@ -234,13 +234,14 @@ owned by the **org** and installable only there,
 no webhook, no events,
 and the permissions of the factory's own release bot.
 You confirm "Create GitHub App";
-GitHub sends the browser back to a callback on `127.0.0.1`,
-which answers only `/callback` requests addressed to its own host and port
-and accepts only the redirect carrying the flow's random `state`.
-The state never goes over the network,
-and the callback keeps its port until the code is converted and checked,
-so no other local process can end the flow or take the port over.
-The command exchanges the callback's code for the app's credentials
+GitHub then sends the browser to the **org**'s apps settings page
+with a one-time code and the flow's random `state` in the address.
+Paste that address into the terminal:
+the command takes the code only from `https://github.com/organizations/<org>/settings/apps`
+with this flow's state and one plain code,
+and asks again, up to three times, for anything else.
+No local server listens, so no other local process can end the flow or take it over.
+The command exchanges the code for the app's credentials at once
 and keeps them only if the app belongs to the **org**,
 carries the requested name and holds exactly the release bot's permissions:
 the state alone cannot prove the code is this flow's.
@@ -253,8 +254,9 @@ and slug and client ID must have GitHub's shapes before anything is written,
 because they end up in a conf the credentials sync sources.
 The client secret is not kept, nothing secret is printed,
 and the exchange runs without `gh`'s debug log, which would print the response.
-If anything fails after the exchange, the command names the new app's settings page,
-where a new private key can be generated or the app deleted.
+If the flow stops before the key is kept, the command names the **org**'s apps settings page,
+where a new private key can be generated or the app deleted,
+and a failed exchange never shows the code.
 Installing an app on an **org** has no API,
 so the command opens the app's install page last: choose all repositories there.
 
