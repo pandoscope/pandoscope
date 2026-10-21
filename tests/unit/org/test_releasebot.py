@@ -148,32 +148,32 @@ def test_a_code_that_is_no_plain_token_is_refused_before_any_call(code: str) -> 
 
 
 def test_the_key_is_kept_readable_by_its_owner_only(tmp_path: Path) -> None:
-    store(tmp_path, CONVERSION)
+    store(tmp_path, CONVERSION, "o")
     key = tmp_path / KEY_FILE
     assert key.read_text() == CONVERSION["pem"]
     assert stat.S_IMODE(key.stat().st_mode) == 0o600
 
 
 def test_the_record_names_the_app_and_keeps_no_secret(tmp_path: Path) -> None:
-    record = store(tmp_path, CONVERSION)
+    record = store(tmp_path, CONVERSION, "o")
     assert record == {"slug": "o-release-bot", "app_id": 4711, "client_id": "Iv23abc"}
     text = (tmp_path / RECORD_FILE).read_text()
     assert json.loads(text) == record
     assert "not-kept" not in text
     assert "synthetic key material" not in text
-    assert recorded(tmp_path) == record
+    assert recorded(tmp_path, "o") == record
 
 
 def test_an_existing_key_is_never_overwritten(tmp_path: Path) -> None:
     (tmp_path / KEY_FILE).write_text("the key in use\n")
     with pytest.raises(FileExistsError):
-        store(tmp_path, CONVERSION)
+        store(tmp_path, CONVERSION, "o")
     assert (tmp_path / KEY_FILE).read_text() == "the key in use\n"
     assert not (tmp_path / RECORD_FILE).exists()
 
 
 def test_no_record_means_no_release_bot(tmp_path: Path) -> None:
-    assert recorded(tmp_path) is None
+    assert recorded(tmp_path, "o") is None
 
 
 def test_the_install_page_is_the_apps_own() -> None:
@@ -243,7 +243,7 @@ def test_a_conversion_with_a_missing_or_odd_field_is_refused_before_any_write(
 ) -> None:
     conversion = {k: v for k, v in {**CONVERSION, **change}.items() if v is not None}
     with pytest.raises(ValueError):
-        store(tmp_path, conversion)
+        store(tmp_path, conversion, "o")
     assert list(tmp_path.iterdir()) == []
 
 
@@ -252,12 +252,12 @@ def test_a_planted_record_with_shell_characters_is_refused_on_reading(tmp_path: 
         '{"slug": "x$(touch pwned)", "app_id": 1, "client_id": "Iv23abc"}\n'
     )
     with pytest.raises(ValueError, match="slug"):
-        recorded(tmp_path)
+        recorded(tmp_path, "o")
 
 
 def test_the_secrets_directory_and_record_are_private_to_their_owner(tmp_path: Path) -> None:
     secrets = tmp_path / "orgs" / "o"
-    store(secrets, CONVERSION)
+    store(secrets, CONVERSION, "o")
     assert stat.S_IMODE(secrets.stat().st_mode) == 0o700
     assert stat.S_IMODE((secrets / RECORD_FILE).stat().st_mode) == 0o600
 
@@ -269,7 +269,7 @@ def test_a_symlink_at_the_key_path_is_refused_and_its_target_untouched(tmp_path:
     secrets.mkdir()
     (secrets / KEY_FILE).symlink_to(target)
     with pytest.raises(FileExistsError):
-        store(secrets, CONVERSION)
+        store(secrets, CONVERSION, "o")
     assert target.read_text() == "not yours\n"
     assert not (secrets / RECORD_FILE).exists()
 
@@ -278,7 +278,7 @@ def test_an_empty_placeholder_key_is_replaced(tmp_path: Path) -> None:
     placeholder = tmp_path / KEY_FILE
     placeholder.write_text("")
     placeholder.chmod(0o644)
-    store(tmp_path, CONVERSION)
+    store(tmp_path, CONVERSION, "o")
     assert placeholder.read_text() == CONVERSION["pem"]
     assert stat.S_IMODE(placeholder.stat().st_mode) == 0o600
 
@@ -311,7 +311,7 @@ def test_a_secrets_path_that_is_a_symlink_is_refused(tmp_path: Path) -> None:
     real.mkdir(mode=0o700)
     (tmp_path / "link").symlink_to(real)
     with pytest.raises(ValueError, match="symlink"):
-        store(tmp_path / "link", CONVERSION)
+        store(tmp_path / "link", CONVERSION, "o")
     assert list(real.iterdir()) == []
 
 
@@ -320,7 +320,7 @@ def test_a_secrets_directory_others_can_write_is_refused(tmp_path: Path) -> None
     shared.mkdir()
     shared.chmod(0o777)
     with pytest.raises(ValueError, match="writable"):
-        store(shared, CONVERSION)
+        store(shared, CONVERSION, "o")
     assert list(shared.iterdir()) == []
 
 
@@ -328,7 +328,7 @@ def test_an_existing_secrets_directory_ends_up_private(tmp_path: Path) -> None:
     secrets = tmp_path / "s"
     secrets.mkdir()
     secrets.chmod(0o755)
-    store(secrets, CONVERSION)
+    store(secrets, CONVERSION, "o")
     assert stat.S_IMODE(secrets.stat().st_mode) == 0o700
 
 
@@ -348,7 +348,7 @@ def test_a_temp_file_swapped_for_a_symlink_is_never_linked(
 
     monkeypatch.setattr("pandoscope.org.releasebot.tempfile.mkstemp", fake_mkstemp)
     with pytest.raises(ValueError, match="temp"):
-        store(secrets, CONVERSION)
+        store(secrets, CONVERSION, "o")
     assert not (secrets / KEY_FILE).exists()
     assert victim.read_text() == "someone else's file\n"
 
@@ -357,4 +357,4 @@ def test_a_temp_file_swapped_for_a_symlink_is_never_linked(
 def test_a_record_that_is_no_object_is_refused(tmp_path: Path, text: str) -> None:
     (tmp_path / RECORD_FILE).write_text(text)
     with pytest.raises(ValueError, match="record"):
-        recorded(tmp_path)
+        recorded(tmp_path, "o")

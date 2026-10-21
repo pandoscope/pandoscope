@@ -198,9 +198,9 @@ def check(conversion: dict[str, Any], org: str, name: str) -> None:
         raise ValueError(msg)
 
 
-def store(secrets: Path, conversion: dict[str, Any]) -> dict[str, Any]:
+def store(secrets: Path, conversion: dict[str, Any], org: str) -> dict[str, Any]:
     """
-    Keep the app's private key and record under ``secrets``; return the record.
+    Keep ``org``'s app's private key and record under ``secrets``; return the record.
 
     The key goes to ``KEY_FILE`` with mode 0600; slug, app id and client ID go
     to ``RECORD_FILE``. The client secret is not kept.
@@ -298,8 +298,8 @@ def _place(directory: Path, path: Path, text: str, *, replace: bool) -> None:
             os.unlink(temp)
 
 
-def recorded(secrets: Path) -> dict[str, Any] | None:
-    """Return the release bot ``store`` recorded under ``secrets``, or None."""
+def recorded(secrets: Path, org: str) -> dict[str, Any] | None:
+    """Return the release bot ``store`` recorded for ``org`` under ``secrets``, or None."""
     path = secrets / RECORD_FILE
     if not path.exists():
         return None

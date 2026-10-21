@@ -133,7 +133,7 @@ def run_org_release_bot(
         raise
     try:
         releasebot.check(conversion, args.org, name)
-        record = releasebot.store(secrets, conversion)
+        record = releasebot.store(secrets, conversion, args.org)
     except (ValueError, OSError):
         # The key exists only in the conversion: say where the app is, then fail.
         print(releasebot.lost_key_note(conversion, args.org, key))
@@ -225,7 +225,7 @@ def _release_bot(args: argparse.Namespace) -> tuple[str, str] | None:
         raise ValueError(msg)
     if not app:
         # Without the flags, the app `org release-bot` created for this org.
-        record = releasebot.recorded(_secrets(args))
+        record = releasebot.recorded(_secrets(args), args.org)
         if record is None:
             return None
         return str(record["slug"]), str(record["client_id"])
