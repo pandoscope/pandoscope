@@ -39,25 +39,8 @@ APPS = "https://github.com/organizations/o/settings/apps"
 REDIRECTED = APPS + "?code=abc123&state={state}"
 
 
-class FakeCallback:
-    """Stands in for GitHub's redirect: returns a code, records its closing."""
-
-    url = "http://127.0.0.1:9"
-
-    def __init__(self) -> None:
-        self.closed = False
-
-    def wait(self) -> str:
-        return "abc123"
-
-    def close(self) -> None:
-        self.closed = True
-
-
 class Flow:
     def __init__(self) -> None:
-        self.states: list[str] = []
-        self.callback = FakeCallback()
         self.opened: list[str] = []
         self.page = ""
         self.page_mode = 0
@@ -65,10 +48,6 @@ class Flow:
         self.run = FakeRun({EXCHANGE: json.dumps(CONVERSION)})
         self.pastes = [REDIRECTED]
         self.prompts: list[str] = []
-
-    def listen(self, state: str) -> FakeCallback:
-        self.states.append(state)
-        return self.callback
 
     def browse(self, url: str) -> bool:
         self.opened.append(url)
@@ -78,23 +57,16 @@ class Flow:
             self.page_mode = stat.S_IMODE(self.page_path.stat().st_mode)
         return True
 
-    def no_listen(self, state: str) -> FakeCallback:
-        """A flow that pastes never waits for a callback."""
-        self.states.append(state)
-        callback = FakeCallback()
-
-        def waited() -> str:
-            raise AssertionError("the flow waited for a local callback")
-
-        callback.wait = waited  # type: ignore[method-assign]
-        return callback
+    def state(self) -> str:
+        """The state the manifest page sends GitHub."""
+        found = re.search(r"[?&](?:amp;)?state=([^\"&]*)", self.page)
+        assert found is not None
+        return found.group(1)
 
     def ask(self, prompt: str) -> str:
         """Paste the next address, with the state the manifest page sent GitHub."""
         self.prompts.append(prompt)
-        state = re.search(r"[?&]amp;state=([^\"&]*)|[?&]state=([^\"&]*)", self.page)
-        assert state is not None
-        return self.pastes.pop(0).format(state=state.group(1) or state.group(2))
+        return self.pastes.pop(0).format(state=self.state())
 
     def manifest(self) -> dict[str, object]:
         value = re.search(r'name="manifest" value="([^"]*)"', self.page)
@@ -111,57 +83,43 @@ def go(flow: Flow, meta: Path, *extra: str) -> int:
     return run_org_release_bot(
         bot_args(meta, *extra),  # type: ignore[arg-type]
         run=flow.run,
-        listen=flow.listen,
-        browse=flow.browse,
-    )
-
-
-def paste(flow: Flow, meta: Path, *extra: str) -> int:
-    return run_org_release_bot(
-        bot_args(meta, *extra),  # type: ignore[arg-type]
-        run=flow.run,
-        listen=flow.no_listen,
         browse=flow.browse,
         ask=flow.ask,
     )
 
 
-@pytest.mark.xfail(strict=True, reason="the command still waits for a local callback")
 def test_the_pasted_redirect_is_exchanged_and_the_key_kept(tmp_path: Path) -> None:
     flow = Flow()
-    assert paste(flow, tmp_path) == 0
+    assert go(flow, tmp_path) == 0
     assert flow.run.commands() == [EXCHANGE]
     assert (tmp_path / ".secrets" / "orgs" / "o" / KEY_FILE).read_text() == CONVERSION["pem"]
     assert flow.manifest()["redirect_url"] == APPS
     assert len(flow.prompts) == 1
 
 
-@pytest.mark.xfail(strict=True, reason="the command still waits for a local callback")
 def test_a_paste_that_is_not_the_redirect_is_asked_for_again(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     flow = Flow()
     flow.pastes = ["https://github.com.evil.example/x?code=abc123&state={state}", REDIRECTED]
-    assert paste(flow, tmp_path) == 0
+    assert go(flow, tmp_path) == 0
     assert len(flow.prompts) == 2
     assert flow.run.commands() == [EXCHANGE]
 
 
-@pytest.mark.xfail(strict=True, reason="the command still waits for a local callback")
 def test_three_wrong_pastes_end_the_flow_and_point_at_the_orgs_apps(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     flow = Flow()
     flow.pastes = [APPS + "?code=abc123&state=forged"] * 3
     with pytest.raises(ValueError, match="redirect"):
-        paste(flow, tmp_path)
+        go(flow, tmp_path)
     assert flow.run.commands() == []
     assert APPS in capsys.readouterr().out
     assert flow.page_path is not None
     assert not flow.page_path.parent.exists()
 
 
-@pytest.mark.xfail(strict=True, reason="the command still waits for a local callback")
 def test_input_that_ends_points_at_the_orgs_apps(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -172,12 +130,11 @@ def test_input_that_ends_points_at_the_orgs_apps(
 
     flow.ask = ended  # type: ignore[method-assign]
     with pytest.raises(EOFError):
-        paste(flow, tmp_path)
+        go(flow, tmp_path)
     assert APPS in capsys.readouterr().out
     assert flow.run.commands() == []
 
 
-@pytest.mark.xfail(strict=True, reason="the command still waits for a local callback")
 def test_a_failed_exchange_points_at_the_orgs_apps_and_never_shows_the_code(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -190,7 +147,7 @@ def test_a_failed_exchange_points_at_the_orgs_apps_and_never_shows_the_code(
 
     flow.run = refused  # type: ignore[assignment]
     with pytest.raises(RuntimeError) as error:
-        paste(flow, tmp_path)
+        go(flow, tmp_path)
     out = capsys.readouterr().out
     assert APPS in out
     assert "abc123" not in str(error.value) + out
@@ -223,11 +180,10 @@ def test_the_browser_gets_the_manifest_page_from_a_private_file_then_the_install
     assert flow.page_mode == 0o600
     assert flow.page_path is not None
     assert not flow.page_path.exists()
-    assert flow.callback.closed
     app = flow.manifest()
     assert app["name"] == "o-release-bot"
-    assert app["redirect_url"] == "http://127.0.0.1:9/callback"
-    assert len(flow.states[0]) >= 22
+    assert app["redirect_url"] == APPS
+    assert len(flow.state()) >= 22
 
 
 def test_the_name_flag_names_the_app(tmp_path: Path) -> None:
@@ -245,7 +201,7 @@ def test_an_existing_key_stops_the_flow_before_anything_happens(tmp_path: Path) 
     flow = Flow()
     with pytest.raises(FileExistsError, match=KEY_FILE):
         go(flow, tmp_path, "--secrets", str(secrets))
-    assert flow.states == []
+    assert flow.prompts == []
     assert flow.opened == []
     assert flow.run.commands() == []
 
@@ -270,7 +226,6 @@ def test_an_app_that_is_not_the_one_asked_for_is_refused_and_nothing_kept(
     assert not (secrets / KEY_FILE).exists()
     assert not (secrets / RECORD_FILE).exists()
     assert len(flow.opened) == 1
-    assert flow.callback.closed
 
 
 def test_a_seeded_directory_with_an_empty_key_placeholder_is_filled(tmp_path: Path) -> None:
@@ -313,12 +268,12 @@ def test_a_key_that_appears_during_the_wait_points_at_the_new_app(
     flow = Flow()
     secrets = tmp_path / ".secrets" / "orgs" / "o"
 
-    def second_run_won() -> str:
+    def second_run_won(prompt: str) -> str:
         secrets.mkdir(parents=True, mode=0o700, exist_ok=True)
         (secrets / KEY_FILE).write_text("another run's key\n")
-        return "abc123"
+        return REDIRECTED.format(state=flow.state())
 
-    flow.callback.wait = second_run_won  # type: ignore[method-assign]
+    flow.ask = second_run_won  # type: ignore[method-assign]
     with pytest.raises(FileExistsError):
         go(flow, tmp_path)
     assert "https://github.com/organizations/o/settings/apps/o-release-bot" in capsys.readouterr().out
@@ -336,5 +291,6 @@ def test_odd_org_or_name_is_refused_before_the_flow(
     flow = Flow()
     args = build_parser().parse_args(["org", "release-bot", org, "--meta", str(tmp_path), *extra])
     with pytest.raises(ValueError, match=named):
-        run_org_release_bot(args, run=flow.run, listen=flow.listen, browse=flow.browse)
-    assert flow.states == []
+        run_org_release_bot(args, run=flow.run, browse=flow.browse, ask=flow.ask)
+    assert flow.prompts == []
+    assert flow.opened == []

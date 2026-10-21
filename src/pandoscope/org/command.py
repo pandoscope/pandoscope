@@ -85,7 +85,6 @@ def run_org_release_bot(
     args: argparse.Namespace,
     *,
     run: forge.Run = forge.run,
-    listen: Callable[[str], releasebot.Callback] = releasebot.listen,
     browse: Callable[[str], object] = webbrowser.open,
     ask: Callable[[str], str] = input,
 ) -> int:
@@ -93,8 +92,9 @@ def run_org_release_bot(
     Create the org's release bot through the app-manifest flow; return 0.
 
     Opens the manifest page and, once the app exists, its install page in the
-    principal's browser, and prints the client ID. The key goes to the org's
-    secrets directory and is never printed.
+    principal's browser, reads the address GitHub redirected to from the
+    terminal, and prints the client ID. The key goes to the org's secrets
+    directory and is never printed.
     Raises FileExistsError before anything else when the secrets directory
     already holds a key, and what any step raises.
     """
@@ -111,27 +111,33 @@ def run_org_release_bot(
         msg = f"app name={name!r} is not a GitHub App name (up to 34 letters, digits, ' ._-')"
         raise ValueError(msg)
     state = tokens.token_urlsafe(24)
-    callback = listen(state)
-    app = releasebot.manifest(args.org, name, callback.url + "/callback")
-    page = releasebot.page_file(releasebot.form_page(args.org, app, state))
+    # DECISION:SEC — GitHub sends the browser back to the org's own apps
+    # page and the principal pastes that address: no local port to squat,
+    # no local server to flood.
+    apps = releasebot.apps_url(args.org)
+    app = releasebot.manifest(args.org, name, apps)
     try:
-        print(f"Opening {page} to send the manifest of {name} to GitHub.")
-        print('Confirm "Create GitHub App" there; this command waits for GitHub.')
-        browse(page.as_uri())
-        code = callback.wait()
-        conversion = releasebot.convert(code, run)
+        page = releasebot.page_file(releasebot.form_page(args.org, app, state))
         try:
-            releasebot.check(conversion, args.org, name)
-            record = releasebot.store(secrets, conversion)
-        except (ValueError, OSError):
-            # The key exists only in the conversion: say where the app is, then fail.
-            print(releasebot.lost_key_note(conversion, args.org, key))
-            raise
-    finally:
-        # The port stays taken until the code is converted and checked.
-        callback.close()
-        page.unlink(missing_ok=True)
-        page.parent.rmdir()
+            print(f"Opening {page} to send the manifest of {name} to GitHub.")
+            print('Confirm "Create GitHub App" there. GitHub then shows the org\'s apps.')
+            browse(page.as_uri())
+            code = _pasted_code(ask, args.org, state)
+        finally:
+            page.unlink(missing_ok=True)
+            page.parent.rmdir()
+        conversion = releasebot.convert(code, run)
+    except BaseException:
+        # Whether GitHub created the app is unknown here: say where to look.
+        print(releasebot.unconverted_note(args.org, name, key))
+        raise
+    try:
+        releasebot.check(conversion, args.org, name)
+        record = releasebot.store(secrets, conversion)
+    except (ValueError, OSError):
+        # The key exists only in the conversion: say where the app is, then fail.
+        print(releasebot.lost_key_note(conversion, args.org, key))
+        raise
     install = releasebot.install_url(record["slug"])
     print(f"Created {record['slug']} (app id {record['app_id']}).")
     print(f"Client ID: {record['client_id']}")
@@ -139,6 +145,18 @@ def run_org_release_bot(
     print(f"Install it on {args.org}, all repositories: {install}")
     browse(install)
     return 0
+
+
+def _pasted_code(ask: Callable[[str], str], org: str, state: str, tries: int = 3) -> str:
+    """Return the code from the redirect address the principal pastes; ask up to ``tries`` times."""
+    apps = releasebot.apps_url(org)
+    for _ in range(tries):
+        code = releasebot.pasted_code(ask(f"Paste the address of {apps} as GitHub shows it: "), org, state)
+        if code is not None:
+            return code
+        print(f"That is not the address GitHub redirected this flow to ({apps}?code=…&state=…).")
+    msg = f"{tries} pasted addresses were not this flow's redirect to {apps}"
+    raise ValueError(msg)
 
 
 def run_org_plan(args: argparse.Namespace) -> int:

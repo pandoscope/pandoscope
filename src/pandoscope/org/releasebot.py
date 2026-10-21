@@ -283,13 +283,18 @@ def convert(code: str, run: Run) -> dict[str, Any]:
         raise ValueError(msg)
     # DECISION:SEC — gh's debug log (GH_DEBUG=api, or the older DEBUG)
     # prints response bodies, and this response holds the private key.
-    out = run(
-        [
-            *("env", "-u", "GH_DEBUG", "-u", "DEBUG"),
-            *("gh", "api", "--method", "POST", f"app-manifests/{code}/conversions"),
-        ],
-        None,
-    )
+    try:
+        out = run(
+            [
+                *("env", "-u", "GH_DEBUG", "-u", "DEBUG"),
+                *("gh", "api", "--method", "POST", f"app-manifests/{code}/conversions"),
+            ],
+            None,
+        )
+    except RuntimeError as error:
+        # DECISION:SEC — the failed command names the code, which stays valid
+        # for an hour: the error says what failed without it, and drops the chain.
+        raise RuntimeError(str(error).replace(code, "«code»")) from None
     conversion: dict[str, Any] = json.loads(out)
     return conversion
 
@@ -462,6 +467,14 @@ def lost_key_note(conversion: dict[str, Any], org: str, key: Path) -> str:
     return (
         f"The app now exists in {org}, but its key was not kept. "
         f"Generate a new private key at {page} and save it as {key}, or delete the app there."
+    )
+
+
+def unconverted_note(org: str, name: str, key: Path) -> str:
+    """Return what to do when the flow stopped before the app's key was in hand."""
+    return (
+        f"If GitHub created {name}, it is listed at {apps_url(org)}: delete it there before "
+        f"running this again, or generate a private key there and save it as {key}."
     )
 
 
