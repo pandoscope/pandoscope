@@ -1,16 +1,10 @@
 from __future__ import annotations
 
 import html
-import http.client
 import json
 import os
-import socket
-import time
 import re
 import stat
-import threading
-import urllib.error
-import urllib.request
 from pathlib import Path
 
 import pytest
@@ -19,11 +13,9 @@ from pandoscope.org.releasebot import (
     KEY_FILE,
     RECORD_FILE,
     apps_url,
-    callback_code,
     convert,
     form_page,
     install_url,
-    listen,
     page_file,
     manifest,
     pasted_code,
@@ -33,11 +25,11 @@ from pandoscope.org.releasebot import (
 
 from .fakes import FakeRun
 
-CALLBACK = "http://127.0.0.1:8123/callback"
+APPS = "https://github.com/organizations/o/settings/apps"
 
 
 def test_the_manifest_asks_for_exactly_the_factory_bots_permissions() -> None:
-    app = manifest("o", "o-release-bot", CALLBACK)
+    app = manifest("o", "o-release-bot", APPS)
     assert app["default_permissions"] == {
         "actions": "read",
         "contents": "write",
@@ -50,16 +42,16 @@ def test_the_manifest_asks_for_exactly_the_factory_bots_permissions() -> None:
 
 
 def test_the_manifest_app_stays_in_the_org_and_has_no_webhook() -> None:
-    app = manifest("o", "o-release-bot", CALLBACK)
+    app = manifest("o", "o-release-bot", APPS)
     assert app["name"] == "o-release-bot"
     assert app["public"] is False
     assert app["hook_attributes"]["active"] is False
-    assert app["redirect_url"] == CALLBACK
+    assert app["redirect_url"] == APPS
     assert app["url"] == "https://github.com/o"
 
 
 def test_the_page_posts_the_manifest_to_the_orgs_new_app_form() -> None:
-    app = manifest("o", "o-release-bot", CALLBACK)
+    app = manifest("o", "o-release-bot", APPS)
     page = form_page("o", app, "s-123")
     action = re.search(r'<form[^>]*action="([^"]+)"', page)
     assert action is not None
@@ -70,29 +62,6 @@ def test_the_page_posts_the_manifest_to_the_orgs_new_app_form() -> None:
     value = re.search(r'name="manifest" value="([^"]*)"', page)
     assert value is not None
     assert json.loads(html.unescape(value.group(1))) == app
-
-
-def test_the_callback_with_its_own_state_yields_the_code() -> None:
-    assert callback_code("/callback?code=abc123&state=s-123", "s-123") == "abc123"
-
-
-@pytest.mark.parametrize(
-    "path",
-    [
-        "/callback?code=abc123&state=forged",
-        "/callback?code=abc123",
-        "/callback?state=s-123",
-        "/callback?code=&state=s-123",
-        "/elsewhere?code=abc123&state=s-123",
-        "/",
-    ],
-    ids=["wrong-state", "no-state", "no-code", "empty-code", "other-path", "root"],
-)
-def test_any_other_request_yields_no_code(path: str) -> None:
-    assert callback_code(path, "s-123") is None
-
-
-APPS = "https://github.com/organizations/o/settings/apps"
 
 
 def test_github_sends_the_browser_back_to_the_orgs_apps_settings() -> None:
@@ -210,88 +179,12 @@ def test_the_install_page_is_the_apps_own() -> None:
     )
 
 
-def get(url: str) -> tuple[int, str]:
-    try:
-        with urllib.request.urlopen(url, timeout=5) as answer:  # noqa: S310 - local test server
-            return answer.status, answer.read().decode()
-    except urllib.error.HTTPError as error:
-        return error.code, error.read().decode()
-
-
-def test_the_local_callback_serves_no_page_and_returns_only_its_own_code() -> None:
-    callback = listen("s-123", timeout=10)
-    got: list[str] = []
-    waiter = threading.Thread(target=lambda: got.append(callback.wait()))
-    waiter.start()
-    assert get(callback.url + "/")[0] == 404
-    assert get(callback.url + "/callback?code=zz&state=forged")[0] == 400
-    assert get(callback.url + "/callback?code=zz&state=s-123")[0] == 200
-    waiter.join(5)
-    callback.close()
-    assert got == ["zz"]
-
-
-def test_the_port_stays_taken_until_close() -> None:
-    callback = listen("s-123", timeout=10)
-    port = int(callback.url.rsplit(":", 1)[1])
-    waiter = threading.Thread(target=callback.wait)
-    waiter.start()
-    get(callback.url + "/callback?code=zz&state=s-123")
-    waiter.join(5)
-    with pytest.raises(OSError):
-        socket.create_server(("127.0.0.1", port))
-    callback.close()
-    socket.create_server(("127.0.0.1", port)).close()
-
-
 def test_the_page_file_is_readable_by_its_owner_only() -> None:
     path = page_file("<p>state</p>")
     assert path.read_text() == "<p>state</p>"
     assert stat.S_IMODE(path.stat().st_mode) == 0o600
     assert stat.S_IMODE(path.parent.stat().st_mode) == 0o700
 
-
-
-def get_as(url: str, host: str, path: str) -> int:
-    port = int(url.rsplit(":", 1)[1])
-    connection = http.client.HTTPConnection("127.0.0.1", port, timeout=5)
-    connection.request("GET", path, headers={"Host": host})
-    status = connection.getresponse().status
-    connection.close()
-    return status
-
-
-def test_the_local_callback_answers_only_its_own_host() -> None:
-    callback = listen("s-123", timeout=10)
-    got: list[str] = []
-    waiter = threading.Thread(target=lambda: got.append(callback.wait()))
-    waiter.start()
-    own = callback.url.removeprefix("http://")
-    assert get_as(callback.url, "rebind.attacker.example", "/") == 400
-    assert get_as(callback.url, "localhost:1", "/callback?code=evil&state=s-123") == 400
-    assert get_as(callback.url, own, "/callback?code=zz&state=s-123") == 200
-    waiter.join(5)
-    assert got == ["zz"]
-
-
-def test_an_idle_connection_does_not_hold_the_callback_past_its_timeout() -> None:
-    callback = listen("s-123", timeout=1, read_timeout=0.5)
-    port = int(callback.url.rsplit(":", 1)[1])
-    idle = socket.create_connection(("127.0.0.1", port))
-    raised: list[BaseException] = []
-
-    def wait() -> None:
-        try:
-            callback.wait()
-        except TimeoutError as error:
-            raised.append(error)
-
-    waiter = threading.Thread(target=wait, daemon=True)
-    waiter.start()
-    waiter.join(4)
-    idle.close()
-    assert not waiter.is_alive()
-    assert len(raised) == 1
 
 
 @pytest.mark.parametrize(
@@ -364,7 +257,7 @@ def test_an_empty_placeholder_key_is_replaced(tmp_path: Path) -> None:
     ],
 )
 def test_a_hostile_org_or_name_stays_inside_one_escaped_form(org: str, name: str) -> None:
-    page = form_page(org, manifest(org, name, CALLBACK), "s-123")
+    page = form_page(org, manifest(org, name, APPS), "s-123")
     actions = re.findall(r'<form[^>]*action="([^"]+)"', page)
     assert len(actions) == 1
     url = html.unescape(actions[0])
@@ -376,53 +269,6 @@ def test_a_hostile_org_or_name_stays_inside_one_escaped_form(org: str, name: str
 
 def test_a_slug_with_a_slash_cannot_leave_the_apps_install_path() -> None:
     assert install_url("a/../../users").count("/") == 6
-
-
-def trickle(port: int, stop: threading.Event) -> None:
-    """Send a request one byte at a time, each well inside the read timeout."""
-    peer = socket.create_connection(("127.0.0.1", port))
-    for byte in b"GET /callback?code=slow&state=x HTTP/1.1\r\nHost: x\r\n":
-        if stop.is_set():
-            break
-        peer.send(bytes([byte]))
-        time.sleep(0.3)
-    peer.close()
-
-
-def test_a_trickling_peer_neither_blocks_the_callback_nor_its_deadline() -> None:
-    callback = listen("s-123", timeout=1.5, read_timeout=0.5)
-    port = int(callback.url.rsplit(":", 1)[1])
-    stop = threading.Event()
-    threading.Thread(target=trickle, args=(port, stop), daemon=True).start()
-    time.sleep(0.2)
-    assert get(callback.url + "/callback?code=zz&state=s-123")[0] == 200
-    assert callback.wait() == "zz"
-    callback.close()
-    stop.set()
-    late = listen("s-456", timeout=1.0, read_timeout=0.5)
-    stop_late = threading.Event()
-    threading.Thread(target=trickle, args=(int(late.url.rsplit(":", 1)[1]), stop_late), daemon=True).start()
-    started = time.monotonic()
-    with pytest.raises(TimeoutError):
-        late.wait()
-    assert time.monotonic() - started < 2
-    late.close()
-    stop_late.set()
-
-
-def test_a_non_ascii_state_is_refused_quietly(capfd: pytest.CaptureFixture[str]) -> None:
-    callback = listen("s-123", timeout=5)
-    try:
-        status = get(callback.url + "/callback?code=x&state=%C3%A9")[0]
-    except http.client.RemoteDisconnected:
-        status = 0
-    callback.close()
-    assert status == 400
-    assert "Traceback" not in capfd.readouterr().err
-
-
-def test_callback_code_refuses_a_non_ascii_state() -> None:
-    assert callback_code("/callback?code=x&state=%C3%A9", "s-123") is None
 
 
 def test_a_secrets_path_that_is_a_symlink_is_refused(tmp_path: Path) -> None:
@@ -477,19 +323,3 @@ def test_a_record_that_is_no_object_is_refused(tmp_path: Path, text: str) -> Non
     (tmp_path / RECORD_FILE).write_text(text)
     with pytest.raises(ValueError, match="record"):
         recorded(tmp_path)
-
-
-def test_the_callback_answers_only_get_and_echoes_nothing_back() -> None:
-    callback = listen("s-123", timeout=5)
-    port = int(callback.url.rsplit(":", 1)[1])
-    own = callback.url.removeprefix("http://")
-    for method in ("POST", "HEAD", "PUT", "OPTIONS"):
-        connection = http.client.HTTPConnection("127.0.0.1", port, timeout=5)
-        connection.request(method, "/callback?code=x&state=s-123", headers={"Host": own})
-        assert connection.getresponse().status == 501
-        connection.close()
-    marker = "zz-echo-<b>marker</b>"
-    status, body = get(callback.url + "/callback?code=x&state=" + marker)
-    callback.close()
-    assert status == 400
-    assert "marker" not in body

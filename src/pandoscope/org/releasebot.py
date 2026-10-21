@@ -1,10 +1,12 @@
 """
 Create an org's release-bot GitHub App through GitHub's app-manifest flow.
 
-The flow needs two confirmations in the principal's browser and nothing else:
+The flow needs two confirmations in the principal's browser and one paste:
 the page `form_page` renders posts the manifest to GitHub, the principal
-confirms "Create GitHub App", and GitHub redirects back to a local callback
-with a one-time code that `convert` exchanges for the app's credentials.
+confirms "Create GitHub App", and GitHub redirects to the org's apps
+settings page with a one-time code in the address. The principal pastes
+that address into the terminal; `pasted_code` takes the code from it and
+`convert` exchanges it for the app's credentials.
 `store` keeps the private key where the credentials sync reads it.
 Installing the app on the org has no API; `install_url` is the second
 confirmation.
@@ -20,11 +22,9 @@ import os
 import re
 import stat
 import tempfile
-import threading
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, quote, urlsplit
-from typing import Any, Protocol
+from typing import Any
 
 from pandoscope.org.forge import Run
 
@@ -53,20 +53,6 @@ KEY_FILE = "RELEASE_BOT_PRIVATE_KEY.pem"
 RECORD_FILE = "release-bot.json"
 
 
-class Callback(Protocol):
-    """A local endpoint GitHub redirects the browser back to."""
-
-    url: str
-
-    def wait(self) -> str:
-        """Return the code the first ``/callback`` with this flow's state brings."""
-        ...
-
-    def close(self) -> None:
-        """Release the port; until then no one else can bind it."""
-        ...
-
-
 def page_file(page: str) -> Path:
     """
     Write ``page`` to a new file only the current user can read; return its path.
@@ -74,110 +60,15 @@ def page_file(page: str) -> Path:
     The page carries the flow's state, so it never goes over the network:
     the browser opens it from this file.
     """
-    # DECISION:SEC — the state is the flow's only secret: served over the
-    # local server, any local peer could read it, end the flow with a junk
-    # code and catch the real one on the freed port.
+    # DECISION:SEC — the state ties the pasted address to this flow:
+    # kept where only the principal can read it, it cannot be borrowed
+    # to pass off a code for someone else's app.
     directory = Path(tempfile.mkdtemp(prefix="pandoscope-release-bot-"))
     path = directory / "create-release-bot.html"
     fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
     with os.fdopen(fd, "w") as handle:
         handle.write(page)
     return path
-
-
-def listen(state: str, timeout: float = 600, read_timeout: float = 5) -> Callback:
-    """
-    Open a callback on 127.0.0.1 for the flow that sent ``state``.
-
-    It answers only ``/callback`` and returns, from ``wait``, the code of the
-    first redirect with this ``state``. The port stays taken until ``close``.
-    Raises TimeoutError from ``wait`` when no code arrives within ``timeout`` seconds.
-    ``read_timeout`` bounds how long one connection may take to send its request.
-    """
-    return _LocalCallback(state, timeout, read_timeout)
-
-
-class _QuietServer(ThreadingHTTPServer):
-    """A request that fails is the peer's problem: no traceback on the owner's terminal."""
-
-    daemon_threads = True
-
-    def handle_error(self, request: Any, client_address: Any) -> None:
-        """Drop the error; the peer's connection closes."""
-
-
-class _LocalCallback:
-    """HTTP endpoint on 127.0.0.1, one thread per request; the port is the system's choice."""
-
-    def __init__(self, state: str, timeout: float, read_timeout: float) -> None:
-        self._state = state
-        self._timeout = timeout
-        self._read_timeout = read_timeout
-        self._code: str | None = None
-        self._lock = threading.Lock()
-        self._arrived = threading.Event()
-        self._server = _QuietServer(("127.0.0.1", 0), self._handler())
-        self._host = f"127.0.0.1:{self._server.server_address[1]}"
-        self.url = f"http://{self._host}"
-        self._thread = threading.Thread(
-            target=self._server.serve_forever, kwargs={"poll_interval": 0.2}, daemon=True
-        )
-        self._thread.start()
-
-    def _handler(self) -> type[BaseHTTPRequestHandler]:
-        outer = self
-
-        class Handler(BaseHTTPRequestHandler):
-            # A peer that connects and sends nothing must not keep its thread forever.
-            timeout = outer._read_timeout
-
-            def do_GET(self) -> None:  # noqa: N802 - the http.server hook name
-                # DECISION:SEC — only requests addressed to this very host and
-                # port: a DNS-rebound name in the browser gets nothing.
-                if self.headers.get("Host") != outer._host:
-                    self._answer(400, "Wrong host.")
-                    return
-                if urlsplit(self.path).path != "/callback":
-                    self._answer(404, "Nothing here.")
-                    return
-                code = callback_code(self.path, outer._state)
-                if code is None:
-                    self._answer(400, "This is not the release bot's callback.")
-                    return
-                outer._accept(code)
-                self._answer(200, "The app exists. Back to the terminal.")
-
-            def _answer(self, status: int, text: str) -> None:
-                body = text.encode()
-                self.send_response(status)
-                self.send_header("Content-Type", "text/html; charset=utf-8")
-                self.send_header("Content-Length", str(len(body)))
-                self.end_headers()
-                self.wfile.write(body)
-
-            def log_message(self, format: str, *args: Any) -> None:  # noqa: A002
-                """Keep the terminal quiet: the command prints what matters."""
-
-        return Handler
-
-    def _accept(self, code: str) -> None:
-        with self._lock:
-            if self._code is None:
-                self._code = code
-                self._arrived.set()
-
-    def wait(self) -> str:
-        """Return the code the first redirect with this flow's state brought."""
-        if not self._arrived.wait(self._timeout):
-            msg = f"no callback reached {self.url} within {self._timeout} s"
-            raise TimeoutError(msg)
-        assert self._code is not None  # set before the event
-        return self._code
-
-    def close(self) -> None:
-        """Stop answering and release the port."""
-        self._server.shutdown()
-        self._server.server_close()
 
 
 def manifest(org: str, name: str, redirect_url: str) -> dict[str, Any]:
@@ -205,7 +96,7 @@ def form_page(org: str, app_manifest: dict[str, Any], state: str) -> str:
     Return an HTML page that posts ``app_manifest`` to ``org``'s new-app form.
 
     ``state`` travels with the request and comes back with the code,
-    so a callback can tell its own redirect from a forged one.
+    so the pasted redirect can be told from a forged or an earlier one.
     """
     action = (
         f"https://github.com/organizations/{quote(org, safe='')}/settings/apps/new"
@@ -251,26 +142,6 @@ def pasted_code(url: str, org: str, state: str) -> str | None:
     return codes[0]
 
 
-def callback_code(path: str, state: str) -> str | None:
-    """
-    Return the code a request for ``path`` carries, or None.
-
-    Only ``/callback`` with the expected ``state`` and a code counts.
-    """
-    # DECISION:SEC — a random state per flow, compared in constant time:
-    # another page cannot hand this flow a code for an app of its own.
-    parts = urlsplit(path)
-    if parts.path != "/callback":
-        return None
-    query = parse_qs(parts.query)
-    given = query.get("state", [""])[0]
-    code = query.get("code", [""])[0]
-    # Bytes: compare_digest refuses non-ASCII strings with a TypeError.
-    if not code or not hmac.compare_digest(given.encode(), state.encode()):
-        return None
-    return code
-
-
 def convert(code: str, run: Run) -> dict[str, Any]:
     """
     Exchange the one-time ``code`` for the new app's credentials.
@@ -279,7 +150,7 @@ def convert(code: str, run: Run) -> dict[str, Any]:
     Raises ValueError when ``code`` is not a plain token, and what ``run`` raises.
     """
     if not PLAIN_TOKEN.fullmatch(code):
-        msg = f"the callback's code={code!r} is not a plain token"
+        msg = f"the code={code!r} is not a plain token"
         raise ValueError(msg)
     # DECISION:SEC — gh's debug log (GH_DEBUG=api, or the older DEBUG)
     # prints response bodies, and this response holds the private key.
