@@ -282,3 +282,27 @@ def test_an_empty_placeholder_key_is_replaced(tmp_path: Path) -> None:
     store(tmp_path, CONVERSION)
     assert placeholder.read_text() == CONVERSION["pem"]
     assert stat.S_IMODE(placeholder.stat().st_mode) == 0o600
+
+
+@pytest.mark.parametrize(
+    ("org", "name"),
+    [
+        pytest.param('o"><script>alert(1)</script>', "x", id="html", marks=pytest.mark.xfail(strict=True)),
+        pytest.param("o/../users", "n#frag", id="path", marks=pytest.mark.xfail(strict=True)),
+        pytest.param("o?state=forged", "n&manifest=", id="query"),
+    ],
+)
+def test_a_hostile_org_or_name_stays_inside_one_escaped_form(org: str, name: str) -> None:
+    page = form_page(org, manifest(org, name, CALLBACK), "s-123")
+    actions = re.findall(r'<form[^>]*action="([^"]+)"', page)
+    assert len(actions) == 1
+    url = html.unescape(actions[0])
+    assert url.startswith("https://github.com/organizations/")
+    assert url.endswith("/settings/apps/new?state=s-123")
+    assert url.count("/") == 7
+    assert "<script>alert" not in page
+
+
+@pytest.mark.xfail(strict=True)
+def test_a_slug_with_a_slash_cannot_leave_the_apps_install_path() -> None:
+    assert install_url("a/../../users") .count("/") == 6
