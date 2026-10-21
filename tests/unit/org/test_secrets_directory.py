@@ -208,3 +208,43 @@ def test_a_record_in_a_directory_others_can_write_is_refused(tmp_path: Path) -> 
     (tmp_path / "s").chmod(0o777)
     with pytest.raises(ValueError, match="writable"):
         recorded(tmp_path / "s", "o")
+
+
+def test_a_key_kept_just_before_the_link_stays_untouched(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    real_link = os.link
+
+    def keep_then_link(src: str, dst: str, **kwargs: object) -> None:
+        if dst == KEY_FILE:
+            (tmp_path / KEY_FILE).write_text("another run's key\n")
+        real_link(src, dst, **kwargs)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(os, "link", keep_then_link)
+    with pytest.raises(FileExistsError):
+        store(tmp_path, CONVERSION, "o")
+    assert (tmp_path / KEY_FILE).read_text() == "another run's key\n"
+    assert sorted(path.name for path in tmp_path.iterdir()) == sorted([KEY_FILE, RECORD_FILE])
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        ".pandoscope-release-bot-0123456789abcde",
+        ".pandoscope-release-bot-0123456789ABCDEF",
+        ".pandoscope-release-bot-0123456789abcdef.bak",
+    ],
+    ids=["fifteen-hex", "uppercase", "suffix"],
+)
+def test_a_near_miss_of_the_temp_shape_is_kept(tmp_path: Path, name: str) -> None:
+    near = tmp_path / name
+    near.write_text("not ours\n")
+    store(tmp_path, CONVERSION, "o")
+    assert near.read_text() == "not ours\n"
+
+
+def test_a_directory_of_the_temp_shape_is_kept(tmp_path: Path) -> None:
+    folder = tmp_path / ".pandoscope-release-bot-0123456789abcdef"
+    folder.mkdir()
+    store(tmp_path, CONVERSION, "o")
+    assert folder.is_dir()

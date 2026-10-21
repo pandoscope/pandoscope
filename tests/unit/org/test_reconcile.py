@@ -8,6 +8,9 @@ import pytest
 from pandoscope.org.confs import Credentials
 from pandoscope.org.plan import Repo
 from pandoscope.org.reconcile import Outcome, reconcile
+from pandoscope.org.releasebot import store
+
+from .test_releasebot import CONVERSION
 
 PLAN = [
     Repo("meta", "m", {"agentic_subtemplate": "template"}),
@@ -194,3 +197,23 @@ def test_a_secrets_directory_others_can_write_is_refused_before_any_script(tmp_p
     with pytest.raises(ValueError, match="writable"):
         reconcile("o", PLAN, meta, secrets, CREDS, dry_run=False, exec_=fake)
     assert fake.calls == []
+
+
+def test_the_secrets_directory_stays_locked_while_the_scripts_run(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr("pandoscope.org.releasebot.LOCK_WAIT", 0.1)
+    meta, secrets = fake_meta(tmp_path), tmp_path / "secrets"
+    seeded(secrets)
+    refused: list[str] = []
+
+    def store_meanwhile(cmd: list[str], env: dict[str, str]) -> tuple[int, str]:
+        try:
+            store(secrets, CONVERSION, "o")
+        except ValueError as error:
+            refused.append(str(error))
+        return 0, ""
+
+    reconcile("o", PLAN, meta, secrets, CREDS, dry_run=False, exec_=store_meanwhile)
+    assert len(refused) == 4
+    assert all("another run" in why for why in refused)
