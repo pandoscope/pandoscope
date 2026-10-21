@@ -236,7 +236,7 @@ a symlink on the way must be root's in a directory only root can change,
 `..` is refused, and missing directories are created with mode 0700.
 A second run waits a few seconds for the lock, then gives up;
 `org init` takes the same directory the same way.
-The command also makes sure `gh` is logged in to github.com before GitHub creates anything.
+It also makes sure GitHub's API answers over verified TLS before GitHub creates anything.
 The command then opens a page in your browser, from a file only you can read,
 that sends the app's manifest to GitHub:
 owned by the **org** and installable only there,
@@ -253,8 +253,8 @@ and asks again, up to three times, for anything else.
 If the browser lands anywhere else, don't paste: delete the new app on the **org**'s apps page.
 No local server listens, so no other local process can end the flow or take it over.
 The command exchanges the code for the app's credentials at once,
-on github.com whatever `gh`'s default host,
-without `gh`'s debug log, which would print the response,
+in one HTTPS request of its own to api.github.com,
+so the code never shows in the process list other local users can read,
 and keeps them only if the app belongs to the **org**,
 carries the requested name and the slug that name gives,
 holds exactly the release bot's permissions and subscribes to no events:
@@ -278,15 +278,18 @@ because a key fetched with its code stays valid until the app is gone.
 Installing an app on an **org** has no API,
 so the command opens the app's install page last: choose all repositories there.
 
-The name defaults to `<org>-release-bot`;
-the org, the name and every flag `org init` puts into the sourced conf must have GitHub's shapes.
+The name defaults to `<org>-release-bot`
+and takes up to 34 letters, digits and single inner hyphens,
+so its lowercase is the slug GitHub gives it;
+the org and every flag `org init` puts into the sourced conf must have GitHub's shapes.
 An existing key stops the command before it opens anything;
 move the key away to replace the app.
 The empty placeholder the credentials seed lays out is not a key and gets filled.
 Either order of `org release-bot` and `org init` works:
 `org init` seeds every secrets directory the seed has not run in yet,
 and the seed keeps files already there.
-The host needs `gh` authenticated as an **org** owner.
+The command needs no `gh`: the exchange takes no token,
+and the browser is where you are logged in as an **org** owner.
 
 More commands land as the tool grows.
 
