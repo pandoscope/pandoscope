@@ -1,0 +1,26 @@
+{
+  "pr": "pandoscope/pandoscope#50",
+  "head": "05ffee55e88cf6f57797d0495a0b84882933264b",
+  "pass": "spec-fidelity",
+  "model_tier": "opus",
+  "findings": [
+    {
+      "file": "src/pandoscope/org/releasebot.py",
+      "line": 205,
+      "rule": "The private key goes to `«secrets»/RELEASE_BOT_PRIVATE_KEY.pem` (mode 0600), the file the credentials sync already reads.",
+      "input": "A new org: `pandoscope org release-bot ada --meta M` followed by the first `pandoscope org init ada --meta M --project p --description d --approver a` (no bot flags), with the default secrets directory M/.secrets/orgs/ada absent before the first command.",
+      "finding_basis": "judged",
+      "confidence": 60,
+      "finding": "`store` creates the secrets directory, so the first `org init` that follows sees `secrets.exists()` true in `reconcile` (reconcile.py:89) and skips the `sync-gh-actions-credentials.sh --seed` step; the org's credentials sync then runs with no state snapshot and no placeholders for LABELS_TOKEN, PUSH_BLOCKLIST or PROJECT_BOARD_TOKEN, unlike the same init run without a prior `org release-bot`."
+    },
+    {
+      "file": "src/pandoscope/cli.py",
+      "line": 117,
+      "rule": "`org init` without `--release-bot-app` and `--release-bot-client-id` uses the app `release-bot.json` records, so the flags become optional after `org release-bot`.",
+      "input": "`pandoscope org init --help` after `org release-bot` has recorded an app.",
+      "finding_basis": "judged",
+      "confidence": 55,
+      "finding": "The `--release-bot-app` help still says \"without it, credentials are skipped\", while the change makes `org init` without the flag use the recorded app and render credentials."
+    }
+  ]
+}
