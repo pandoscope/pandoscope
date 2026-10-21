@@ -14,6 +14,7 @@ from pandoscope.org.releasebot import (
     callback_code,
     convert,
     form_page,
+    install_url,
     manifest,
     recorded,
     store,
@@ -132,3 +133,10 @@ def test_an_existing_key_is_never_overwritten(tmp_path: Path) -> None:
 
 def test_no_record_means_no_release_bot(tmp_path: Path) -> None:
     assert recorded(tmp_path) is None
+
+
+@pytest.mark.xfail(strict=True)
+def test_the_install_page_is_the_apps_own() -> None:
+    assert install_url("o-release-bot") == (
+        "https://github.com/apps/o-release-bot/installations/new"
+    )
