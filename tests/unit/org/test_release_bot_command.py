@@ -44,13 +44,23 @@ APPS = "https://github.com/organizations/o/settings/apps"
 REDIRECTED = APPS + "?code=abc123&state={state}"
 
 
+class AppsUnknown(FakeFetch):
+    """GitHub's API without a public app of any name the tests use, unless the table says so."""
+
+    def __call__(self, method: str, url: str) -> bytes:
+        if method == "GET" and url.startswith("https://api.github.com/apps/") and (method, url) not in self.answers:
+            self.calls.append((method, url))
+            raise urllib.error.HTTPError(url, 404, "Not Found", email.message.Message(), None)
+        return super().__call__(method, url)
+
+
 class Flow:
     def __init__(self) -> None:
         self.opened: list[str] = []
         self.page = ""
         self.page_mode = 0
         self.page_path: Path | None = None
-        self.fetch = FakeFetch({CONVERT: json.dumps(CONVERSION).encode(), PROBE: b"ok"})
+        self.fetch = AppsUnknown({CONVERT: json.dumps(CONVERSION).encode(), PROBE: b"ok"})
         self.pastes = [REDIRECTED]
         self.prompts: list[str] = []
         self.on_browse: Callable[[], None] = lambda: None
