@@ -40,6 +40,7 @@ CONVERSION = {
 }
 CONVERT = ("POST", "https://api.github.com/app-manifests/abc123/conversions")
 PROBE = ("GET", "https://api.github.com/zen")
+LOOKUP = ("GET", "https://api.github.com/apps/o-release-bot")
 APPS = "https://github.com/organizations/o/settings/apps"
 REDIRECTED = APPS + "?code=abc123&state={state}"
 
@@ -108,7 +109,7 @@ def go(flow: Flow, meta: Path, *extra: str) -> int:
 def test_the_pasted_redirect_is_exchanged_and_the_key_kept(tmp_path: Path) -> None:
     flow = Flow()
     assert go(flow, tmp_path) == 0
-    assert flow.fetch.calls == [PROBE, CONVERT]
+    assert flow.fetch.calls == [PROBE, LOOKUP, CONVERT]
     assert (tmp_path / ".secrets" / "orgs" / "o" / KEY_FILE).read_text() == CONVERSION["pem"]
     assert flow.manifest()["redirect_url"] == APPS
     assert len(flow.prompts) == 1
@@ -121,7 +122,7 @@ def test_a_paste_that_is_not_the_redirect_is_asked_for_again(
     flow.pastes = ["https://github.com.evil.example/x?code=abc123&state={state}", REDIRECTED]
     assert go(flow, tmp_path) == 0
     assert len(flow.prompts) == 2
-    assert flow.fetch.calls == [PROBE, CONVERT]
+    assert flow.fetch.calls == [PROBE, LOOKUP, CONVERT]
 
 
 def test_three_wrong_pastes_end_the_flow_and_point_at_the_orgs_apps(
@@ -131,7 +132,7 @@ def test_three_wrong_pastes_end_the_flow_and_point_at_the_orgs_apps(
     flow.pastes = [APPS + "?code=abc123&state=forged"] * 3
     with pytest.raises(ValueError, match="redirect"):
         go(flow, tmp_path)
-    assert flow.fetch.calls == [PROBE]
+    assert flow.fetch.calls == [PROBE, LOOKUP]
     assert APPS in capsys.readouterr().out
     assert flow.page_path is not None
     assert not flow.page_path.parent.exists()
@@ -149,7 +150,7 @@ def test_input_that_ends_points_at_the_orgs_apps(
     with pytest.raises(EOFError):
         go(flow, tmp_path)
     assert APPS in capsys.readouterr().out
-    assert flow.fetch.calls == [PROBE]
+    assert flow.fetch.calls == [PROBE, LOOKUP]
 
 
 def test_a_failed_exchange_points_at_the_orgs_apps_and_never_shows_the_code(
@@ -349,7 +350,7 @@ def test_a_stray_file_in_the_page_directory_does_not_lose_the_code(tmp_path: Pat
 
     flow.ask = paste_and_litter  # type: ignore[method-assign]
     assert go(flow, tmp_path) == 0
-    assert flow.fetch.calls == [PROBE, CONVERT]
+    assert flow.fetch.calls == [PROBE, LOOKUP, CONVERT]
     assert flow.page_path is not None
     assert not flow.page_path.parent.exists()
 
@@ -506,7 +507,7 @@ def test_an_interrupt_before_the_key_is_in_hand_names_the_apps_page_and_cleans_u
 def test_the_code_reaches_no_command_line(tmp_path: Path) -> None:
     flow = Flow()
     assert go(flow, tmp_path) == 0
-    assert flow.fetch.calls == [PROBE, CONVERT]
+    assert flow.fetch.calls == [PROBE, LOOKUP, CONVERT]
     assert (tmp_path / ".secrets" / "orgs" / "o" / KEY_FILE).read_text() == CONVERSION["pem"]
 
 

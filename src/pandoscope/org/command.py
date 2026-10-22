@@ -114,7 +114,7 @@ def run_org_release_bot(
     _check_shapes(args)
     # DECISION:IFACE — one app per org, named after it by default;
     # --name for an org that already chose another (ada-release-bot).
-    name = args.name or f"{args.org}-release-bot"
+    name = args.name or releasebot.default_name(args.org)
     if not releasebot.APP_NAME.fullmatch(name):
         msg = f"app name={name!r} is not a name this command takes (up to 34 letters, digits and single inner hyphens)"
         raise ValueError(msg)
@@ -129,6 +129,10 @@ def run_org_release_bot(
             raise FileExistsError(msg)
         # Without a reachable API the exchange fails after GitHub created the app.
         releasebot.reach(fetch)
+        # Only a public app shows here; GitHub's form is where a private one shows.
+        if releasebot.public_app_named(name.lower(), fetch):
+            msg = f"app name={name!r} is taken by a public GitHub App; choose another with --name"
+            raise ValueError(msg)
         # DECISION:IFACE — --drag opens no browser: the owner drags the page
         # into the window logged in as an org owner, whichever profile that is.
         show = reveal if args.drag else (lambda page: browse(page.as_uri()))
@@ -209,6 +213,10 @@ def _converted(
             print(f'On GitHub, check that the page creates {name} for {org}, then confirm "Create GitHub App".')
             print(f"GitHub then opens {apps}?code=…&state=…: paste that address here (it is not shown).")
             print(f"If the browser lands anywhere else, do not paste: delete any new app at {apps} and run again.")
+            print(
+                f"If GitHub says the name {name} is taken, do not change it there:"
+                " close the tab, press Ctrl-C and run again with --name <another name>."
+            )
             show(page)
             sent = True
             code = _pasted_code(ask, org, state)

@@ -25,6 +25,7 @@ import re
 import ssl
 import stat
 import tempfile
+import urllib.error
 import urllib.request
 from collections.abc import Callable, Iterator
 from pathlib import Path
@@ -88,7 +89,8 @@ def page_file(page: str) -> Path:
 
 def default_name(org: str) -> str:
     """Return ``org``'s release bot's default name: ``<org>-release-bot``, shortened to fit 34 characters."""
-    raise NotImplementedError
+    suffix = "-release-bot"
+    return org[: 34 - len(suffix)].rstrip("-") + suffix
 
 
 def public_app_named(slug: str, fetch: Fetch) -> bool:
@@ -96,8 +98,15 @@ def public_app_named(slug: str, fetch: Fetch) -> bool:
     Return whether a public GitHub App already has ``slug``.
 
     A private app with that name stays invisible: GitHub's form is where that shows.
+    Raises what ``fetch`` raises for any answer but 404.
     """
-    raise NotImplementedError
+    try:
+        fetch("GET", f"{API}/apps/{quote(slug, safe='')}")
+    except urllib.error.HTTPError as error:
+        if error.code == 404:
+            return False
+        raise
+    return True
 
 
 def manifest(org: str, name: str, redirect_url: str) -> dict[str, Any]:
@@ -569,6 +578,13 @@ def refused_note(conversion: dict[str, Any], org: str, name: str) -> str:
         return (
             f"That code was for an app outside {org}: someone else knew this run's state. "
             f"If GitHub created {name}, delete it at {apps_url(org)} and run again."
+        )
+    created = conversion.get("name")
+    if owner is not None and created != name and conversion.get("permissions") == PERMISSIONS:
+        rerun = created if isinstance(created, str) and APP_NAME.fullmatch(created) else "<a free name>"
+        return (
+            f"The app was created as {created!r}, not {name!r}: its name was changed on GitHub's page. "
+            f"Delete it at {_app_page(conversion, org)} and run again with --name {rerun}."
         )
     return (
         f"GitHub created an app in {org} that is not the one asked for: "
