@@ -15,7 +15,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from pandoscope.org import forge, reconcile, releasebot
+from pandoscope.org import botnotes, forge, reconcile, releasebot
 from pandoscope.org.confs import Credentials
 from pandoscope.org.init import init_org
 from pandoscope.org.plan import Repo, default_plan
@@ -143,7 +143,7 @@ def run_org_release_bot(
                 releasebot.check(conversion, args.org, name)
             except ValueError:
                 refused = True
-                print(releasebot.refused_note(conversion, args.org, name))
+                print(botnotes.refused_note(conversion, args.org, name))
                 raise
             checked = True
             record = releasebot.store_at(directory, secrets, conversion, args.org)
@@ -176,12 +176,12 @@ def _stopped_note(
     """Return the note for a run that stopped after the conversion, from what is on disk."""
     if not releasebot.key_in_use_at(directory):
         if not checked:
-            return releasebot.unchecked_note(conversion, org)
+            return botnotes.unchecked_note(conversion, org)
         recorded = releasebot.record_at(directory)
-        return releasebot.lost_key_note(conversion, org, key, recorded=recorded)
+        return botnotes.lost_key_note(conversion, org, key, recorded=recorded)
     if isinstance(error, FileExistsError):
-        return releasebot.lost_key_note(conversion, org, key, key_in_use=True)
-    return releasebot.kept_note(conversion, org, key)
+        return botnotes.lost_key_note(conversion, org, key, key_in_use=True)
+    return botnotes.kept_note(conversion, org, key)
 
 
 def _converted(
@@ -229,7 +229,7 @@ def _converted(
     except BaseException:
         if sent:
             # Whether GitHub created the app is unknown here: say where to look.
-            print(releasebot.unconverted_note(org, name, key))
+            print(botnotes.unconverted_note(org, name, key))
         raise
 
 

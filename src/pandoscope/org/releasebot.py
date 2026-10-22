@@ -279,8 +279,8 @@ def check(conversion: dict[str, Any], org: str, name: str) -> None:
     """
     # DECISION:SEC — the state alone cannot prove the code is this flow's:
     # whoever reads the local page can send a code for an app of their own.
-    owner = _owner(conversion)
-    if owner is None or owner.lower() != org.lower():
+    login = owner(conversion)
+    if login is None or login.lower() != org.lower():
         msg = f"the code belongs to an app of owner={conversion.get('owner')!r}, not of org={org!r}"
         raise ValueError(msg)
     if conversion.get("name") != name:
@@ -299,7 +299,7 @@ def check(conversion: dict[str, Any], org: str, name: str) -> None:
         raise ValueError(msg)
 
 
-def _owner(conversion: dict[str, Any]) -> str | None:
+def owner(conversion: dict[str, Any]) -> str | None:
     """Return the login the conversion names as the app's owner, if it has a login's shape."""
     owner = conversion.get("owner")
     login = owner.get("login") if isinstance(owner, dict) else None
@@ -569,90 +569,6 @@ def _valid_record(record: dict[str, Any]) -> dict[str, Any]:
         msg = f"release bot client_id={client_id!r} is not a client ID"
         raise ValueError(msg)
     return {"org": org, "slug": slug, "app_id": app_id, "client_id": client_id}
-
-
-def refused_note(conversion: dict[str, Any], org: str, name: str) -> str:
-    """Return what to do with an app `check` refused: delete it, never keep a key for it."""
-    owner = _owner(conversion)
-    if owner is not None and owner.lower() != org.lower():
-        return (
-            f"That code was for an app outside {org}: someone else knew this run's state. "
-            f"If GitHub created {name}, delete it at {apps_url(org)} and run again."
-        )
-    created = conversion.get("name")
-    if owner is not None and created != name and conversion.get("permissions") == PERMISSIONS:
-        rerun = created if isinstance(created, str) and APP_NAME.fullmatch(created) else "<a free name>"
-        return (
-            f"The app was created as {created!r}, not {name!r}: its name was changed on GitHub's page. "
-            f"Delete it at {_app_page(conversion, org)} and run again with --name {rerun}."
-        )
-    return (
-        f"GitHub created an app in {org} that is not the one asked for: "
-        f"delete it at {_app_page(conversion, org)} and run again; keep no key for it."
-    )
-
-
-def lost_key_note(
-    conversion: dict[str, Any], org: str, key: Path, *, key_in_use: bool = False, recorded: bool = True
-) -> str:
-    """
-    Return what to do when the checked app's key could not be kept.
-
-    The app stays behind with no key on disk: its settings page can
-    generate a new key or delete the app; with ``key_in_use``, another
-    app's key is at ``key``, so only deleting is right. Without ``recorded``,
-    org init needs the app named by its flags.
-    """
-    page = _app_page(conversion, org)
-    if key_in_use:
-        return (
-            f"The app now exists in {org}, but {key} already holds another app's key, "
-            f"which stays as it is. Delete this run's app at {page}."
-        )
-    note = (
-        f"The app now exists in {org}, but its key was not kept. "
-        f"Generate a new private key at {page} and save it as {key}, or delete the app there."
-    )
-    if not recorded:
-        note += (
-            " No record was kept either: give org init the app's slug and client ID"
-            " from that page with --release-bot-app and --release-bot-client-id."
-        )
-    return note
-
-
-def unchecked_note(conversion: dict[str, Any], org: str) -> str:
-    """Return what to do when the run stopped before the converted app was checked."""
-    return (
-        f"The run stopped before the new app was checked, and its key was not kept: "
-        f"delete it at {_app_page(conversion, org)} and run again."
-    )
-
-
-def kept_note(conversion: dict[str, Any], org: str, key: Path) -> str:
-    """Return what to do when the run stopped after the key was kept."""
-    return (
-        f"{key} holds the new app's key, but the run stopped before it finished. "
-        f"Install it on {org}, all repositories: {install_url(str(conversion['slug']))}"
-    )
-
-
-def _app_page(conversion: dict[str, Any], org: str) -> str:
-    """The app's settings page in ``org``, or the org's apps page when the slug is odd."""
-    slug = conversion.get("slug")
-    if isinstance(slug, str) and SLUG.fullmatch(slug):
-        return f"{apps_url(org)}/{slug}"
-    return apps_url(org)
-
-
-def unconverted_note(org: str, name: str, key: Path) -> str:
-    """Return what to do when the flow stopped before the app's key was in hand."""
-    # A key someone else fetched with the code stays valid until the app is gone:
-    # a new key would not revoke it.
-    return (
-        f"If GitHub created {name}, delete it at {apps_url(org)} before running this again: "
-        f"a key fetched with its code stays valid until the app is deleted. Nothing was saved to {key}."
-    )
 
 
 def install_url(slug: str) -> str:
