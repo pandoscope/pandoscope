@@ -86,6 +86,20 @@ def page_file(page: str) -> Path:
     return path
 
 
+def default_name(org: str) -> str:
+    """Return ``org``'s release bot's default name: ``<org>-release-bot``, shortened to fit 34 characters."""
+    raise NotImplementedError
+
+
+def public_app_named(slug: str, fetch: Fetch) -> bool:
+    """
+    Return whether a public GitHub App already has ``slug``.
+
+    A private app with that name stays invisible: GitHub's form is where that shows.
+    """
+    raise NotImplementedError
+
+
 def manifest(org: str, name: str, redirect_url: str) -> dict[str, Any]:
     """
     Return the app manifest for ``org``'s release bot named ``name``.
