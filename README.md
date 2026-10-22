@@ -277,6 +277,11 @@ delete the app there before running again,
 because a key fetched with its code stays valid until the app is gone.
 Installing an app on an **org** has no API,
 so the command opens the app's install page last: choose all repositories there.
+A browser with several profiles opens links in the profile used last,
+which need not be the one logged in as an **org** owner:
+with `--drag` the command opens no browser,
+shows the manifest page in Finder to drag into the right window,
+and prints the install link to copy into the same window.
 
 The name defaults to `<org>-release-bot`
 and takes up to 34 letters, digits and single inner hyphens,
