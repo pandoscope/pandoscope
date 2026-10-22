@@ -7,6 +7,8 @@ import contextlib
 import getpass
 import secrets as tokens
 import shutil
+import subprocess
+import sys
 import tempfile
 import webbrowser
 from collections.abc import Callable
@@ -87,7 +89,8 @@ def run_org_init(
 
 def reveal_in_finder(path: Path) -> None:
     """Show ``path`` selected in a Finder window, on macOS; elsewhere do nothing."""
-    raise NotImplementedError
+    if sys.platform == "darwin":
+        subprocess.run(["open", "-R", str(path)], check=False)  # noqa: S603, S607 - fixed command
 
 
 def run_org_release_bot(
@@ -126,7 +129,10 @@ def run_org_release_bot(
             raise FileExistsError(msg)
         # Without a reachable API the exchange fails after GitHub created the app.
         releasebot.reach(fetch)
-        conversion = _converted(args.org, name, key, fetch=fetch, browse=browse, ask=ask)
+        # DECISION:IFACE — --drag opens no browser: the owner drags the page
+        # into the window logged in as an org owner, whichever profile that is.
+        show = reveal if args.drag else (lambda page: browse(page.as_uri()))
+        conversion = _converted(args.org, name, key, fetch=fetch, show=show, drag=args.drag, ask=ask)
         checked = refused = False
         try:
             try:
@@ -147,7 +153,10 @@ def run_org_release_bot(
             if not refused:
                 print(_stopped_note(directory, conversion, args.org, key, checked=checked, error=error))
             raise
-    browse(install)
+    if args.drag:
+        print("Copy that link into the same browser window.")
+    else:
+        browse(install)
     return 0
 
 
@@ -177,7 +186,8 @@ def _converted(
     key: Path,
     *,
     fetch: releasebot.Fetch,
-    browse: Callable[[str], object],
+    show: Callable[[Path], object],
+    drag: bool,
     ask: Callable[[str], str],
 ) -> dict[str, Any]:
     """Send the manifest through the browser, read the pasted redirect, return GitHub's conversion."""
@@ -191,11 +201,15 @@ def _converted(
     try:
         page = releasebot.page_file(releasebot.form_page(org, app, state))
         try:
-            print(f"Opening {page}: it sends the manifest of {name} to GitHub.")
+            if drag:
+                print(f"Drag {page} into the browser window logged in as an owner of {org}:")
+                print(f"it sends the manifest of {name} to GitHub.")
+            else:
+                print(f"Opening {page}: it sends the manifest of {name} to GitHub.")
             print(f'On GitHub, check that the page creates {name} for {org}, then confirm "Create GitHub App".')
             print(f"GitHub then opens {apps}?code=…&state=…: paste that address here (it is not shown).")
             print(f"If the browser lands anywhere else, do not paste: delete any new app at {apps} and run again.")
-            browse(page.as_uri())
+            show(page)
             sent = True
             code = _pasted_code(ask, org, state)
         finally:

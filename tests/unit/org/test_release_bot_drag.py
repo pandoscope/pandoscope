@@ -15,7 +15,6 @@ from pandoscope.org.releasebot import KEY_FILE
 from .test_release_bot_command import CONVERSION, Flow, bot_args
 
 
-@pytest.mark.xfail(strict=True, reason="--drag is a stub")
 def test_drag_shows_the_page_and_opens_no_browser(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -45,7 +44,6 @@ def test_drag_shows_the_page_and_opens_no_browser(
     assert (tmp_path / ".secrets" / "orgs" / "o" / KEY_FILE).read_text() == CONVERSION["pem"]
 
 
-@pytest.mark.xfail(strict=True, reason="no Finder reveal yet")
 def test_the_page_is_shown_in_finder_on_macos(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
