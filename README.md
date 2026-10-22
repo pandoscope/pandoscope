@@ -283,9 +283,12 @@ with `--drag` the command opens no browser,
 shows the manifest page in Finder to drag into the right window,
 and prints the install link to copy into the same window.
 
-The name defaults to `<org>-release-bot`
+The name defaults to `<org>-release-bot`, shortened to fit,
 and takes up to 34 letters, digits and single inner hyphens,
-so its lowercase is the slug GitHub gives it;
+so its lowercase is the slug GitHub gives it.
+App names are unique across GitHub: a public app of that name stops the command before the browser opens;
+a private one only shows on GitHub's form, and then you stop there and run again with another `--name`,
+because an app renamed on that form is refused;
 the org and every flag `org init` puts into the sourced conf must have GitHub's shapes.
 An existing key stops the command before it opens anything;
 move the key away to replace the app.
