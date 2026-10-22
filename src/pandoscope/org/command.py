@@ -90,6 +90,7 @@ def run_org_release_bot(
     *,
     fetch: releasebot.Fetch = releasebot.fetch,
     browse: Callable[[str], object] = webbrowser.open,
+    reveal: Callable[[Path], object] = lambda path: None,
     ask: Callable[[str], str] = getpass.getpass,
 ) -> int:
     """

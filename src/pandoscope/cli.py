@@ -175,6 +175,12 @@ def add_org_parser(
         default=None,
         help="where the key and record go (default: <meta>/.secrets/orgs/<org>)",
     )
+    bot_parser.add_argument(
+        "--drag",
+        action="store_true",
+        help="open no browser: show the manifest page in Finder to drag into the browser"
+        " window logged in as an org owner, and print the install link",
+    )
 
 
 def main(argv: list[str] | None = None) -> int:
