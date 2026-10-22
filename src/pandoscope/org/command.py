@@ -85,12 +85,17 @@ def run_org_init(
     return 1 if any(outcome.code == 1 for outcome in result.outcomes) else 0
 
 
+def reveal_in_finder(path: Path) -> None:
+    """Show ``path`` selected in a Finder window, on macOS; elsewhere do nothing."""
+    raise NotImplementedError
+
+
 def run_org_release_bot(
     args: argparse.Namespace,
     *,
     fetch: releasebot.Fetch = releasebot.fetch,
     browse: Callable[[str], object] = webbrowser.open,
-    reveal: Callable[[Path], object] = lambda path: None,
+    reveal: Callable[[Path], object] = reveal_in_finder,
     ask: Callable[[str], str] = getpass.getpass,
 ) -> int:
     """
