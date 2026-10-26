@@ -33,6 +33,7 @@ CONVERSION = {
         "contents": "write",
         "issues": "read",
         "metadata": "read",
+        "organization_projects": "write",
         "pull_requests": "write",
         "workflows": "write",
     },

@@ -36,7 +36,6 @@ from .fakes import FakeFetch
 APPS = "https://github.com/organizations/o/settings/apps"
 
 
-@pytest.mark.xfail(strict=True, reason="the board still needs a PAT (agentic-engineering-template#305)")
 def test_the_manifest_asks_for_exactly_the_factory_bots_permissions() -> None:
     app = manifest("o", "o-release-bot", APPS)
     assert app["default_permissions"] == {
@@ -128,6 +127,7 @@ CONVERSION = {
         "contents": "write",
         "issues": "read",
         "metadata": "read",
+        "organization_projects": "write",
         "pull_requests": "write",
         "workflows": "write",
     },

@@ -34,13 +34,14 @@ from typing import Any
 
 from pandoscope.org import secretsdir
 
-# The factory's own release bot (pandoscope-release-bot) holds these;
-# every stamped workflow that mints its token needs no more.
+# What every stamped workflow that mints the bot's token needs; the board
+# workflow adds items to the org's project (agentic-engineering-template#305).
 PERMISSIONS = {
     "actions": "read",
     "contents": "write",
     "issues": "read",
     "metadata": "read",
+    "organization_projects": "write",
     "pull_requests": "write",
     "workflows": "write",
 }
