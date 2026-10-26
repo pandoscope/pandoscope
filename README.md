@@ -278,7 +278,7 @@ because a key fetched with its code stays valid until the app is gone.
 Installing an app on an **org** has no API,
 so the command opens the app's install page last: choose all repositories there.
 Neither has changing an app's permissions or accepting them for an installation:
-when Pandoscope's release bot needs a new permission,
+when the release bot needs a new permission,
 every `org init` run compares the installed bot's accepted permissions with the manifest's
 and reports each gap as a MANUAL line naming the page to click, exiting 1 until it is closed.
 A browser with several profiles opens links in the profile used last,
