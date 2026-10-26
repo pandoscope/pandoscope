@@ -15,7 +15,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from pandoscope.org import botnotes, forge, reconcile, releasebot
+from pandoscope.org import botcheck, botnotes, forge, reconcile, releasebot
 from pandoscope.org.confs import Credentials
 from pandoscope.org.init import init_org
 from pandoscope.org.plan import Repo, default_plan
@@ -84,7 +84,17 @@ def run_org_init(
         print(f"{outcome.name}: {_verdict(outcome)}")
         for line in outcome.lines:
             print(f"  {line}")
-    return 1 if any(outcome.code == 1 for outcome in result.outcomes) else 0
+    code = 1 if any(outcome.code == 1 for outcome in result.outcomes) else 0
+    if release_bot:
+        # DECISION:IFACE — GitHub has no API to change an app's permissions
+        # or accept them for an installation: report the gap with its pages.
+        gaps = botcheck.permission_gaps(args.org, release_bot[0], run)
+        print(f"release bot: {'exit 1' if gaps else 'converged'}")
+        for line in gaps:
+            print(f"  {line}")
+        if gaps:
+            code = 1
+    return code
 
 
 def reveal_in_finder(path: Path) -> None:

@@ -23,17 +23,14 @@ def gaps(answer: str) -> list[str]:
     return permission_gaps("o", "o-release-bot", FakeRun({LOOKUP: answer}))
 
 
-@pytest.mark.xfail(strict=True, reason="permission_gaps is a stub")
 def test_a_bot_holding_every_permission_has_no_gap() -> None:
     assert gaps(json.dumps(PERMISSIONS) + "\n") == []
 
 
-@pytest.mark.xfail(strict=True, reason="permission_gaps is a stub")
 def test_write_covers_read() -> None:
     assert gaps(json.dumps({**PERMISSIONS, "issues": "write", "checks": "read"}) + "\n") == []
 
 
-@pytest.mark.xfail(strict=True, reason="permission_gaps is a stub")
 @pytest.mark.parametrize("held", [None, "read"], ids=["missing", "read-only"])
 def test_a_permission_below_its_level_names_both_pages(held: str | None) -> None:
     permissions = {k: v for k, v in PERMISSIONS.items() if k != "organization_projects"}
@@ -46,7 +43,6 @@ def test_a_permission_below_its_level_names_both_pages(held: str | None) -> None
     assert f"{PAGES}/installations" in line
 
 
-@pytest.mark.xfail(strict=True, reason="permission_gaps is a stub")
 def test_a_bot_that_is_not_installed_names_the_install_page() -> None:
     (line,) = gaps("")
     assert line.startswith("MANUAL")
@@ -63,7 +59,6 @@ def recorded_bot(tmp_path: Path) -> Path:
     return secrets
 
 
-@pytest.mark.xfail(strict=True, reason="org init does not check the bot's permissions")
 def test_org_init_reports_a_permission_gap_and_exits_one(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -82,7 +77,6 @@ def test_org_init_reports_a_permission_gap_and_exits_one(
     assert code == 1
 
 
-@pytest.mark.xfail(strict=True, reason="org init does not check the bot's permissions")
 def test_org_init_says_the_bot_is_in_order(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
