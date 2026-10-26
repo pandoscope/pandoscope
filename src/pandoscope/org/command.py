@@ -3,10 +3,19 @@
 from __future__ import annotations
 
 import argparse
+import contextlib
+import getpass
+import secrets as tokens
+import shutil
+import subprocess
+import sys
 import tempfile
+import webbrowser
+from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
-from pandoscope.org import forge, reconcile
+from pandoscope.org import botcheck, botnotes, forge, reconcile, releasebot
 from pandoscope.org.confs import Credentials
 from pandoscope.org.init import init_org
 from pandoscope.org.plan import Repo, default_plan
@@ -27,6 +36,8 @@ def run_org_init(
 
     Returns 0 when every reconciler converged, 1 when any reported drift
     or a manual step.
+    Without the release-bot flags it uses the app ``org release-bot``
+    recorded in the org's secrets directory, if any.
     Without ``--board-url`` it finds or creates the org's project board,
     and the credentials point the add-to-project workflow at it.
     The repo plan comes from ``--plan``,
@@ -36,6 +47,7 @@ def run_org_init(
     or when neither a plan file nor every plan flag is given,
     and what any step raises.
     """
+    _check_shapes(args)
     meta = Path(args.meta)
     if not (meta / "scripts" / "sync-gh-repo-settings.sh").exists():
         msg = f"--meta {meta} has no scripts/sync-gh-repo-settings.sh"
@@ -48,9 +60,7 @@ def run_org_init(
     if release_bot:
         app, client_id = release_bot
         creds = Credentials(app_slug=app, client_id=client_id, board_url=board_url)
-    secrets = (
-        Path(args.secrets) if args.secrets else meta / ".secrets" / "orgs" / args.org
-    )
+    secrets = _secrets(args)
 
     def bound_reconcile(org: str, plan: list[Repo]) -> list[reconcile.Outcome]:
         return reconcile.reconcile(
@@ -74,7 +84,175 @@ def run_org_init(
         print(f"{outcome.name}: {_verdict(outcome)}")
         for line in outcome.lines:
             print(f"  {line}")
-    return 1 if any(outcome.code == 1 for outcome in result.outcomes) else 0
+    code = 1 if any(outcome.code == 1 for outcome in result.outcomes) else 0
+    if release_bot:
+        # DECISION:IFACE — GitHub has no API to change an app's permissions
+        # or accept them for an installation: report the gap with its pages.
+        gaps = botcheck.permission_gaps(args.org, release_bot[0], run)
+        print(f"release bot: {'exit 1' if gaps else 'converged'}")
+        for line in gaps:
+            print(f"  {line}")
+        if gaps:
+            code = 1
+    return code
+
+
+def reveal_in_finder(path: Path) -> None:
+    """Show ``path`` selected in a Finder window, on macOS; elsewhere do nothing."""
+    if sys.platform == "darwin":
+        subprocess.run(["open", "-R", str(path)], check=False)  # noqa: S603, S607 - fixed command
+
+
+def run_org_release_bot(
+    args: argparse.Namespace,
+    *,
+    fetch: releasebot.Fetch = releasebot.fetch,
+    browse: Callable[[str], object] = webbrowser.open,
+    reveal: Callable[[Path], object] = reveal_in_finder,
+    ask: Callable[[str], str] = getpass.getpass,
+) -> int:
+    """
+    Create the org's release bot through the app-manifest flow; return 0.
+
+    Opens the manifest page and, once the app exists, its install page in the
+    principal's browser, reads the address GitHub redirected to from the
+    terminal, and prints the client ID. The key goes to the org's secrets
+    directory and is never printed.
+    Raises FileExistsError before anything else when the secrets directory
+    already holds a key, and what any step raises.
+    """
+    _check_shapes(args)
+    # DECISION:IFACE — one app per org, named after it by default;
+    # --name for an org that already chose another (ada-release-bot).
+    name = args.name or releasebot.default_name(args.org)
+    if not releasebot.APP_NAME.fullmatch(name):
+        msg = f"app name={name!r} is not a name this command takes (up to 34 letters, digits and single inner hyphens)"
+        raise ValueError(msg)
+    secrets = _secrets(args)
+    key = secrets / releasebot.KEY_FILE
+    # DECISION:SEC — the secrets directory is checked and locked before
+    # GitHub creates anything, and stays locked until the key is kept: a
+    # directory that cannot take the key must not leave an app behind.
+    with releasebot.secrets_directory(secrets) as directory:
+        if releasebot.key_in_use_at(directory):
+            msg = f"{key} already holds the org's release-bot key; move it away to replace the app"
+            raise FileExistsError(msg)
+        # Without a reachable API the exchange fails after GitHub created the app.
+        releasebot.reach(fetch)
+        # Only a public app shows here; GitHub's form is where a private one shows.
+        if releasebot.public_app_named(name.lower(), fetch):
+            msg = f"app name={name!r} is taken by a public GitHub App; choose another with --name"
+            raise ValueError(msg)
+        # DECISION:IFACE — --drag opens no browser: the owner drags the page
+        # into the window logged in as an org owner, whichever profile that is.
+        show = reveal if args.drag else (lambda page: browse(page.as_uri()))
+        conversion = _converted(args.org, name, key, fetch=fetch, show=show, drag=args.drag, ask=ask)
+        checked = refused = False
+        try:
+            try:
+                releasebot.check(conversion, args.org, name)
+            except ValueError:
+                refused = True
+                print(botnotes.refused_note(conversion, args.org, name))
+                raise
+            checked = True
+            record = releasebot.store_at(directory, secrets, conversion, args.org)
+            install = releasebot.install_url(record["slug"])
+            print(f"Created {record['slug']} (app id {record['app_id']}).")
+            print(f"Client ID: {record['client_id']}")
+            print(f"Private key: {key}")
+            print(f"Install it on {args.org}, all repositories: {install}")
+        except BaseException as error:
+            # Say what is on disk now, not what the exception suggests.
+            if not refused:
+                print(_stopped_note(directory, conversion, args.org, key, checked=checked, error=error))
+            raise
+    if args.drag:
+        print("Copy that link into the same browser window.")
+    else:
+        browse(install)
+    return 0
+
+
+def _stopped_note(
+    directory: int,
+    conversion: dict[str, Any],
+    org: str,
+    key: Path,
+    *,
+    checked: bool,
+    error: BaseException,
+) -> str:
+    """Return the note for a run that stopped after the conversion, from what is on disk."""
+    if not releasebot.key_in_use_at(directory):
+        if not checked:
+            return botnotes.unchecked_note(conversion, org)
+        recorded = releasebot.record_at(directory)
+        return botnotes.lost_key_note(conversion, org, key, recorded=recorded)
+    if isinstance(error, FileExistsError):
+        return botnotes.lost_key_note(conversion, org, key, key_in_use=True)
+    return botnotes.kept_note(conversion, org, key)
+
+
+def _converted(
+    org: str,
+    name: str,
+    key: Path,
+    *,
+    fetch: releasebot.Fetch,
+    show: Callable[[Path], object],
+    drag: bool,
+    ask: Callable[[str], str],
+) -> dict[str, Any]:
+    """Send the manifest through the browser, read the pasted redirect, return GitHub's conversion."""
+    state = tokens.token_urlsafe(24)
+    # DECISION:SEC — GitHub sends the browser back to the org's own apps
+    # page and the principal pastes that address: no local port to squat,
+    # no local server to flood.
+    apps = releasebot.apps_url(org)
+    app = releasebot.manifest(org, name, apps)
+    sent = False
+    try:
+        page = releasebot.page_file(releasebot.form_page(org, app, state))
+        try:
+            if drag:
+                print(f"Drag {page} into the browser window logged in as an owner of {org}:")
+                print(f"it sends the manifest of {name} to GitHub.")
+            else:
+                print(f"Opening {page}: it sends the manifest of {name} to GitHub.")
+            print(f'On GitHub, check that the page creates {name} for {org}, then confirm "Create GitHub App".')
+            print(f"GitHub then opens {apps}?code=…&state=…: paste that address here (it is not shown).")
+            print(f"If the browser lands anywhere else, do not paste: delete any new app at {apps} and run again.")
+            print(
+                f"If GitHub says the name {name} is taken, do not change it there:"
+                " close the tab, press Ctrl-C and run again with --name <another name>."
+            )
+            show(page)
+            sent = True
+            code = _pasted_code(ask, org, state)
+        finally:
+            # Best effort: a stray file in the directory must not cost the code.
+            with contextlib.suppress(OSError):
+                page.unlink(missing_ok=True)
+            shutil.rmtree(page.parent, ignore_errors=True)
+        return releasebot.convert(code, fetch)
+    except BaseException:
+        if sent:
+            # Whether GitHub created the app is unknown here: say where to look.
+            print(botnotes.unconverted_note(org, name, key))
+        raise
+
+
+def _pasted_code(ask: Callable[[str], str], org: str, state: str, tries: int = 3) -> str:
+    """Return the code from the redirect address the principal pastes; ask up to ``tries`` times."""
+    apps = releasebot.apps_url(org)
+    for _ in range(tries):
+        code = releasebot.pasted_code(ask(f"Paste the address of {apps} as GitHub shows it: "), org, state)
+        if code is not None:
+            return code
+        print(f"That is not the address GitHub redirected this flow to ({apps}?code=…&state=…).")
+    msg = f"{tries} pasted addresses were not this flow's redirect to {apps}"
+    raise ValueError(msg)
 
 
 def run_org_plan(args: argparse.Namespace) -> int:
@@ -108,13 +286,45 @@ def _plan(args: argparse.Namespace) -> list[Repo]:
     )
 
 
+def _check_shapes(args: argparse.Namespace) -> None:
+    """
+    Refuse values that would leave their place in a path, URL or the sourced conf.
+
+    Raises ValueError naming the argument.
+    """
+    if not releasebot.LOGIN.fullmatch(args.org):
+        msg = f"org={args.org!r} is not a GitHub org name"
+        raise ValueError(msg)
+    checks = [
+        ("release_bot_app", "--release-bot-app", releasebot.SLUG),
+        ("release_bot_client_id", "--release-bot-client-id", releasebot.CLIENT_ID),
+        ("board_url", "--board-url", releasebot.BOARD_URL),
+    ]
+    for attr, flag, shape in checks:
+        value = getattr(args, attr, None)
+        if value is not None and not shape.fullmatch(value):
+            msg = f"{flag}={value!r} does not have the shape GitHub gives it"
+            raise ValueError(msg)
+
+
+def _secrets(args: argparse.Namespace) -> Path:
+    """Return the org's secrets directory: ``--secrets``, else under ``--meta``."""
+    if args.secrets:
+        return Path(args.secrets)
+    return Path(args.meta) / ".secrets" / "orgs" / args.org
+
+
 def _release_bot(args: argparse.Namespace) -> tuple[str, str] | None:
     app, client_id = args.release_bot_app, args.release_bot_client_id
     if bool(app) != bool(client_id):
         msg = "--release-bot-app and --release-bot-client-id go together"
         raise ValueError(msg)
     if not app:
-        return None
+        # Without the flags, the app `org release-bot` created for this org.
+        record = releasebot.recorded(_secrets(args), args.org)
+        if record is None:
+            return None
+        return str(record["slug"]), str(record["client_id"])
     return app, client_id
 
 

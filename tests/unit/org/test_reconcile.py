@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import stat
 from pathlib import Path
 
 import pytest
@@ -7,12 +8,21 @@ import pytest
 from pandoscope.org.confs import Credentials
 from pandoscope.org.plan import Repo
 from pandoscope.org.reconcile import Outcome, reconcile
+from pandoscope.org.releasebot import store
+
+from .test_releasebot import CONVERSION
 
 PLAN = [
     Repo("meta", "m", {"agentic_subtemplate": "template"}),
     Repo("session-memory", "s", {"agentic_subtemplate": "x"}, direct_pushes=True),
 ]
 CREDS = Credentials(app_slug="o-release-bot", client_id="Iv23x", board_url=None)
+
+
+def seeded(secrets: Path) -> None:
+    """Lay out the marker meta's credentials seed leaves: README.md."""
+    secrets.mkdir(parents=True, exist_ok=True)
+    (secrets / "README.md").write_text("seeded\n")
 
 
 def fake_meta(root: Path) -> Path:
@@ -51,7 +61,7 @@ class FakeExec:
 
 def test_scripts_run_in_dependency_order(tmp_path: Path) -> None:
     meta, secrets = fake_meta(tmp_path), tmp_path / "secrets"
-    secrets.mkdir()
+    seeded(secrets)
     fake = FakeExec()
     reconcile("o", PLAN, meta, secrets, CREDS, dry_run=False, exec_=fake)
     assert fake.scripts() == [
@@ -64,7 +74,7 @@ def test_scripts_run_in_dependency_order(tmp_path: Path) -> None:
 
 def test_each_script_reads_its_generated_conf(tmp_path: Path) -> None:
     meta, secrets = fake_meta(tmp_path), tmp_path / "secrets"
-    secrets.mkdir()
+    seeded(secrets)
     fake = FakeExec()
     reconcile("o", PLAN, meta, secrets, CREDS, dry_run=False, exec_=fake)
     envs = [env for _, env in fake.calls]
@@ -79,7 +89,7 @@ def test_each_script_reads_its_generated_conf(tmp_path: Path) -> None:
 
 def test_state_stays_under_the_orgs_secrets_dir(tmp_path: Path) -> None:
     meta, secrets = fake_meta(tmp_path), tmp_path / "secrets"
-    secrets.mkdir()
+    seeded(secrets)
     fake = FakeExec()
     reconcile("o", PLAN, meta, secrets, CREDS, dry_run=False, exec_=fake)
     envs = [env for _, env in fake.calls]
@@ -90,7 +100,7 @@ def test_state_stays_under_the_orgs_secrets_dir(tmp_path: Path) -> None:
 
 def test_scripts_run_from_the_meta_checkout(tmp_path: Path) -> None:
     meta, secrets = fake_meta(tmp_path), tmp_path / "secrets"
-    secrets.mkdir()
+    seeded(secrets)
     fake = FakeExec()
     reconcile("o", PLAN, meta, secrets, CREDS, dry_run=False, exec_=fake)
     for cmd, _ in fake.calls:
@@ -100,7 +110,7 @@ def test_scripts_run_from_the_meta_checkout(tmp_path: Path) -> None:
 
 def test_dry_run_passes_dry_run_to_every_script(tmp_path: Path) -> None:
     meta, secrets = fake_meta(tmp_path), tmp_path / "secrets"
-    secrets.mkdir()
+    seeded(secrets)
     fake = FakeExec()
     reconcile("o", PLAN, meta, secrets, CREDS, dry_run=True, exec_=fake)
     assert all(cmd[-1] == "--dry-run" for cmd, _ in fake.calls)
@@ -120,7 +130,7 @@ def test_a_fresh_secrets_dir_is_seeded_before_the_credentials_run(
 
 def test_without_credentials_the_credentials_step_is_skipped(tmp_path: Path) -> None:
     meta, secrets = fake_meta(tmp_path), tmp_path / "secrets"
-    secrets.mkdir()
+    seeded(secrets)
     fake = FakeExec()
     outcomes = reconcile("o", PLAN, meta, secrets, None, dry_run=False, exec_=fake)
     assert "sync-gh-actions-credentials.sh" not in fake.scripts()
@@ -131,7 +141,7 @@ def test_without_credentials_the_credentials_step_is_skipped(tmp_path: Path) -> 
 
 def test_drift_is_reported_with_its_lines(tmp_path: Path) -> None:
     meta, secrets = fake_meta(tmp_path), tmp_path / "secrets"
-    secrets.mkdir()
+    seeded(secrets)
     out = (
         "OK  meta  allow_merge_commit\nMANUAL  install the app\nDRIFT  x  (would fix)\n"
     )
@@ -144,7 +154,7 @@ def test_drift_is_reported_with_its_lines(tmp_path: Path) -> None:
 
 def test_usage_error_stops_the_run_with_the_output(tmp_path: Path) -> None:
     meta, secrets = fake_meta(tmp_path), tmp_path / "secrets"
-    secrets.mkdir()
+    seeded(secrets)
     fake = FakeExec({"sync-gh-repo-rulesets.sh": 2}, "bad conf: RULESETS")
     with pytest.raises(RuntimeError, match=r"exit 2.*bad conf: RULESETS"):
         reconcile("o", PLAN, meta, secrets, CREDS, dry_run=False, exec_=fake)
@@ -153,9 +163,57 @@ def test_usage_error_stops_the_run_with_the_output(tmp_path: Path) -> None:
 
 def test_settings_make_main_every_repos_default_branch(tmp_path: Path) -> None:
     meta, secrets = fake_meta(tmp_path), tmp_path / "secrets"
-    secrets.mkdir()
+    seeded(secrets)
     fake = FakeExec()
     reconcile("o", PLAN, meta, secrets, CREDS, dry_run=False, exec_=fake)
     settings = Path(fake.calls[0][1]["SYNC_SETTINGS_CONF"]).read_text()
     assert '"default_branch|main|only:meta,session-memory"' in settings
     assert '"has_wiki|false|all"' in settings
+
+
+def test_a_secrets_dir_holding_only_the_release_bot_is_seeded(tmp_path: Path) -> None:
+    meta, secrets = fake_meta(tmp_path), tmp_path / "secrets"
+    secrets.mkdir()
+    (secrets / "RELEASE_BOT_PRIVATE_KEY.pem").write_text("synthetic key material\n")
+    (secrets / "release-bot.json").write_text("{}\n")
+    fake = FakeExec()
+    reconcile("o", PLAN, meta, secrets, CREDS, dry_run=False, exec_=fake)
+    assert "sync-gh-actions-credentials.sh --seed" in fake.scripts()
+
+
+def test_a_fresh_secrets_directory_and_its_parents_are_created_private(tmp_path: Path) -> None:
+    meta = fake_meta(tmp_path)
+    secrets = meta / ".secrets" / "orgs" / "o"
+    reconcile("o", PLAN, meta, secrets, None, dry_run=True, exec_=FakeExec())
+    for directory in (meta / ".secrets", secrets.parent, secrets, secrets / "confs"):
+        assert stat.S_IMODE(directory.stat().st_mode) == 0o700, directory
+
+
+def test_a_secrets_directory_others_can_write_is_refused_before_any_script(tmp_path: Path) -> None:
+    meta, secrets = fake_meta(tmp_path), tmp_path / "secrets"
+    secrets.mkdir()
+    secrets.chmod(0o777)
+    fake = FakeExec()
+    with pytest.raises(ValueError, match="writable"):
+        reconcile("o", PLAN, meta, secrets, CREDS, dry_run=False, exec_=fake)
+    assert fake.calls == []
+
+
+def test_the_secrets_directory_stays_locked_while_the_scripts_run(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr("pandoscope.org.releasebot.LOCK_WAIT", 0.1)
+    meta, secrets = fake_meta(tmp_path), tmp_path / "secrets"
+    seeded(secrets)
+    refused: list[str] = []
+
+    def store_meanwhile(cmd: list[str], env: dict[str, str]) -> tuple[int, str]:
+        try:
+            store(secrets, CONVERSION, "o")
+        except ValueError as error:
+            refused.append(str(error))
+        return 0, ""
+
+    reconcile("o", PLAN, meta, secrets, CREDS, dry_run=False, exec_=store_meanwhile)
+    assert len(refused) == 4
+    assert all("another run" in why for why in refused)

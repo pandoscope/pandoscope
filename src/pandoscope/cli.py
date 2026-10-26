@@ -9,7 +9,7 @@ from pathlib import Path
 import yaml
 
 from pandoscope import __version__
-from pandoscope.org.command import run_org_init, run_org_plan
+from pandoscope.org.command import run_org_init, run_org_plan, run_org_release_bot
 from pandoscope.reinset.compose import Composition, compose
 from pandoscope.reinset.order import validate_order
 from pandoscope.stamp import TEMPLATE_URL, parse_data, stamp
@@ -157,6 +157,30 @@ def add_org_parser(
         required=True,
         help="human login whose Approve satisfies the merge gate (repeatable)",
     )
+    bot_parser = org_sub.add_parser(
+        "release-bot",
+        help="create the org's release-bot GitHub App and keep its key for org init",
+    )
+    bot_parser.add_argument("org", help="the GitHub organization")
+    bot_parser.add_argument(
+        "--meta",
+        required=True,
+        help="checkout of the meta repo whose secrets directory receives the key",
+    )
+    bot_parser.add_argument(
+        "--name", default=None, help="the app's name (default: <org>-release-bot)"
+    )
+    bot_parser.add_argument(
+        "--secrets",
+        default=None,
+        help="where the key and record go (default: <meta>/.secrets/orgs/<org>)",
+    )
+    bot_parser.add_argument(
+        "--drag",
+        action="store_true",
+        help="open no browser: show the manifest page in Finder to drag into the browser"
+        " window logged in as an org owner, and print the install link",
+    )
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -179,6 +203,8 @@ def main(argv: list[str] | None = None) -> int:
         return run_order_check(args.files)
     if args.command == "org" and args.org_command == "plan":
         return run_org_plan(args)
+    if args.command == "org" and args.org_command == "release-bot":
+        return run_org_release_bot(args)
     if args.command == "org" and not args.plan:
         missing = [
             flag
