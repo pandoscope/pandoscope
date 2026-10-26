@@ -241,7 +241,7 @@ The command then opens a page in your browser, from a file only you can read,
 that sends the app's manifest to GitHub:
 owned by the **org** and installable only there,
 no webhook, no events,
-and the permissions of the factory's own release bot.
+and the permissions the stamped workflows need: merges, releases, template updates and the org's project board.
 It first prints what to check:
 GitHub's page must create the app it names for the **org**,
 and after "Create GitHub App" the browser must land on `https://github.com/organizations/<org>/settings/apps`
