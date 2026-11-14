@@ -164,7 +164,6 @@ def test_names_differing_only_in_case_are_refused_as_twins(tmp_path: Path) -> No
 
 # The confs meta's sync scripts source are written from these values,
 # so a name or login that bash would expand must never leave read_plan.
-@pytest.mark.xfail(strict=True)
 @pytest.mark.parametrize(
     "name",
     [
@@ -192,7 +191,6 @@ def test_every_name_the_forge_accepts_is_read(tmp_path: Path, name: str) -> None
     assert [repo.name for repo in read_plan(plan_file(tmp_path, text), "o")] == [name]
 
 
-@pytest.mark.xfail(strict=True)
 @pytest.mark.parametrize("login", ["h$(id)", "a b", "-lead", "trail-", "a--b", "a_b", "a" * 40, ""])
 def test_an_approver_that_is_no_login_is_refused(tmp_path: Path, login: str) -> None:
     text = (
