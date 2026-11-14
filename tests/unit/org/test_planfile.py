@@ -160,3 +160,43 @@ def test_names_differing_only_in_case_are_refused_as_twins(tmp_path: Path) -> No
     )
     with pytest.raises(ValueError, match="(?i)app"):
         read_plan(plan_file(tmp_path, text), "o")
+
+
+# The confs meta's sync scripts source are written from these values,
+# so a name or login that bash would expand must never leave read_plan.
+@pytest.mark.xfail(strict=True)
+@pytest.mark.parametrize(
+    "name",
+    [
+        "x$(touch pwned)",
+        "a`id`b",
+        "a b",
+        "a;b",
+        "a/b",
+        "a\\nb",
+        ".",
+        "..",
+        "",
+        "a" * 101,
+    ],
+)
+def test_a_repo_name_the_forge_would_not_accept_is_refused(tmp_path: Path, name: str) -> None:
+    text = one_repo(f'  - {{name: "{name}", kind: plain, purpose: p}}\n')
+    with pytest.raises(ValueError, match="repo name"):
+        read_plan(plan_file(tmp_path, text), "o")
+
+
+@pytest.mark.parametrize("name", [".github", "a.b_c-D", "9", "a" * 100])
+def test_every_name_the_forge_accepts_is_read(tmp_path: Path, name: str) -> None:
+    text = one_repo(f'  - {{name: "{name}", kind: plain, purpose: p}}\n')
+    assert [repo.name for repo in read_plan(plan_file(tmp_path, text), "o")] == [name]
+
+
+@pytest.mark.xfail(strict=True)
+@pytest.mark.parametrize("login", ["h$(id)", "a b", "-lead", "trail-", "a--b", "a_b", "a" * 40, ""])
+def test_an_approver_that_is_no_login_is_refused(tmp_path: Path, login: str) -> None:
+    text = (
+        f'org: o\napprovers: [human, "{login}"]\nrepos:\n  - {{name: a, kind: plain, purpose: p}}\n'
+    )
+    with pytest.raises(ValueError, match="approver"):
+        read_plan(plan_file(tmp_path, text), "o")
