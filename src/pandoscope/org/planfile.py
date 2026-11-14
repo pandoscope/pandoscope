@@ -9,6 +9,7 @@ Format authority: ``read_plan``'s docstring.
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 from typing import Any
 
@@ -17,6 +18,9 @@ import yaml
 from pandoscope.org.plan import STORES, Repo, _project_answers, _store_answers
 
 KINDS = ("code", "docs", "store", "plain")
+# What the forge accepts; `.` and `..` match but are no repo names.
+REPO_NAME = re.compile(r"[A-Za-z0-9._-]{1,100}")
+LOGIN = re.compile(r"[A-Za-z0-9](?:[A-Za-z0-9]|-(?=[A-Za-z0-9])){0,38}")
 
 
 def read_plan(path: Path, org: str) -> list[Repo]:
@@ -27,11 +31,13 @@ def read_plan(path: Path, org: str) -> list[Repo]:
 
     - ``org``: the org the plan is for.
     - ``approvers``: the human logins whose Approve satisfies the merge gate.
+      Each must be a forge login.
     - ``repos``: one entry per repo.
 
     and these fields from each entry:
 
-    - ``name``: the repo's name.
+    - ``name``: the repo's name: 1 to 100 letters, digits, ``.``, ``_`` and ``-``,
+      and neither ``.`` nor ``..``.
     - ``purpose``: its description on the forge.
     - ``kind``: ``code``, ``docs``, ``store`` or ``plain``.
     - ``store``: the store subtemplate it is stamped from,
@@ -55,8 +61,22 @@ def read_plan(path: Path, org: str) -> list[Repo]:
     if not data["approvers"]:
         msg = f"plan file {path} has no approvers; the merge gate needs at least one"
         raise ValueError(msg)
-    # The forge treats repo names case-insensitively, so App and app are twins.
+    # DECISION:SEC — names and logins are checked where the file is read:
+    # meta's sync scripts source the confs written from them,
+    # so a value bash would expand must never become a Repo.
+    for approver in data["approvers"]:
+        if not isinstance(approver, str) or not LOGIN.fullmatch(approver):
+            msg = f"plan file {path} has approver={approver!r}; expected a forge login"
+            raise ValueError(msg)
     names = [entry["name"] for entry in data["repos"]]
+    for name in names:
+        if not isinstance(name, str) or not REPO_NAME.fullmatch(name) or name in (".", ".."):
+            msg = (
+                f"plan file {path} has repo name={name!r};"
+                " expected 1 to 100 of letters, digits, '.', '_' and '-'"
+            )
+            raise ValueError(msg)
+    # The forge treats repo names case-insensitively, so App and app are twins.
     folded = [name.lower() for name in names]
     twins = sorted({name for name in names if folded.count(name.lower()) > 1})
     if twins:
