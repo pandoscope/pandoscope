@@ -20,3 +20,18 @@ class FakeRun:
 
     def commands(self) -> list[tuple[str, ...]]:
         return [cmd for cmd, _ in self.calls]
+
+
+class FakeFetch:
+    """Answer GitHub API requests from a table; an exception in the table is raised."""
+
+    def __init__(self, answers: dict[tuple[str, str], bytes | BaseException] | None = None) -> None:
+        self.calls: list[tuple[str, str]] = []
+        self.answers = answers or {}
+
+    def __call__(self, method: str, url: str) -> bytes:
+        self.calls.append((method, url))
+        answer = self.answers.get((method, url), b"")
+        if isinstance(answer, BaseException):
+            raise answer
+        return answer

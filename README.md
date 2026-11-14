@@ -194,7 +194,8 @@ and the rulesets' `except:` scopes name the plan's direct-push repos.
 The settings conf also makes `main` the default branch of every planned repo.
 The credentials conf is generated from the flags,
 because every value in meta's copy belongs to the pandoscope **org**.
-Without `--release-bot-app` the credentials step is skipped.
+Without `--release-bot-app` and `--release-bot-client-id`, the command uses the app `org release-bot` recorded in the secrets directory;
+with neither, the credentials step is skipped.
 
 The **org** variable `PROJECT_BOARD_URL` records the **org**'s project board,
 the one the add-to-project workflow files into.
@@ -217,6 +218,90 @@ It is safe to re-run: existing repos and **stamps** are left alone.
 The host needs `jq`, bash 4.4 or newer,
 and `gh` authenticated as an **org** owner with the `repo`, `admin:org` and `project` scopes.
 Installing the release-bot app on the **org** is a manual step the run reports.
+
+### `pandoscope org release-bot ORG`
+
+Create the **org**'s release-bot GitHub App, the app every stamped workflow mints its token from,
+through GitHub's app-manifest flow.
+
+```sh
+pandoscope org release-bot ada-digital-assistant --meta ~/src/meta --name ada-release-bot
+```
+
+Before GitHub sees anything, the command opens the secrets directory and locks it until the key is kept:
+the directory must be yours, a real directory and writable by nobody else, and ends up with mode 0700;
+the path is walked from `/` as the system walks it,
+so every directory above it must be yours or root's and writable by no one else unless sticky,
+a symlink on the way must be root's in a directory only root can change,
+`..` is refused, and missing directories are created with mode 0700.
+A second run waits a few seconds for the lock, then gives up;
+`org init` takes the same directory the same way.
+It also makes sure GitHub's API answers over verified TLS before GitHub creates anything.
+The command then opens a page in your browser, from a file only you can read,
+that sends the app's manifest to GitHub:
+owned by the **org** and installable only there,
+no webhook, no events,
+and the permissions the stamped workflows need: merges, releases, template updates and the org's project board.
+It first prints what to check:
+GitHub's page must create the app it names for the **org**,
+and after "Create GitHub App" the browser must land on `https://github.com/organizations/<org>/settings/apps`
+with a one-time code and the flow's random `state` in the address.
+Paste that address into the terminal (it is not shown):
+the command takes the code only from that page
+with this flow's state and one plain code,
+and asks again, up to three times, for anything else.
+If the browser lands anywhere else, don't paste: delete the new app on the **org**'s apps page.
+No local server listens, so no other local process can end the flow or take it over.
+The command exchanges the code for the app's credentials at once,
+in one HTTPS request of its own to api.github.com,
+so the code never shows in the process list other local users can read,
+and keeps them only if the app belongs to the **org**,
+carries the requested name and the slug that name gives,
+holds exactly the release bot's permissions and subscribes to no events:
+the state alone cannot prove the code is this flow's.
+An app it refuses is to be deleted, never kept.
+The private key goes to `RELEASE_BOT_PRIVATE_KEY.pem` in the secrets directory,
+where the credentials step of `org init` reads it;
+org, slug, app id and client ID go to `release-bot.json` next to it, first,
+and `org init` reads that record only for the org it names,
+only as a small regular file of yours, never through a symlink.
+Both are written through temp files (mode 0600) in the directory as it was opened and checked;
+the key is flushed to the drive before it is linked into place,
+on a filesystem without hard links it is created in place, never over an existing file,
+and temp files an interrupted run left behind are removed.
+Slug and client ID must have GitHub's shapes before anything is written,
+because they end up in a conf the credentials sync sources.
+The client secret is not kept, nothing secret is printed, and a failed exchange never shows the code.
+If the flow stops before the key is kept, the command names the **org**'s apps page:
+delete the app there before running again,
+because a key fetched with its code stays valid until the app is gone.
+Installing an app on an **org** has no API,
+so the command opens the app's install page last: choose all repositories there.
+Neither has changing an app's permissions or accepting them for an installation:
+when the release bot needs a new permission,
+every `org init` run compares the installed bot's accepted permissions with the manifest's
+and reports each gap as a MANUAL line naming the page to click, exiting 1 until it is closed.
+A browser with several profiles opens links in the profile used last,
+which need not be the one logged in as an **org** owner:
+with `--drag` the command opens no browser,
+shows the manifest page in Finder to drag into the right window,
+and prints the install link to copy into the same window.
+
+The name defaults to `<org>-release-bot`, shortened to fit,
+and takes up to 34 letters, digits and single inner hyphens,
+so its lowercase is the slug GitHub gives it.
+App names are unique across GitHub: a public app of that name stops the command before the browser opens;
+a private one only shows on GitHub's form, and then you stop there and run again with another `--name`,
+because an app renamed on that form is refused;
+the org and every flag `org init` puts into the sourced conf must have GitHub's shapes.
+An existing key stops the command before it opens anything;
+move the key away to replace the app.
+The empty placeholder the credentials seed lays out is not a key and gets filled.
+Either order of `org release-bot` and `org init` works:
+`org init` seeds every secrets directory the seed has not run in yet,
+and the seed keeps files already there.
+The command needs no `gh`: the exchange takes no token,
+and the browser is where you are logged in as an **org** owner.
 
 More commands land as the tool grows.
 
