@@ -137,12 +137,44 @@ pandoscope org init somnus-app \
   --dry-run
 ```
 
-The repo plan is hardcoded for now:
+Without `--plan`, the repo plan is the default one:
 `meta`, the project's code repo, the [memory repos](docs/glossary/memory-repo.md)
 and `waybill`, all private.
 `session-memory` and `waybill` take direct pushes,
 so branch protection and the merge bot leave them out.
 `waybill` is created with a README and is not **stamped**.
+
+`--plan FILE` reads the plan from a file instead,
+which replaces `--project`, `--description` and `--approver`.
+The file lists one entry per repo,
+so an **org** can hold several code repos,
+only the **memory repos** it uses,
+and repo names of its own.
+It lives in the **org**'s meta repo as `org.yml`.
+`pandoscope org plan ORG --project … --description … --approver …` prints the default plan as such a file,
+to edit and commit:
+
+```yaml
+org: example-org
+approvers: [principal-login]
+repos:
+  - {name: meta, title: Meta, kind: docs, purpose: Org-level docs.}
+  - {name: app, kind: code, purpose: The app.}
+  - {name: helper, kind: code, purpose: The helper.}
+  - name: pando-session-memory
+    kind: store
+    store: session-memory
+    purpose: Session store.
+    direct_pushes: true
+```
+
+Each entry's `kind` says how its repo is made:
+`code` and `docs` repos are **stamped** as projects,
+a `store` repo is **stamped** from the subtemplate its `store` field names,
+and a `plain` repo is created with a README and not **stamped**.
+The format's authority is `read_plan` in [`src/pandoscope/org/planfile.py`](src/pandoscope/org/planfile.py).
+The credentials step sets `SESSION_MEMORY_REPO` to the session-memory repo's name,
+and leaves it out when the plan has none.
 
 The command runs these phases in order:
 
