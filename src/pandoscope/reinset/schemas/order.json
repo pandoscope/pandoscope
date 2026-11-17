@@ -8,7 +8,7 @@
   "required": ["id", "role", "pull_request", "tickets"],
   "properties": {
     "id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
-    "role": {"enum": ["orchestrator", "implementer", "reviewer", "general", "probe"]},
+    "role": {"enum": ["implementer", "reviewer", "probe"]},
     "pass": {"type": "string", "pattern": "^[a-z0-9-]+$"},
     "model_tier": {"type": "string", "pattern": "^[a-z0-9-]+$"},
     "pull_request": {"$ref": "#/$defs/ticket"},

@@ -32,6 +32,9 @@ def test_result_is_the_one_optional_field() -> None:
     [
         ({"id": "other"}, "id"),  # must equal the file name
         ({"role": "auditor"}, "role"),
+        # meta#194: an order sets a worker role only, and no role is general.
+        ({"role": "orchestrator"}, "role"),
+        ({"role": "general"}, "role"),
         ({"model_tier": "Opus"}, "model_tier"),  # the model tier is lowercase
         ({"pass": "Spec Fidelity"}, "pass"),
         ({"pull_request": "26"}, "pull_request"),

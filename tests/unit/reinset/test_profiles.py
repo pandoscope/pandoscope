@@ -4,11 +4,11 @@ from pathlib import Path
 
 import pytest
 
-from pandoscope.reinset.order import ROLES
 from pandoscope.reinset.profiles import SHIPPED, load_profile
+from pandoscope.reinset.role import DECLARABLE, WORKER_ROLES
 
 
-@pytest.mark.parametrize("role", ROLES)
+@pytest.mark.parametrize("role", sorted({*WORKER_ROLES, *DECLARABLE}))
 def test_every_role_ships_a_profile(role: str, session_root: Path) -> None:
     profile = load_profile(role, session_root)
     assert profile.role == role
@@ -17,9 +17,11 @@ def test_every_role_ships_a_profile(role: str, session_root: Path) -> None:
     assert isinstance(profile.data["skills"], list)
 
 
-def test_general_installs_nothing(session_root: Path) -> None:
-    # D15: nothing beyond what gets the session to CONFIGURED.
-    assert load_profile("general", session_root).data["skills"] == []
+def test_no_profile_is_named_general(session_root: Path) -> None:
+    # meta#195: there is no default role.
+    assert not (SHIPPED / "general.yml").exists()
+    with pytest.raises(FileNotFoundError, match="general"):
+        load_profile("general", session_root)
 
 
 def test_orchestrator_and_implementer_carry_skills(session_root: Path) -> None:

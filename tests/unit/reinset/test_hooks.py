@@ -87,7 +87,7 @@ def test_an_unknown_event_is_an_error(home: Path) -> None:
 
 
 def test_a_profile_without_hooks_renders_an_empty_file(home: Path) -> None:
-    # For general, and for any role with skills but no hooks,
+    # For any role with skills but no hooks,
     # the dispatcher finds a file with nothing to run.
     target = home / ".claude" / "reinset" / "hooks.json"
     rendered, errors = render_hooks(profile([]), home, target)

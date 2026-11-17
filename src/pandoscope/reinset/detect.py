@@ -9,6 +9,7 @@ from typing import Any
 
 import yaml
 
+from pandoscope.reinset.install import MARKER_FILE
 from pandoscope.reinset.principal import UNKNOWN, principal_id
 
 TOOL_PROBES = ("ghx", "disambiguate", "prek", "uv", "node", "gh")
@@ -65,13 +66,16 @@ def _tools(session_root: Path, home: Path, path_dirs: list[Path]) -> list[str]:
     skill_roots += [
         clone / ".claude" / "skills" for clone in sorted(session_root.iterdir())
     ]
+    # A skill that the composer installed is its own render, not a fact
+    # about the session: counting it would make a composition depend on
+    # the role composed before it (meta#194, idempotence).
     skills = sorted(
         {
             entry.name
             for root in skill_roots
             if root.is_dir()
             for entry in root.iterdir()
-            if entry.is_dir()
+            if entry.is_dir() and not (entry / MARKER_FILE).is_file()
         }
     )
     return sorted(binaries) + skills

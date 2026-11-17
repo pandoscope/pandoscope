@@ -9,9 +9,14 @@ from pathlib import Path
 import yaml
 
 from pandoscope import __version__
-from pandoscope.reinset.compose import Composition, compose
+from pandoscope.reinset.compose import Composition, compose, declare
 from pandoscope.reinset.order import validate_order
+from pandoscope.reinset.role import RoleRefused
 from pandoscope.stamp import TEMPLATE_URL, parse_data, stamp
+
+# `pandoscope compose --declare` exits with this code when the role line
+# sets nothing. meta's prompt hook reads it (environment/hooks/role-gate-prompt.sh).
+DECLARATION_REFUSED = 3
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -59,6 +64,16 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="directory holding the session's clones (default: $SESSION_ROOT, else .)",
     )
+    compose_parser.add_argument(
+        "--declare",
+        default=None,
+        metavar="ROLE",
+        help=(
+            "compose ROLE for a role line in a prompt (meta#194); "
+            f"exit {DECLARATION_REFUSED} and print the reason "
+            "when the line sets nothing"
+        ),
+    )
     order_parser = subparsers.add_parser(
         "order", help="waybill orders (pandoscope/waybill#1)"
     )
@@ -85,7 +100,15 @@ def main(argv: list[str] | None = None) -> int:
             vcs_ref=args.vcs_ref,
         )
     if args.command == "compose":
-        print(run_compose(args.session_root).render_text, end="")
+        if args.declare is None:
+            print(run_compose(args.session_root).render_text, end="")
+            return 0
+        try:
+            composition = run_declare(args.declare, args.session_root)
+        except RoleRefused as refusal:
+            print(f"ROLE LINE REFUSED: {refusal}")
+            return DECLARATION_REFUSED
+        print(composition.render_text, end="")
     if args.command == "order":
         return run_order_check(args.files)
     return 0
@@ -119,6 +142,22 @@ def run_compose(session_root: str | None) -> Composition:
     ``session_root`` falls back to ``$SESSION_ROOT``, then the working
     directory. Returns the composition. Raises what the composer raises.
     """
+    root, path_dirs = _session(session_root)
+    return compose(os.environ, root, Path.home(), path_dirs)
+
+
+def run_declare(role: str, session_root: str | None) -> Composition:
+    """
+    Compose ``role`` for a role line, from the process environment.
+
+    ``session_root`` resolves as in ``run_compose``. Returns the composition.
+    Raises RoleRefused, with nothing changed, when the line sets nothing.
+    """
+    root, path_dirs = _session(session_root)
+    return declare(role, os.environ, root, Path.home(), path_dirs)
+
+
+def _session(session_root: str | None) -> tuple[Path, list[Path]]:
     root = Path(session_root or os.environ.get("SESSION_ROOT") or ".").resolve()
     path_dirs = [Path(entry) for entry in os.environ.get("PATH", "").split(os.pathsep)]
-    return compose(os.environ, root, Path.home(), path_dirs)
+    return root, path_dirs
