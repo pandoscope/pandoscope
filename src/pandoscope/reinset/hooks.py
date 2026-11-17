@@ -7,6 +7,11 @@ The environment registers one dispatcher per event instead.
 This step renders the profile's hooks to the one file
 that the dispatcher reads at every fire.
 The file changes per role, and the registration stays the same.
+
+The file also carries the role's tool gate under the key ``gate``
+(meta#195, meta#197): ``{"role": <role>, "closed_tools": {<tool>: <group>}}``.
+The file exists exactly when the session has a role,
+so meta's tool gate reads a missing file as no role.
 """
 
 from __future__ import annotations
@@ -20,11 +25,19 @@ from pandoscope.reinset.profiles import Profile
 EVENTS = ("SessionStart", "UserPromptSubmit", "PreToolUse", "Stop", "PreCompact")
 
 
+GATE_KEY = "gate"
+
+
 def render_hooks(
-    profile: Profile, home: Path, target: Path
+    profile: Profile,
+    home: Path,
+    target: Path,
+    gate: dict[str, Any] | None = None,
 ) -> tuple[dict[str, Any], list[str]]:
     """
     Write the hooks file for ``profile`` at ``target``; return it and the errors.
+
+    With ``gate``, the file and the returned mapping carry it under ``gate``.
 
     Each profile entry is ``{event, command[, matcher]}``.
     Its ``command`` is ``<skill>/<script>`` under the installed skills.
@@ -59,6 +72,9 @@ def render_hooks(
         if entry.get("matcher"):
             hook = {"matcher": str(entry["matcher"]), **hook}
         rendered.setdefault(event, []).append(hook)
+    written: dict[str, Any] = dict(rendered)
+    if gate is not None:
+        written = {GATE_KEY: gate, **written}
     target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(f"{json.dumps(rendered, indent=1)}\n")
-    return rendered, errors
+    target.write_text(f"{json.dumps(written, indent=1)}\n")
+    return written, errors
