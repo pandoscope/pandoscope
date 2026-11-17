@@ -3,7 +3,7 @@ Where a session's role comes from (meta#194): an order, the environment, a role 
 
 A waybill order names a worker role; the order schema holds the list.
 An environment names a worker role in ``REINSET_ROLE``.
-A role line in a prompt declares orchestrator or implementer;
+A role line in a prompt declares orchestrator, implementer or probe;
 the prompt hook reads the line and passes the role to the composer.
 Only a session that the principal started may declare orchestrator.
 Two signals tell such a session (decision 90, meta#194):
@@ -29,7 +29,8 @@ ORCHESTRATOR = "orchestrator"
 REVIEWER = "reviewer"
 # An order and an environment set these; the order schema is the authority.
 WORKER_ROLES: tuple[str, ...] = ROLES
-DECLARABLE: tuple[str, ...] = (ORCHESTRATOR, "implementer")
+# A dojo probe declares its role in its first prompt, as a worker does.
+DECLARABLE: tuple[str, ...] = (ORCHESTRATOR, "implementer", "probe")
 # Measured 2026-11-17: the desktop app and the Android app.
 # A session that another session created reads `remote`,
 # and so does a session that the principal started in the web app.

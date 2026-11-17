@@ -17,7 +17,7 @@ from pandoscope.reinset.role import (
 
 def test_the_worker_roles_are_the_order_roles_without_orchestrator() -> None:
     assert WORKER_ROLES == ("implementer", "reviewer")
-    assert DECLARABLE == ("orchestrator", "implementer")
+    assert DECLARABLE == ("orchestrator", "implementer", "probe")
 
 
 @pytest.mark.parametrize("role", WORKER_ROLES)
@@ -69,7 +69,7 @@ def test_reviewer_is_not_declarable_and_the_reason_says_why() -> None:
         check_declaration("reviewer", {}, order_session=False)
 
 
-@pytest.mark.parametrize("role", ["general", "probe", "wizard"])
+@pytest.mark.parametrize("role", ["general", "wizard"])
 def test_an_unknown_role_lists_the_declarable_roles(role: str) -> None:
     with pytest.raises(
         RoleRefused, match="declarable roles are orchestrator, implementer"
@@ -135,3 +135,10 @@ def test_a_worker_role_closes_the_three_tool_groups(role: str) -> None:
 
 def test_the_orchestrator_closes_no_tool() -> None:
     assert tool_gate("orchestrator") == {"role": "orchestrator", "closed_tools": {}}
+
+
+@pytest.mark.parametrize("entrypoint", ["remote", "remote_desktop", None])
+def test_any_session_may_declare_probe(entrypoint: str | None) -> None:
+    # Dojo probes open their first prompt with `role: probe`.
+    env = {} if entrypoint is None else {"CLAUDE_CODE_ENTRYPOINT": entrypoint}
+    assert check_declaration("probe", env, order_session=False) is None
