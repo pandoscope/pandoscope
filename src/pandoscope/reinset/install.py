@@ -7,9 +7,8 @@ Each installed skill is a render, like CLAUDE.md.
 The step copies it whole from its source and marks the copy.
 The next pass replaces a marked copy whole.
 A directory without the marker is never touched.
-The general profile names no skill,
-so an unconfigured SessionStart installs nothing
-and removes what an earlier role left (D15).
+A session without a role installs nothing
+and removes what an earlier role left (meta#195).
 """
 
 from __future__ import annotations
@@ -122,3 +121,20 @@ def install_bundle(
                 shutil.rmtree(entry)
                 report.removed.append(entry.name)
     return report
+
+
+def remove_bundle(home: Path) -> list[str]:
+    """
+    Remove every marked skill directory under ``home/.claude/skills``.
+
+    Returns the removed names, sorted. A directory without the marker stays.
+    """
+    skills_dir = home / ".claude" / "skills"
+    removed: list[str] = []
+    if not skills_dir.is_dir():
+        return removed
+    for entry in sorted(skills_dir.iterdir()):
+        if entry.is_dir() and _managed(entry):
+            shutil.rmtree(entry)
+            removed.append(entry.name)
+    return removed
