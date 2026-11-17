@@ -1,4 +1,13 @@
-"""Render the session's CLAUDE.md from the composed answers."""
+"""
+Render the session's CLAUDE.md from the composed answers.
+
+The render opens with one line that names the role, ``# Role: <role>``,
+or says that the session has none, ``# No role`` (meta#195).
+The instruction file that every repository checks in
+tells a session without that line in its context to do no work.
+meta's prompt hook relays this render to the model at every turn
+while the session has no role, and on the turn that sets one.
+"""
 
 from __future__ import annotations
 
@@ -6,18 +15,15 @@ from pathlib import Path
 from typing import Any
 
 from pandoscope.reinset.profiles import Profile
+from pandoscope.reinset.role import DECLARABLE
 
 MARKER = "<!-- managedBy: pandoscope compose -->"
-UNCONFIGURED = (
-    "SESSION UNCONFIGURED: no waybill order reached this session. The "
-    "composer set no role and installed nothing. There is no default role. "
-    "Tell the user at the start of your reply."
+NO_ROLE_HEADING = "# No role"
+NO_SOURCE = "no waybill order, no environment role and no role line named a role"
+DECLARE_HINT = "Declare one: send a message whose first line is " + " or ".join(
+    f"`role: {role}`" for role in DECLARABLE
 )
-DECLARATION = (
-    "To run with a role, open a pull request on the waybill repository from "
-    "a branch order/<name>. Declare the role in orders/<name>.yml. The "
-    "Routine then fires the session from that order."
-)
+ORDER_HINT = "Correct the waybill order and fire it again"
 
 
 class UnmanagedTargetError(Exception):
@@ -29,26 +35,24 @@ def render(
     profile: Profile | None,
     errors: list[str],
     task: str | None = None,
+    *,
+    order_session: bool = False,
 ) -> str:
     """
     Return the CLAUDE.md text for the composed session.
 
-    The text names the role and the winning profile layer. It lists
-    the profile's skills. It prints every composer error. It ends with
-    the session's task when the composer composed one. Without a
-    profile, the session has no role: the text carries the UNCONFIGURED
-    notice and the way to declare a role, nothing else (D15).
+    With a ``profile``, the text names the role, its source and the winning
+    profile layer, lists the profile's skills,
+    and ends with the session's task when the composer composed one.
+    Without one, the text is the no-role reply that ``no_role_reply`` builds.
     """
-    lines: list[str] = [f"COMPOSER ERROR: {error}" for error in errors]
-    if lines:
-        lines.append("")
     if profile is None:
-        lines += ["# UNCONFIGURED", "", UNCONFIGURED, "", DECLARATION, ""]
-        return "\n".join(lines)
-    lines += [
+        return no_role_reply(errors, order_session=order_session)
+    source = answers.get("resolved", {}).get("role_source")
+    lines = [
         f"# Role: {profile.role}",
         "",
-        f"Profile: {profile.path} (layer: {profile.layer}).",
+        f"Source: {source}. Profile: {profile.path} (layer: {profile.layer}).",
     ]
     summary = profile.data.get("summary")
     if summary:
@@ -63,6 +67,36 @@ def render(
     if task:
         lines += ["", "## Task", "", task.rstrip()]
     lines.append("")
+    return "\n".join(lines)
+
+
+def no_role_reply(errors: list[str], *, order_session: bool) -> str:
+    """
+    Return the render of a session without a role.
+
+    It says that every tool but the one that reads notifications is closed,
+    prints every composer error,
+    and asks for one fixed reply that names the reason.
+    The reply shows the declaration line,
+    or, in a session that an order started, asks for a corrected order:
+    there a role line opens nothing (meta#195).
+    """
+    reason = "; ".join(errors) if errors else NO_SOURCE
+    hint = ORDER_HINT if order_session else DECLARE_HINT
+    lines = [NO_ROLE_HEADING, ""]
+    lines += [f"COMPOSER ERROR: {error}" for error in errors]
+    if errors:
+        lines.append("")
+    lines += [
+        "This session has no role. Every tool except the one that reads "
+        "notifications is closed, so the session does no work.",
+        "",
+        "Reply to every message with the text below and nothing else, "
+        "until a role is set:",
+        "",
+        f"> This session has no role and does no work. Reason: {reason}. {hint}.",
+        "",
+    ]
     return "\n".join(lines)
 
 

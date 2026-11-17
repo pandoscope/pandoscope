@@ -4,11 +4,11 @@ from pathlib import Path
 
 import pytest
 
-from pandoscope.reinset.order import ROLES
 from pandoscope.reinset.profiles import SHIPPED, load_profile
+from pandoscope.reinset.role import DECLARABLE, WORKER_ROLES
 
 
-@pytest.mark.parametrize("role", ROLES)
+@pytest.mark.parametrize("role", sorted({*WORKER_ROLES, *DECLARABLE}))
 def test_every_role_ships_a_profile(role: str, session_root: Path) -> None:
     profile = load_profile(role, session_root)
     assert profile.role == role

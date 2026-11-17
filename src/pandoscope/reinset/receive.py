@@ -59,6 +59,20 @@ class OrderError(Exception):
     """The trigger names an order that the clone cannot supply."""
 
 
+def order_name(env: Mapping[str, str]) -> str | None:
+    """
+    Return the name of the order that the Routine fired from, or None.
+
+    A name means that a waybill order started the session,
+    whether or not its file exists and validates.
+    """
+    repo = env.get(TRIGGER_REPO_ENV, "")
+    head = env.get(TRIGGER_HEAD_ENV, "")
+    if repo.rsplit("/", 1)[-1] != WAYBILL or not head.startswith(ORDER_BRANCH_PREFIX):
+        return None
+    return head[len(ORDER_BRANCH_PREFIX) :]
+
+
 def find_order(env: Mapping[str, str], session_root: Path) -> Order | None:
     """
     Return the order that the Routine fired from, or None for any other session.
@@ -72,11 +86,10 @@ def find_order(env: Mapping[str, str], session_root: Path) -> Order | None:
     file departs from the order schema or its name pattern; the error
     names every violated field.
     """
-    repo = env.get(TRIGGER_REPO_ENV, "")
-    head = env.get(TRIGGER_HEAD_ENV, "")
-    if repo.rsplit("/", 1)[-1] != WAYBILL or not head.startswith(ORDER_BRANCH_PREFIX):
+    name = order_name(env)
+    if name is None:
         return None
-    path = session_root / WAYBILL / "orders" / f"{head[len(ORDER_BRANCH_PREFIX) :]}.yml"
+    path = session_root / WAYBILL / "orders" / f"{name}.yml"
     if not path.is_file():
         msg = f"the trigger names an order but {path} is missing"
         raise OrderError(msg)

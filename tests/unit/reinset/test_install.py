@@ -4,7 +4,12 @@ from pathlib import Path
 
 import yaml
 
-from pandoscope.reinset.install import MARKER_FILE, find_skill, install_bundle
+from pandoscope.reinset.install import (
+    MARKER_FILE,
+    find_skill,
+    install_bundle,
+    remove_bundle,
+)
 from pandoscope.reinset.profiles import Profile
 
 REPOS = [
@@ -166,6 +171,26 @@ def test_no_profile_with_prune_leaves_no_managed_skill(
     report = install_bundle(None, session_root, home, repos, prune=True)
     assert report.removed == ["handing-off"]
     assert not (home / ".claude" / "skills" / "handing-off").exists()
+
+
+def test_remove_bundle_removes_every_managed_skill_and_nothing_else(
+    session_root: Path, home: Path
+) -> None:
+    # meta#195: a session without a role keeps nothing an earlier role installed.
+    for name in ("handing-off", "grilling"):
+        make_skill(session_root / "skills" / "original" / name, name)
+    repos = repos_in(session_root)
+    install_bundle(
+        profile("handing-off", "grilling"), session_root, home, repos, prune=True
+    )
+    hand_made = home / ".claude" / "skills" / "mine"
+    hand_made.mkdir()
+    assert remove_bundle(home) == ["grilling", "handing-off"]
+    assert sorted(p.name for p in (home / ".claude" / "skills").iterdir()) == ["mine"]
+
+
+def test_remove_bundle_without_a_skills_directory_removes_nothing(home: Path) -> None:
+    assert remove_bundle(home) == []
 
 
 def test_the_skills_clone_is_found_by_slug_whatever_its_kind(
