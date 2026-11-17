@@ -444,6 +444,21 @@ def test_another_session_id_does_not_inherit_a_declaration(
     assert compose(other, session_root, home, path_dirs).role is None
 
 
+def test_an_unknown_session_id_carries_no_declaration(
+    session_root: Path, home: Path, path_dirs: list[Path], tmp_path: Path
+) -> None:
+    _bundles(session_root)
+    answers = tmp_path / "answers.yml"
+    env = {
+        key: value
+        for key, value in ENV_RUN5_UI.items()
+        if key != "CLAUDE_CODE_SESSION_ID"
+    }
+    env["REINSET_ANSWERS"] = str(answers)
+    assert declare("implementer", env, session_root, home, path_dirs).role
+    assert compose(env, session_root, home, path_dirs).role is None
+
+
 @pytest.mark.parametrize(
     ("role", "env", "reason"),
     [

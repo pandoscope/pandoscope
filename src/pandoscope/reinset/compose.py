@@ -207,6 +207,11 @@ def _earlier_declaration(answers_path: Path, detected: dict[str, Any]) -> str | 
     An unknown session id matches nothing.
     """
     session_id = detected.get("session_id", UNKNOWN)
+    # DECISION:FALLBACK — missing: CLAUDE_CODE_SESSION_ID. Instead: no
+    # earlier declaration carries over, so after a compaction the session
+    # has the role of its other sources, or none. The session is told by
+    # the render, which then names no declared role. Test:
+    # test_an_unknown_session_id_carries_no_declaration.
     if session_id == UNKNOWN or not answers_path.is_file():
         return None
     earlier = yaml.safe_load(answers_path.read_text())
