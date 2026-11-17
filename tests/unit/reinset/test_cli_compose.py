@@ -66,7 +66,7 @@ def test_declare_prints_the_render_of_the_role(
     [
         ("reviewer", "a reviewer takes its pull request"),
         ("wizard", "the declarable roles are orchestrator, implementer"),
-        ("orchestrator", "the entry point 'remote' is not one of"),
+        ("orchestrator", "REINSET_ATTACHED_REPOS holds no count"),
     ],
 )
 def test_a_refused_declaration_exits_3_with_one_line_naming_the_reason(

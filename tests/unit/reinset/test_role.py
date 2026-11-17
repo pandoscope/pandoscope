@@ -5,10 +5,13 @@ import pytest
 from pandoscope.reinset.role import (
     DECLARABLE,
     PRINCIPAL_ENTRYPOINTS,
+    WORKER_CLOSED_TOOLS,
     WORKER_ROLES,
     RoleRefused,
     check_declaration,
     environment_role,
+    principal_started,
+    tool_gate,
 )
 
 
@@ -79,3 +82,56 @@ def test_an_order_wins_over_a_role_line(role: str) -> None:
     env = {"CLAUDE_CODE_ENTRYPOINT": "remote_desktop"}
     with pytest.raises(RoleRefused, match="an order wins over a role line"):
         check_declaration(role, env, order_session=True)
+
+
+# Decision 90: `remote` with more than one attached repository is the principal's.
+@pytest.mark.parametrize("count", ["2", "12"])
+def test_remote_with_several_attached_repositories_may_declare_orchestrator(
+    count: str,
+) -> None:
+    env = {"CLAUDE_CODE_ENTRYPOINT": "remote", "REINSET_ATTACHED_REPOS": count}
+    assert principal_started(env) is None
+    assert check_declaration("orchestrator", env, order_session=False) is None
+
+
+@pytest.mark.parametrize("count", ["0", "1"])
+def test_remote_with_one_repository_at_most_cannot_declare_orchestrator(
+    count: str,
+) -> None:
+    env = {"CLAUDE_CODE_ENTRYPOINT": "remote", "REINSET_ATTACHED_REPOS": count}
+    with pytest.raises(RoleRefused, match=rf"no more than one repository \({count}\)"):
+        check_declaration("orchestrator", env, order_session=False)
+
+
+@pytest.mark.parametrize("count", [None, "", "many", "-3"])
+def test_remote_without_a_recorded_count_cannot_declare_orchestrator(
+    count: str | None,
+) -> None:
+    env = {"CLAUDE_CODE_ENTRYPOINT": "remote"}
+    if count is not None:
+        env["REINSET_ATTACHED_REPOS"] = count
+    with pytest.raises(RoleRefused, match="holds no count"):
+        check_declaration("orchestrator", env, order_session=False)
+
+
+def test_other_entry_points_ignore_the_repository_count() -> None:
+    env = {"CLAUDE_CODE_ENTRYPOINT": "remote_trigger", "REINSET_ATTACHED_REPOS": "5"}
+    with pytest.raises(RoleRefused, match="'remote_trigger' is none of"):
+        check_declaration("orchestrator", env, order_session=False)
+
+
+# meta#197: every worker role closes the tools that reach other sessions.
+@pytest.mark.parametrize("role", WORKER_ROLES)
+def test_a_worker_role_closes_the_three_tool_groups(role: str) -> None:
+    gate = tool_gate(role)
+    assert gate["role"] == role
+    assert gate["closed_tools"] == WORKER_CLOSED_TOOLS
+    assert set(WORKER_CLOSED_TOOLS.values()) == {
+        "send a message to another session",
+        "create a session",
+        "create or fire a scheduled task",
+    }
+
+
+def test_the_orchestrator_closes_no_tool() -> None:
+    assert tool_gate("orchestrator") == {"role": "orchestrator", "closed_tools": {}}

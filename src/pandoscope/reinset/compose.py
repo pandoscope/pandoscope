@@ -25,6 +25,7 @@ from pandoscope.reinset.role import (
     RoleRefused,
     check_declaration,
     environment_role,
+    tool_gate,
 )
 
 ANSWERS_ENV = "REINSET_ANSWERS"
@@ -176,22 +177,27 @@ def _install(
     errors: list[str],
 ) -> tuple[list[str], dict[str, Any]]:
     """
-    Install the role's bundle and render its hooks; append each error to ``errors``.
+    Install the role's bundle and render its hooks and gate.
 
-    Returns the installed skill names and the rendered hooks.
+    Appends each error to ``errors``.
+    Returns the installed skill names and the rendered hooks file.
     """
     # resolved.harness selects the skill format (skills#179 §4).
     # Claude Code's is the only one known, so another harness gets no bundle.
+    gate = tool_gate(profile.role)
     if harness != CLAUDE_CODE:
         if profile.data.get("skills") or profile.data.get("hooks"):
             errors.append(
                 f"harness {harness!r} has no known skill format; "
                 "the role's bundle is not installed"
             )
-        return [], {}
+            return [], {}
+        hooks, hook_errors = render_hooks(profile, home, hooks_path, gate)
+        errors += hook_errors
+        return [], hooks
     report = install_bundle(profile, session_root, home, detected["repos"], prune=True)
     errors += report.errors
-    hooks, hook_errors = render_hooks(profile, home, hooks_path)
+    hooks, hook_errors = render_hooks(profile, home, hooks_path, gate)
     errors += hook_errors
     return report.installed, hooks
 
