@@ -1,0 +1,35 @@
+{
+  "pr": "pandoscope/pandoscope#64",
+  "head": "fbde2b2185162beb69050a29e884ef596cb98cf1",
+  "pass": "spec-fidelity",
+  "model_tier": "fable",
+  "findings": [
+    {
+      "file": "src/pandoscope/reinset/schemas/shortcodes.json",
+      "line": 22,
+      "rule": "A shortcode is two to five lowercase letters.",
+      "input": "A shortcodes.json with the text {\"sk\\n\": \"pandoscope/skills\"}: the key is the letters sk followed by a line feed.",
+      "finding_basis": "decided",
+      "confidence": 80,
+      "finding": "The schema's pattern `^[a-z]{2,5}$` is matched with Python's `re.search`, where `$` also matches before a final line feed, so the loader and `pandoscope shortcodes check` accept the shortcode `sk\\n` and return it as written although it is not two to five lowercase letters."
+    },
+    {
+      "file": "src/pandoscope/reinset/order.py",
+      "line": 75,
+      "rule": "Two shortcodes for one repository fail, and the message names both.",
+      "input": "A shortcodes.json with the text {\"sk\": \"pandoscope/skills\", \"skl\": \"Pandoscope/Skills\"}.",
+      "finding_basis": "judged",
+      "confidence": 35,
+      "finding": "The loader compares repositories by their exact spelling, so two shortcodes for one forge repository written in two letter cases load without an error, while `_check_origin` in review.py treats the same two spellings as one repository."
+    },
+    {
+      "file": "src/pandoscope/reinset/schemas/order.json",
+      "line": 12,
+      "rule": "A role without a name pattern (orchestrator, general, probe) names a pass too; its value is not checked.",
+      "input": "An order with `role: probe`, `id: probe-opus-4`, `model_tier: opus`, a subject with a shortcode and `pass: Look_1`.",
+      "finding_basis": "judged",
+      "confidence": 30,
+      "finding": "The order schema applies the pattern `^[a-z0-9-]+$` to the pass of every role, so the order check fails this probe order on the value of its pass although the value of a pass of a role without a name pattern is not checked."
+    }
+  ]
+}
