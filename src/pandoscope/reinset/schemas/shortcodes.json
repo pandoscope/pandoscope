@@ -17,11 +17,11 @@
   "else": {"$ref": "#/$defs/map"},
   "$defs": {
     "shortcode": {
-      "description": "Two to five lowercase letters (decision 122), so that a name, a reference and a branch write it as it stands.",
+      "description": "Two to five lowercase letters (decision 122), so that a name, a reference and a branch write it as it stands. The pattern ends in (?![\\s\\S]) and not in $, because Python's $ also matches before a final line feed.",
       "type": "string",
-      "pattern": "^[a-z]{2,5}$"
+      "pattern": "^[a-z]{2,5}(?![\\s\\S])"
     },
-    "repository": {"type": "string", "pattern": "^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$"},
+    "repository": {"type": "string", "pattern": "^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+(?![\\s\\S])"},
     "map": {
       "type": "object",
       "propertyNames": {"if": {"pattern": "^_"}, "else": {"$ref": "#/$defs/shortcode"}},

@@ -375,12 +375,13 @@ def test_a_shortcodes_file_that_reads_two_ways_is_an_error(
         assert word in str(raised.value), raised.value
 
 
-@pytest.mark.parametrize("short", ["Pando", "pando1", "p", "pandos"])
+@pytest.mark.parametrize("short", ["Pando", "pando1", "p", "pandos", "sk\n"])
 @pytest.mark.parametrize("form", ["flat", "forge"])
 def test_a_shortcode_off_two_to_five_lowercase_letters_fails_naming_it(
     tmp_path: Path, short: str, form: str
 ) -> None:
-    # Decision 122: a capital letter, a digit, one letter or six letters.
+    # Decision 122: a capital letter, a digit, one letter or six letters,
+    # and a trailing line feed, which $ in a Python regex lets through.
     repos = {short: "pandoscope/pandoscope"}
     path = tmp_path / "shortcodes.json"
     path.write_text(json.dumps(repos if form == "flat" else {"repos": repos}))
@@ -464,6 +465,10 @@ def test_the_schema_takes_both_forms_and_comment_keys(data: object) -> None:
         # a key beside the map under repos is a forge setting or a comment
         {"repos": {"pando": "o/p"}, "owner": "pandoscope"},
         {"repos": {"pando": "o/p"}, "forge": 7},
+        # $ in a Python regex also matches before a final line feed
+        {"sk\n": "o/p"},
+        {"repos": {"sk\n": "o/p"}},
+        {"pando": "o/p\n"},
     ],
 )
 def test_the_schema_states_the_shape(data: object) -> None:
