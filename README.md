@@ -117,7 +117,8 @@ unknown keys. It requires `role`. It requires `id` to equal the file
 name. It takes `subject` as `owner/repo#n`. It takes `tickets`
 as a list of the same form. It takes `checkouts` as a map from
 `owner/repo` to a ref.
-It requires `model_tier` on every order and `pass` on a reviewer's alone, both lowercase.
+It requires `model_tier` on every order, in lowercase letters and digits only,
+and `pass` on a reviewer's alone, in lowercase.
 An order that fits the schema must also fit its role's name pattern
 (`src/pandoscope/reinset/order_name.py`):
 `review-<pass>-<model_tier>-<code><n>-<step>` for a reviewer

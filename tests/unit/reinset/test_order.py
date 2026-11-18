@@ -109,6 +109,14 @@ def test_only_a_reviewer_names_a_pass_and_it_must() -> None:
     assert any(v.startswith("pass:") for v in check(implementer, IMPLEMENTER_NAME))
 
 
+def test_a_tier_has_letters_and_digits_only() -> None:
+    # B1: with a hyphen, review-spec-fidelity-opus-pando26-3 read as
+    # pass `spec` and tier `fidelity-opus`, and the opus Routine took it.
+    name = "review-spec-fidelity-opus-pando26-3"
+    order = {**VALID, "id": name, "pass": "spec", "model_tier": "fidelity-opus"}
+    assert any(v.startswith("model_tier:") for v in check(order, name))
+
+
 def test_a_non_mapping_is_one_violation() -> None:
     assert len(validate_order(["not", "a", "mapping"], "x", SHORTCODES)) == 1
 

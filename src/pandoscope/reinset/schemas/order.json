@@ -10,7 +10,7 @@
     "id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
     "role": {"enum": ["orchestrator", "implementer", "reviewer", "general", "probe"]},
     "pass": {"type": "string", "pattern": "^[a-z0-9-]+$"},
-    "model_tier": {"type": "string", "pattern": "^[a-z0-9-]+$"},
+    "model_tier": {"type": "string", "pattern": "^[a-z0-9]+$"},
     "subject": {"$ref": "#/$defs/ticket"},
     "base": {"type": "string", "pattern": "^[^\\s~^:?*\\[\\\\]+$"},
     "checkouts": {
