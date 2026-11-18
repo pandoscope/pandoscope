@@ -123,7 +123,11 @@ An order that fits the schema must also fit its role's name pattern
 (`src/pandoscope/reinset/order_name.py`):
 `review-<pass>-<model_tier>-<code><n>-<step>` for a reviewer
 and `implement-<model_tier>-<code><n>-<step>` for an implementer.
-`<code><n>` is the subject, with the repository's shortcode from the waybill's `shortcodes.json`.
+`<code><n>` is the subject, with the lowercase form of its repository's shortcode.
+The shortcodes have one source, the waybill's `shortcodes.json`.
+It maps each shortcode to its repository, in the format the thread ledger reads:
+a flat object, or `repos` beside the forge and its link patterns.
+Two shortcodes that differ only in case, or two for one repository, are an error.
 The step counts from 1, and a repeat run of a step takes a letter from `b`.
 A name that disagrees with a field fails, and the error names the part.
 The other roles have no name pattern,
@@ -142,6 +146,8 @@ Validate waybill order files against the schema that the composer
 uses, and against the name patterns.
 The shortcodes come from `shortcodes.json` beside the `orders/` folder,
 and a missing shortcodes file fails every order.
+So does a second shortcode map anywhere in the waybill,
+such as another `shortcodes.json` or a `repo-codes.json`.
 The command prints every violation with its field. It exits 1
 when any file fails. Waybill's pull request checks run it. A broken
 order therefore turns red before anyone fires on it.
