@@ -1,0 +1,35 @@
+{
+  "pr": "pandoscope/pandoscope#64",
+  "head": "fbde2b2185162beb69050a29e884ef596cb98cf1",
+  "pass": "spec-fidelity",
+  "model_tier": "sonnet",
+  "findings": [
+    {
+      "file": "src/pandoscope/reinset/order.py",
+      "line": 70,
+      "rule": "The loader holds no shape rule that the schema states.",
+      "input": "A shortcodes.json read under a schema that states a different shape, for example one that keeps the map under a key other than `repos` or marks no key as a comment: the loader still picks `data[\"repos\"]` when the key `repos` is present (line 70) and still skips every key that starts with `_` (line 73), so two shape rules the schema states (flat or under `repos`; a `_` key is a comment) stand a second time in the loader. `test_a_shortcode_is_used_as_written` runs under a schema of `{}` and its file holds `_note`, so it passes only because the loader skips `_` keys itself.",
+      "finding_basis": "judged",
+      "confidence": 35,
+      "finding": "The loader re-states two of the shapes the schema states (the `repos` form and the `_` comment key) instead of reading the map from what the schema accepted."
+    },
+    {
+      "file": "src/pandoscope/reinset/schemas/shortcodes.json",
+      "line": 15,
+      "rule": "A schema `src/pandoscope/reinset/schemas/shortcodes.json` is the single source for the shape of the waybill's `shortcodes.json`: the shortcode rule above, a repository of the form `owner/repo`, and the file flat or with the map under `repos`.",
+      "input": "{\"repos\": {\"pando\": \"pandoscope/pandoscope\"}, \"version\": 1}, or {\"forge\": 7, \"repos\": {\"pando\": \"pandoscope/pandoscope\"}}: the ticket names three shape rules, and the file has the `repos` form, yet the schema rejects it with `additionalProperties: false` beside `repos` and a type rule on `forge` and `patterns`. The loader on main accepted both; `test_the_schema_states_the_shape` pins the rejection.",
+      "finding_basis": "judged",
+      "confidence": 30,
+      "finding": "The schema adds a rule the ticket does not list (no key but `forge`, `patterns`, `repos` and `_` keys beside `repos`, with `forge` a non-empty string and `patterns` a map of strings), so a file the old loader read now fails."
+    },
+    {
+      "file": "src/pandoscope/cli.py",
+      "line": 123,
+      "rule": "A command checks the map alone, for example `pandoscope shortcodes check <file>`.",
+      "input": "`pandoscope shortcodes check /tmp/new-map/map.json` where map.json holds a valid map: `find_shortcodes(path.resolve().parent)` looks for `/tmp/new-map/shortcodes.json`, finds none, and the command exits 1 with \"the waybill has no shortcodes file\", although the file named on the command line exists and fits every rule. The same call also scans every folder below the file's parent for a second map.",
+      "finding_basis": "judged",
+      "confidence": 25,
+      "finding": "The command takes `<file>` but refuses any file not named `shortcodes.json`, and it checks the surrounding folder tree as well as the map."
+    }
+  ]
+}
