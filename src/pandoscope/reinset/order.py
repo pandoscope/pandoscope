@@ -92,28 +92,36 @@ def find_shortcodes(waybill: Path) -> Path:
     Return the waybill's one shortcodes file, ``<waybill>/shortcodes.json``.
 
     Raises ShortcodeError when that file is missing,
-    and when the waybill holds a second map anywhere outside ``.git``:
-    another ``shortcodes.json`` or a ``repo-codes.json``.
-    The error names every file it found.
+    and when the waybill holds a second map (see ``guard_one_map``).
     """
     source = waybill / SHORTCODES
-    found = sorted(
-        path
+    if not source.is_file():
+        msg = f"the waybill has no shortcodes file at {source}"
+        raise ShortcodeError(msg)
+    guard_one_map(waybill, source)
+    return source
+
+
+def guard_one_map(waybill: Path, source: Path) -> None:
+    """
+    Raise ShortcodeError when ``waybill`` holds a shortcode map other than ``source``.
+
+    A map is a ``shortcodes.json`` or a ``repo-codes.json`` anywhere outside ``.git``.
+    The error names every such file it found.
+    """
+    second = sorted(
+        str(path.relative_to(waybill))
         for name in MAP_NAMES
         for path in waybill.rglob(name)
         if ".git" not in path.relative_to(waybill).parts
+        and path.resolve() != source.resolve()
     )
-    if source not in found:
-        msg = f"the waybill has no shortcodes file at {source}"
-        raise ShortcodeError(msg)
-    second = [str(path.relative_to(waybill)) for path in found if path != source]
     if second:
         msg = (
             f"the waybill {waybill} holds a second shortcode map beside "
-            f"{SHORTCODES}: {', '.join(second)}; one map is the source (pandoscope#61)"
+            f"{source.name}: {', '.join(second)}; one map is the source (pandoscope#61)"
         )
         raise ShortcodeError(msg)
-    return source
 
 
 def validate_order(data: Any, name: str, shortcodes: Mapping[str, str]) -> list[str]:

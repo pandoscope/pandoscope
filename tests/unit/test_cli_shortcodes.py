@@ -68,3 +68,36 @@ def test_a_missing_map_exits_non_zero(
     path = tmp_path / "shortcodes.json"
     assert main(["shortcodes", "check", str(path)]) == 1
     assert "shortcodes.json" in capsys.readouterr().out
+
+
+def test_a_map_under_another_name_checks_alone(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    # A candidate map is checked before it replaces shortcodes.json.
+    path = tmp_path / "candidate.json"
+    path.write_text(json.dumps(GOOD))
+    assert main(["shortcodes", "check", str(path)]) == 0
+    assert capsys.readouterr().out == f"{path}: ok\n"
+
+
+def test_a_map_under_another_name_reports_its_own_failure(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    path = tmp_path / "candidate.json"
+    path.write_text('{"Pando": "o/p"}')
+    assert main(["shortcodes", "check", str(path)]) == 1
+    out = capsys.readouterr().out
+    assert "Pando" in out, out
+    assert "no shortcodes file" not in out, out
+
+
+def test_a_shortcodes_file_beside_a_map_under_another_name_is_a_second_map(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    path = tmp_path / "candidate.json"
+    path.write_text(json.dumps(GOOD))
+    (tmp_path / "shortcodes.json").write_text(json.dumps(GOOD))
+    assert main(["shortcodes", "check", str(path)]) == 1
+    out = capsys.readouterr().out
+    assert "second shortcode map" in out, out
+    assert "shortcodes.json" in out, out

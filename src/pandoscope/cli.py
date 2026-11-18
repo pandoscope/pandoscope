@@ -13,6 +13,7 @@ from pandoscope.reinset.compose import Composition, compose
 from pandoscope.reinset.order import (
     ShortcodeError,
     find_shortcodes,
+    guard_one_map,
     load_shortcodes,
     validate_order,
 )
@@ -113,15 +114,17 @@ def run_shortcodes_check(file: str) -> int:
     """
     Check the waybill's shortcode map alone. Print what fails. Return 1 when it fails.
 
-    ``file`` is ``<waybill>/shortcodes.json``.
-    Runs the guard against a second map in the file's folder,
-    then the loader: the schema and the loader's two rules.
+    ``file`` is the map under any name: ``<waybill>/shortcodes.json``,
+    or a candidate that is to replace it.
+    Runs the loader first: the schema and the loader's two rules.
+    Then the guard against a second map in the file's folder,
+    with ``file`` as the one source.
     Prints ``<file>: ok`` and returns 0 when the map passes.
     """
     path = Path(file)
     try:
-        find_shortcodes(path.resolve().parent)
         load_shortcodes(path)
+        guard_one_map(path.resolve().parent, path)
     except ShortcodeError as error:
         print(f"{path}: {error}")
         return 1

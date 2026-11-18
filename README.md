@@ -163,10 +163,11 @@ order therefore turns red before anyone fires on it.
 
 ### `pandoscope shortcodes check FILE`
 
-Check the waybill's `shortcodes.json` alone, without an order.
-The command runs the guard against a second map in the file's folder.
-It then runs the schema,
+Check a shortcode map alone, without an order:
+the waybill's `shortcodes.json`, or a candidate under another name that is to replace it.
+The command runs the schema,
 and the loader's check for two shortcodes of one repository and for a key written twice.
+It then runs the guard against a second map in the file's folder, with `FILE` as the one source.
 It prints each failure with the file name and exits 1.
 
 More commands land as the tool grows.
