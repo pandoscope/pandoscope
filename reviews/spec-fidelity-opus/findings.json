@@ -1,0 +1,26 @@
+{
+  "pr": "pandoscope/pandoscope#64",
+  "head": "fbde2b2185162beb69050a29e884ef596cb98cf1",
+  "pass": "spec-fidelity",
+  "model_tier": "opus",
+  "findings": [
+    {
+      "file": "src/pandoscope/reinset/order_name.py",
+      "line": 122,
+      "rule": "The message blames the model tier, although the tier in the name agrees with the order. The message names the part that is off.",
+      "input": "An order with role reviewer, pass spec-fidelity, model_tier opus, subject pandoscope/pandoscope#58 and id review-spec-fidelity-opus-r2-pando58-4",
+      "finding_basis": "judged",
+      "confidence": 40,
+      "finding": "The message now blames the subject part (\"the subject part must be 'pando58'\"), although the subject pando58 in the name agrees with the order just as the tier does, so it still names a part that agrees with the order and not the extra `r2` that is off."
+    },
+    {
+      "file": "src/pandoscope/cli.py",
+      "line": 123,
+      "rule": "A command checks the map alone, for example `pandoscope shortcodes check <file>`.",
+      "input": "`pandoscope shortcodes check maps/candidate.json`, where candidate.json is a well-formed map and the folder holds no shortcodes.json",
+      "finding_basis": "judged",
+      "confidence": 30,
+      "finding": "The command runs the second-map guard on the file's folder first, and that guard requires a file named shortcodes.json there, so a map at any other file name fails with \"the waybill has no shortcodes file\" and never reaches the schema or the loader rules."
+    }
+  ]
+}
