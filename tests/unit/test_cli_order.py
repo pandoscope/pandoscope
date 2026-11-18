@@ -122,3 +122,14 @@ def test_order_check_tells_a_role_without_a_name_pattern(
     )
     assert main(["order", "check", str(order)]) == 0
     assert "no name pattern" in capsys.readouterr().out
+
+
+def test_order_check_run_inside_orders_finds_the_shortcodes(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # A bare file name has `.` for its parent (F4).
+    orders = waybill(tmp_path)
+    (orders / "review-spec-fidelity-opus-pando26-1.yml").write_text(GOOD)
+    monkeypatch.chdir(orders)
+    assert main(["order", "check", "review-spec-fidelity-opus-pando26-1.yml"]) == 0
+    assert "ok" in capsys.readouterr().out

@@ -111,7 +111,7 @@ def run_order_check(files: list[str]) -> int:
         path = Path(name)
         try:
             data = yaml.safe_load(path.read_text())
-            shortcodes = load_shortcodes(path.parent.parent / SHORTCODES)
+            shortcodes = load_shortcodes(path.resolve().parent.parent / SHORTCODES)
         except (OSError, yaml.YAMLError, ShortcodeError) as error:
             print(f"{path}: cannot check: {error}")
             failed += 1
