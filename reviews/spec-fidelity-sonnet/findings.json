@@ -1,0 +1,17 @@
+{
+  "pr": "pandoscope/pandoscope#58",
+  "head": "7375455515e5e9e0eb1fd51c69698f3b02ac3cc2",
+  "pass": "spec-fidelity",
+  "model_tier": "sonnet",
+  "findings": [
+    {
+      "file": "src/pandoscope/reinset/order_name.py",
+      "line": 54,
+      "rule": "A subject whose repository has no shortcode fails.",
+      "input": "orders/probe-4.yml with `id: probe-4`, `role: probe`, `model_tier: opus`, `subject: pandoscope/meta#26`, `tickets: []`, checked against a shortcodes.json that has no entry for pandoscope/meta: `pandoscope order check` prints \"ok, but the role 'probe' has no name pattern\" and exits 0; the same order for an orchestrator or general role passes the composer too.",
+      "finding_basis": "judged",
+      "confidence": 25,
+      "finding": "name_violations returns [] for a role without a name pattern before it looks the subject's repository up in shortcodes.json, so the stated failure for a subject without a shortcode holds for reviewer and implementer orders only."
+    }
+  ]
+}
