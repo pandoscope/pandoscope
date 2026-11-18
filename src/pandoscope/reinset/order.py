@@ -19,6 +19,7 @@ ROLES: tuple[str, ...] = tuple(
 
 
 SHORTCODES = "shortcodes.json"
+SHORTCODES_SCHEMA_PATH = Path(__file__).parent / "schemas" / SHORTCODES
 
 
 class ShortcodeError(Exception):

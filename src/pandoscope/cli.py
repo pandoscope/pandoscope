@@ -73,6 +73,16 @@ def build_parser() -> argparse.ArgumentParser:
         "check", help="validate order files against the order schema"
     )
     check_parser.add_argument("files", nargs="+", help="orders/<name>.yml files")
+    shortcodes_parser = subparsers.add_parser(
+        "shortcodes", help="the waybill's shortcode map (pandoscope#59)"
+    )
+    shortcodes_sub = shortcodes_parser.add_subparsers(
+        dest="shortcodes_command", required=True
+    )
+    shortcodes_check = shortcodes_sub.add_parser(
+        "check", help="check a shortcodes.json alone, without an order"
+    )
+    shortcodes_check.add_argument("file", help="the waybill's shortcodes.json")
     return parser
 
 
@@ -94,7 +104,19 @@ def main(argv: list[str] | None = None) -> int:
         print(run_compose(args.session_root).render_text, end="")
     if args.command == "order":
         return run_order_check(args.files)
+    if args.command == "shortcodes":
+        return run_shortcodes_check(args.file)
     return 0
+
+
+def run_shortcodes_check(file: str) -> int:
+    """
+    Check the waybill's shortcode map alone. Print what fails. Return 1 when it fails.
+
+    Runs the schema, the loader's two rules
+    and the guard against a second map in the file's folder.
+    """
+    raise NotImplementedError
 
 
 def run_order_check(files: list[str]) -> int:

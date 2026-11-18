@@ -1,0 +1,5 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pandoscope.dev/schemas/shortcodes.json",
+  "title": "Waybill shortcodes"
+}
