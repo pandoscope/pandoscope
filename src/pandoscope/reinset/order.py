@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
@@ -24,14 +25,31 @@ class ShortcodeError(Exception):
     """The waybill's shortcodes file is missing or not a map of repository to code."""
 
 
+_SHORTCODE = re.compile(r"^[A-Za-z][A-Za-z0-9]*$")
+_REPO = re.compile(r"^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$")
+
+
+def name_code(shortcode: str) -> str:
+    """Return the form of ``shortcode`` that an order's name uses: its lowercase."""
+    # DECISION: one spelling per shortcode, and the name takes its
+    # lowercase form, derived here and nowhere else (pandoscope#61).
+    return shortcode.lower()
+
+
 def load_shortcodes(path: Path) -> dict[str, str]:
     """
-    Return the map of repository to shortcode from the waybill's ``shortcodes.json``.
+    Return the map of repository to name code from the waybill's ``shortcodes.json``.
 
-    Keys that start with ``_``, such as ``_comment``, are not repositories
-    and are left out.
-    Raises ShortcodeError when the file is missing, is not JSON,
-    or is not an object whose values are strings.
+    The file maps each shortcode to its repository, in the format the
+    thread ledger reads: a flat object, or ``{forge, patterns, repos}``
+    with the map under ``repos``. Top-level keys that start with ``_``,
+    such as ``_comment``, are not shortcodes. The returned code is the
+    shortcode's ``name_code``.
+    Raises ShortcodeError when the file is missing or is not JSON,
+    when the map is not an object,
+    when a shortcode is not letters and digits or a repository is not ``owner/repo``,
+    when two shortcodes differ only in case,
+    and when two shortcodes name one repository.
     """
     try:
         data = json.loads(path.read_text())
@@ -41,11 +59,40 @@ def load_shortcodes(path: Path) -> dict[str, str]:
     if not isinstance(data, dict):
         msg = f"the shortcodes file {path} is not an object: {data!r}"
         raise ShortcodeError(msg)
-    codes = {repo: code for repo, code in data.items() if not repo.startswith("_")}
-    wrong = {repo: code for repo, code in codes.items() if not isinstance(code, str)}
-    if wrong:
-        msg = f"the shortcodes file {path} maps repositories to non-strings: {wrong!r}"
+    repos = data["repos"] if "repos" in data else data
+    if not isinstance(repos, dict):
+        msg = f"the shortcodes file {path} holds no map under repos: {repos!r}"
         raise ShortcodeError(msg)
+    codes: dict[str, str] = {}
+    spelled: dict[str, str] = {}
+    for short, repo in repos.items():
+        if short.startswith("_"):
+            continue
+        if (
+            not _SHORTCODE.match(short)
+            or not isinstance(repo, str)
+            or not _REPO.match(repo)
+        ):
+            msg = (
+                f"the shortcodes file {path} maps {short!r} to {repo!r}; "
+                "a shortcode is letters and digits, a repository is owner/repo"
+            )
+            raise ShortcodeError(msg)
+        code = name_code(short)
+        if code in spelled:
+            msg = (
+                f"the shortcodes file {path} spells one shortcode twice: "
+                f"{spelled[code]!r} and {short!r}"
+            )
+            raise ShortcodeError(msg)
+        if repo in codes:
+            msg = (
+                f"the shortcodes file {path} gives {repo} two shortcodes: "
+                f"{spelled[codes[repo]]!r} and {short!r}"
+            )
+            raise ShortcodeError(msg)
+        spelled[code] = short
+        codes[repo] = code
     return codes
 
 

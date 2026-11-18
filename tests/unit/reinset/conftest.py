@@ -138,7 +138,8 @@ def pr_clone(
     return head
 
 
-SHORTCODES = {"pandoscope/aet": "aet", "pandoscope/pandoscope": "pando"}
+# The waybill's shortcodes file: shortcode to repository (pandoscope#61).
+SHORTCODES = {"AET": "pandoscope/aet", "PANDO": "pandoscope/pandoscope"}
 
 
 def write_waybill_order(session_root: Path, name: str, text: str) -> Path:

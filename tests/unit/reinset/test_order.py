@@ -222,13 +222,64 @@ def test_a_subject_without_a_shortcode_fails_for_every_role(role: str) -> None:
     ), violations
 
 
+# The waybill's file maps each shortcode to its repository, in the
+# format the thread ledger reads (pandoscope#61).
+SHORTCODE_FILE = {
+    "_comment": "seeded once",
+    "PANDO": "pandoscope/pandoscope",
+    "skills": "pandoscope/skills",
+}
+
+
 def test_shortcodes_load_from_the_waybill_file(tmp_path: Path) -> None:
     path = tmp_path / "shortcodes.json"
-    path.write_text(json.dumps({"_comment": "seeded once", **SHORTCODES}))
+    path.write_text(json.dumps(SHORTCODE_FILE))
+    # An order's name takes the lowercase form of each shortcode.
     assert load_shortcodes(path) == SHORTCODES
 
 
-@pytest.mark.parametrize("text", [None, "[]", '{"a/b": 1}', "{"])
+def test_shortcodes_load_from_the_forge_form(tmp_path: Path) -> None:
+    path = tmp_path / "shortcodes.json"
+    repos = {k: v for k, v in SHORTCODE_FILE.items() if not k.startswith("_")}
+    path.write_text(
+        json.dumps(
+            {
+                "_comment": "seeded once",
+                "forge": "https://forge.example.test",
+                "patterns": {"ticket": "{base}/{repo}/issues/{n}"},
+                "repos": repos,
+            }
+        )
+    )
+    assert load_shortcodes(path) == SHORTCODES
+
+
+@pytest.mark.parametrize(
+    ("repos", "words"),
+    [
+        # one spelling per shortcode: a case-only twin is an error
+        ({"AET": "o/a", "aet": "o/b"}, ["AET", "aet"]),
+        # one shortcode per repository
+        ({"PANDO": "o/p", "pd": "o/p"}, ["PANDO", "pd", "o/p"]),
+        # a repository is written owner/repo
+        ({"PANDO": "pandoscope"}, ["PANDO", "pandoscope"]),
+        ({"PANDO": 7}, ["PANDO"]),
+        # a shortcode is letters and digits, so its lowercase form fits a name
+        ({"PAN-DO": "o/p"}, ["PAN-DO"]),
+    ],
+)
+def test_a_shortcodes_file_that_reads_two_ways_is_an_error(
+    tmp_path: Path, repos: dict[str, object], words: list[str]
+) -> None:
+    path = tmp_path / "shortcodes.json"
+    path.write_text(json.dumps(repos))
+    with pytest.raises(ShortcodeError) as raised:
+        load_shortcodes(path)
+    for word in words:
+        assert word in str(raised.value), raised.value
+
+
+@pytest.mark.parametrize("text", [None, "[]", '{"ab": 1}', '{"repos": []}', "{"])
 def test_a_missing_or_broken_shortcodes_file_is_an_error(
     tmp_path: Path, text: str | None
 ) -> None:

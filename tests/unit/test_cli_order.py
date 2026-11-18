@@ -9,8 +9,8 @@ from pandoscope.cli import main
 
 SHORTCODES = {
     "_comment": "the waybill's own comment key",
-    "pandoscope/pandoscope": "pando",
-    "pandoscope/skills": "skills",
+    "PANDO": "pandoscope/pandoscope",
+    "skills": "pandoscope/skills",
 }
 GOOD = """\
 id: review-spec-fidelity-opus-pando26-1
