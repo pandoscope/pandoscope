@@ -13,7 +13,7 @@ from pandoscope.reinset.order import (
     validate_order,
 )
 
-SHORTCODES = {"pandoscope/pandoscope": "pando", "pandoscope/skills": "skills"}
+SHORTCODES = {"pandoscope/pandoscope": "pando", "pandoscope/skills": "sk"}
 NAME = "review-spec-fidelity-opus-pando26-1"
 VALID = {
     "id": NAME,
@@ -161,7 +161,7 @@ def test_a_review_name_ends_in_its_step_and_a_repeat_letter(name: str) -> None:
         ("review-prose-opus-pando26-1", {}, "pass"),
         ("review-spec-fidelity-sonnet-pando26-1", {}, "model_tier"),
         ("review-spec-fidelity-opus-pando27-1", {}, "subject"),
-        ("review-spec-fidelity-opus-skills26-1", {}, "subject"),
+        ("review-spec-fidelity-opus-sk26-1", {}, "subject"),
         ("review-spec-fidelity-opus-pr26-1", {}, "subject"),
         # a pass that is a hyphen-prefix of the name's pass part (F1)
         ("review-spec-fidelity-opus-pando26-1", {"pass": "spec"}, "pass"),
@@ -231,15 +231,14 @@ def test_a_subject_without_a_shortcode_fails_for_every_role(role: str) -> None:
 # format the thread ledger reads (pandoscope#61).
 SHORTCODE_FILE = {
     "_comment": "seeded once",
-    "PANDO": "pandoscope/pandoscope",
-    "skills": "pandoscope/skills",
+    "pando": "pandoscope/pandoscope",
+    "sk": "pandoscope/skills",
 }
 
 
 def test_shortcodes_load_from_the_waybill_file(tmp_path: Path) -> None:
     path = tmp_path / "shortcodes.json"
     path.write_text(json.dumps(SHORTCODE_FILE))
-    # An order's name takes the lowercase form of each shortcode.
     assert load_shortcodes(path) == SHORTCODES
 
 

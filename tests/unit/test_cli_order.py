@@ -9,8 +9,8 @@ from pandoscope.cli import main
 
 SHORTCODES = {
     "_comment": "the waybill's own comment key",
-    "PANDO": "pandoscope/pandoscope",
-    "skills": "pandoscope/skills",
+    "pando": "pandoscope/pandoscope",
+    "sk": "pandoscope/skills",
 }
 GOOD = """\
 id: review-spec-fidelity-opus-pando26-1
@@ -22,13 +22,14 @@ tickets:
   - pandoscope/skills#195
 """
 # The four review orders open in pandoscope/waybill on 2026-11-18
-# (waybill#68 to #71), with the two changes a placer now makes:
-# `pull_request` is `subject`, and the name ends in the step number.
+# (waybill#68 to #71), with the changes a placer now makes:
+# `pull_request` is `subject`, the name ends in the step number,
+# and the name writes the waybill's shortcode `sk`.
 IN_USE = {
-    "review-spec-fidelity-opus-skills274-4": "opus",
-    "review-spec-fidelity-sonnet-skills274-4": "sonnet",
-    "review-spec-fidelity-opus-skills274-4b": "opus",
-    "review-spec-fidelity-opus-skills274-6": "opus",
+    "review-spec-fidelity-opus-sk274-4": "opus",
+    "review-spec-fidelity-sonnet-sk274-4": "sonnet",
+    "review-spec-fidelity-opus-sk274-4b": "opus",
+    "review-spec-fidelity-opus-sk274-6": "opus",
 }
 IN_USE_ORDER = """\
 id: {name}
