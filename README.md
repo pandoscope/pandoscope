@@ -57,8 +57,7 @@ opens on the waybill repository from a branch `order/<name>`. The
 harness sets `CCR_TRIGGER_REPO` and `CCR_TRIGGER_HEAD_REF` in the
 environment. It also checks out the pull request head. The checkout
 puts `waybill/orders/<name>.yml` on disk.
-That file names the role, the model tier, the subject and the tickets,
-and for a reviewer the pass.
+That file names the role, the pass, the model tier, the subject and the tickets.
 The subject is the issue or the pull request under work, as `owner/repo#n`.
 The composer reads that file and sets the role.
 For a reviewer it appends the review task to `CLAUDE.md`.
@@ -66,7 +65,7 @@ The task is the whole of `skills/original/thread-ledger/review/<pass>.md`.
 The composer renders it as a Jinja template from the order and the pull request's clone.
 An undefined variable is a composer error.
 Before rendering,
-the composer switches that clone to the review branch `claude/review-<pass>-<model_tier>-pr<n>` at the pull request head.
+the composer switches that clone to the review branch `claude/review-<pass>-<model_tier>-<code><n>` at the pull request head.
 It renders `findings.schema.json`, beside the pass file, as the variable `findings_contract`.
 A pass file that uses the variable `candidates` gets the hits of the prose check on the lines the pull request adds, or `none`.
 The prose check is `skills/original/writing-prose/check.sh`.
@@ -74,13 +73,15 @@ The composer runs the check.
 The reviewer never runs it.
 For an implementer it appends the implementer task,
 rendered from `src/pandoscope/reinset/tasks/implementer.md.j2`.
-The composer reads the subject from the clone of its repository:
-a ref `refs/pull/<n>/head` makes it a pull request.
-An issue makes a first build,
+The order's pass decides the task.
+The pass `build` makes a first build on an issue,
 with the tickets and the branch `claude/<code><n>-implement-<step>` from the order's base.
-A pull request makes a fix round,
+The pass `fix` makes a fix round on a pull request,
 with the pull request's branch
 and the open entries that it owns in the disposition files under `waybill/dispositions/`.
+The composer reads the subject from the clone of its repository:
+a ref `refs/pull/<n>/head` makes it a pull request.
+A build on a pull request is a composer error, and so is a fix round on an issue.
 The implementer profile carries the standing rules of every implementer.
 Without an order the composer sets the role general
 and renders the loud UNCONFIGURED state.
@@ -117,21 +118,29 @@ unknown keys. It requires `role`. It requires `id` to equal the file
 name. It takes `subject` as `owner/repo#n`. It takes `tickets`
 as a list of the same form. It takes `checkouts` as a map from
 `owner/repo` to a ref.
-It requires `model_tier` on every order, in lowercase letters and digits only,
-and `pass` on a reviewer's alone, in lowercase.
+It requires `model_tier` on every order, in lowercase letters and digits only.
+It requires `pass` on every order, in lowercase.
+A reviewer's pass names its pass file.
+An implementer's pass is `build` or `fix`.
 An order that fits the schema must also fit its role's name pattern
 (`src/pandoscope/reinset/order_name.py`):
 `review-<pass>-<model_tier>-<code><n>-<step>` for a reviewer
-and `implement-<model_tier>-<code><n>-<step>` for an implementer.
-`<code><n>` is the subject, with the lowercase form of its repository's shortcode.
+and `implement-<pass>-<model_tier>-<code><n>-<step>` for an implementer.
+`<code><n>` is the subject, with its repository's shortcode as written.
 The shortcodes have one source, the waybill's `shortcodes.json`.
-It maps each shortcode to its repository, in the format the thread ledger reads:
-a flat object, or `repos` beside the forge and its link patterns.
-Two shortcodes that differ only in case, or two for one repository, are an error.
+It maps each shortcode to its repository, in the format the thread ledger reads.
+The schema `src/pandoscope/reinset/schemas/shortcodes.json` states its shape:
+a shortcode is two to five lowercase letters,
+a repository is `owner/repo`,
+and the map stands alone or under `repos` beside the forge and its link patterns.
+A key that starts with `_`, such as `_comment`, is a comment.
+Two shortcodes for one repository are an error, and so is a key written twice.
 The step counts from 1, and a repeat run of a step takes a letter from `b`.
 A name that disagrees with a field fails, and the error names the part.
-The other roles have no name pattern,
-so their name must hold `-<model_tier>-` and is otherwise checked against the file name alone.
+A name that begins with `review` or `implement` needs the role of that pattern.
+The other roles have no name pattern.
+Their pass is unchecked,
+and their name must hold `-<model_tier>-` and is otherwise checked against the file name alone.
 When the order does not validate against the schema,
 the composer reports an error that names every violated field.
 The session therefore never runs on a half-read order.
@@ -151,6 +160,14 @@ such as another `shortcodes.json` or a `repo-codes.json`.
 The command prints every violation with its field. It exits 1
 when any file fails. Waybill's pull request checks run it. A broken
 order therefore turns red before anyone fires on it.
+
+### `pandoscope shortcodes check FILE`
+
+Check the waybill's `shortcodes.json` alone, without an order.
+The command runs the guard against a second map in the file's folder.
+It then runs the schema,
+and the loader's check for two shortcodes of one repository and for a key written twice.
+It prints each failure with the file name and exits 1.
 
 More commands land as the tool grows.
 
