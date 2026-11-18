@@ -284,7 +284,6 @@ def test_a_shortcodes_file_that_reads_two_ways_is_an_error(
         assert word in str(raised.value), raised.value
 
 
-@pytest.mark.xfail(strict=True)
 @pytest.mark.parametrize("short", ["Pando", "pando1", "p", "pandos"])
 @pytest.mark.parametrize("form", ["flat", "forge"])
 def test_a_shortcode_off_two_to_five_lowercase_letters_fails_naming_it(
@@ -299,7 +298,6 @@ def test_a_shortcode_off_two_to_five_lowercase_letters_fails_naming_it(
     assert repr(short) in str(raised.value), raised.value
 
 
-@pytest.mark.xfail(strict=True)
 def test_a_shortcode_is_used_as_written(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -313,7 +311,6 @@ def test_a_shortcode_is_used_as_written(
     assert load_shortcodes(path) == {"pandoscope": "Pando7"}
 
 
-@pytest.mark.xfail(strict=True)
 @pytest.mark.parametrize(
     ("text", "key"),
     [
@@ -360,7 +357,6 @@ def test_the_schema_takes_both_forms_and_comment_keys(data: object) -> None:
     assert schema_errors(data) == []
 
 
-@pytest.mark.xfail(strict=True)
 @pytest.mark.parametrize(
     "data",
     [

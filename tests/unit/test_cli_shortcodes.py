@@ -19,7 +19,6 @@ def write(tmp_path: Path, text: str) -> Path:
     return path
 
 
-@pytest.mark.xfail(strict=True)
 def test_a_map_that_fits_passes(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -28,7 +27,6 @@ def test_a_map_that_fits_passes(
     assert capsys.readouterr().out == f"{path}: ok\n"
 
 
-@pytest.mark.xfail(strict=True)
 @pytest.mark.parametrize(
     ("text", "word"),
     [
@@ -53,7 +51,6 @@ def test_each_failure_of_the_map_exits_non_zero_and_names_it(
     assert "ok" not in out, out
 
 
-@pytest.mark.xfail(strict=True)
 def test_a_second_map_beside_it_exits_non_zero(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -65,7 +62,6 @@ def test_a_second_map_beside_it_exits_non_zero(
     assert "repo-codes.json" in capsys.readouterr().out
 
 
-@pytest.mark.xfail(strict=True)
 def test_a_missing_map_exits_non_zero(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:

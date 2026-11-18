@@ -113,10 +113,20 @@ def run_shortcodes_check(file: str) -> int:
     """
     Check the waybill's shortcode map alone. Print what fails. Return 1 when it fails.
 
-    Runs the schema, the loader's two rules
-    and the guard against a second map in the file's folder.
+    ``file`` is ``<waybill>/shortcodes.json``.
+    Runs the guard against a second map in the file's folder,
+    then the loader: the schema and the loader's two rules.
+    Prints ``<file>: ok`` and returns 0 when the map passes.
     """
-    raise NotImplementedError
+    path = Path(file)
+    try:
+        find_shortcodes(path.resolve().parent)
+        load_shortcodes(path)
+    except ShortcodeError as error:
+        print(f"{path}: {error}")
+        return 1
+    print(f"{path}: ok")
+    return 0
 
 
 def run_order_check(files: list[str]) -> int:

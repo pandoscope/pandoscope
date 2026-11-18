@@ -1,5 +1,32 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://pandoscope.dev/schemas/shortcodes.json",
-  "title": "Waybill shortcodes"
+  "title": "Waybill shortcodes",
+  "description": "The shape of the waybill's shortcodes.json, the org's one map of shortcode to repository (pandoscope#59, pandoscope#61), in the format the thread ledger reads. The file is the map itself, or holds it under repos beside the forge settings forge and patterns. A key that starts with _, such as _comment, is a comment at the top and inside the map. Two rules stand in the loader (src/pandoscope/reinset/order.py), because a schema cannot state them: a repository has one shortcode, and no key is written twice.",
+  "type": "object",
+  "if": {"required": ["repos"]},
+  "then": {
+    "properties": {
+      "forge": {"type": "string", "minLength": 1},
+      "patterns": {"type": "object", "additionalProperties": {"type": "string"}},
+      "repos": {"$ref": "#/$defs/map"}
+    },
+    "patternProperties": {"^_": true},
+    "additionalProperties": false
+  },
+  "else": {"$ref": "#/$defs/map"},
+  "$defs": {
+    "shortcode": {
+      "description": "Two to five lowercase letters (decision 122), so that a name, a reference and a branch write it as it stands.",
+      "type": "string",
+      "pattern": "^[a-z]{2,5}$"
+    },
+    "repository": {"type": "string", "pattern": "^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$"},
+    "map": {
+      "type": "object",
+      "propertyNames": {"if": {"pattern": "^_"}, "else": {"$ref": "#/$defs/shortcode"}},
+      "patternProperties": {"^_": true},
+      "additionalProperties": {"$ref": "#/$defs/repository"}
+    }
+  }
 }
