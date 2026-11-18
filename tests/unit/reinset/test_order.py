@@ -197,8 +197,18 @@ def test_a_subject_whose_repository_has_no_shortcode_fails() -> None:
 
 def test_a_role_without_a_name_pattern_keeps_only_the_id_check() -> None:
     # DECISION:FALLBACK in order_name.py: the probe role has no pattern.
-    probe = {**IMPLEMENTER, "id": "probe-4", "role": "probe"}
-    assert check(probe, "probe-4") == []
+    probe = {**IMPLEMENTER, "id": "probe-opus-4", "role": "probe"}
+    assert check(probe, "probe-opus-4") == []
+
+
+@pytest.mark.parametrize("name", ["probe-sonnet-4", "probe-4", "opus-probe-4"])
+def test_a_role_without_a_name_pattern_still_names_its_tier(name: str) -> None:
+    # F2: a Routine picks an order by the tier between hyphens in its name.
+    probe = {**IMPLEMENTER, "id": name, "role": "probe"}
+    violations = check(probe, name)
+    assert len(violations) == 1, violations
+    assert violations[0].startswith("id:"), violations
+    assert "-opus-" in violations[0], violations
 
 
 @pytest.mark.parametrize("role", ["probe", "general", "orchestrator"])

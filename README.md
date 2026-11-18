@@ -127,7 +127,7 @@ and `implement-<model_tier>-<code><n>-<step>` for an implementer.
 The step counts from 1, and a repeat run of a step takes a letter from `b`.
 A name that disagrees with a field fails, and the error names the part.
 The other roles have no name pattern,
-so their name is checked against the file name alone.
+so their name must hold `-<model_tier>-` and is otherwise checked against the file name alone.
 When the order does not validate against the schema,
 the composer reports an error that names every violated field.
 The session therefore never runs on a half-read order.

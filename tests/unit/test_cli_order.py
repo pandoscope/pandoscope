@@ -115,9 +115,9 @@ def test_order_check_tells_a_role_without_a_name_pattern(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     # DECISION:FALLBACK in order_name.py: the person placing it is told here.
-    order = waybill(tmp_path) / "probe-4.yml"
+    order = waybill(tmp_path) / "probe-opus-4.yml"
     order.write_text(
-        "id: probe-4\nrole: probe\nmodel_tier: opus\n"
+        "id: probe-opus-4\nrole: probe\nmodel_tier: opus\n"
         "subject: pandoscope/pandoscope#57\ntickets: []\n"
     )
     assert main(["order", "check", str(order)]) == 0

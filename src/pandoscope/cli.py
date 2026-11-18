@@ -124,7 +124,7 @@ def run_order_check(files: list[str]) -> int:
         elif name_pattern(data["role"]) is None:
             print(
                 f"{path}: ok, but the role {data['role']!r} has no name pattern, "
-                "so only the id is checked against the file name"
+                "so only its tier and the file name are checked"
             )
         else:
             print(f"{path}: ok")

@@ -38,8 +38,9 @@ def name_violations(
     Returns a ``subject`` violation when the subject's repository has no
     shortcode, whatever the role,
     and otherwise one violation that names the first part of the name that is off.
-    Returns an empty list when the name fits,
-    and when the role has no pattern.
+    For a role without a pattern, returns a violation when the name does
+    not hold ``-<model_tier>-``.
+    Returns an empty list when the name fits.
     """
     subject = _SUBJECT.match(data["subject"])
     assert subject is not None  # noqa: S101 — the schema pins the pattern
@@ -51,10 +52,19 @@ def name_violations(
         ]
     pattern = name_pattern(data["role"])
     if pattern is None:
+        # A Routine picks an order by the tier between hyphens in its
+        # branch name, so even a name without a pattern must hold it (F2).
+        tier = f"-{data['model_tier']}-"
+        if tier not in str(data["id"]):
+            return [
+                f"id: {data['id']!r} must hold {tier!r}, "
+                "because a Routine picks an order by the model_tier part of its name"
+            ]
         # DECISION:FALLBACK: a role without a name pattern
         # (orchestrator, general, probe; pandoscope#57 leaves them alone).
-        # Missing: the pattern to check the name against.
-        # In its place: only the schema's check that the id equals the file name.
+        # Missing: the pattern to check the rest of the name against.
+        # In its place: the schema's check that the id equals the file name,
+        # and the check above that the name holds the tier.
         # Told: `pandoscope order check` prints that the name is unchecked,
         # so the person who places the order sees it;
         # the session gets its role from the order as before.
