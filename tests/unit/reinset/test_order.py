@@ -249,7 +249,6 @@ def test_a_pass_that_holds_a_tier_word_fails() -> None:
     assert check(order, name)
 
 
-@pytest.mark.xfail(strict=True)
 @pytest.mark.parametrize("role", ["reviewer", "implementer"])
 def test_an_extra_part_after_the_tier_blames_the_part_it_stands_in(role: str) -> None:
     # Part D case 2: the old `-r2` stands where the subject belongs,
@@ -265,7 +264,6 @@ def test_an_extra_part_after_the_tier_blames_the_part_it_stands_in(role: str) ->
     assert "'r2-pando58-4'" in violations[0], violations
 
 
-@pytest.mark.xfail(strict=True)
 @pytest.mark.parametrize("role", ["probe", "general", "orchestrator"])
 @pytest.mark.parametrize(
     ("name", "owner"),

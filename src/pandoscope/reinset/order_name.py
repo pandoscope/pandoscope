@@ -22,6 +22,8 @@ PATTERNS: dict[str, str] = {
 BUILD = "build"
 FIX = "fix"
 IMPLEMENTER_PASSES = (BUILD, FIX)
+# The literal word that opens each pattern, and the role it belongs to.
+ROLE_OF_WORD = {pattern.split("-", 1)[0]: role for role, pattern in PATTERNS.items()}
 # The step counts from 1; a repeat run of a step takes b, c and so on.
 STEP = re.compile(r"[1-9][0-9]*[b-z]?")
 _SUBJECT = re.compile(r"^(?P<repo>[^#]+)#(?P<n>\d+)$")
@@ -44,6 +46,8 @@ def name_violations(
     Returns a ``subject`` violation when the subject's repository has no
     shortcode, whatever the role,
     a ``pass`` violation when an implementer's pass is neither build nor fix,
+    a role part violation when the name begins with the word of another role,
+    whatever the order's role,
     and otherwise one violation that names the first part of the name that is off.
     For a role without a pattern, returns a violation when the name does
     not hold ``-<model_tier>-``.
@@ -62,6 +66,16 @@ def name_violations(
             f"pass: {data['pass']!r} is no implementer's pass: "
             f"{BUILD!r} builds the ticket of an issue, "
             f"{FIX!r} fixes the findings on a pull request"
+        ]
+    word = str(data["id"]).split("-", 1)[0]
+    owner = ROLE_OF_WORD.get(word)
+    if owner is not None and owner != data["role"]:
+        # A name that begins with a role's word reads as that role's order,
+        # whatever role the order names (pandoscope#59, part D case 3).
+        return [
+            f"id: {data['id']!r} begins with {word!r}, the role part of the name "
+            f"of an order with the role {owner!r}, and the order's role is "
+            f"{data['role']!r}"
         ]
     pattern = name_pattern(data["role"])
     if pattern is None:
@@ -105,10 +119,13 @@ def name_violations(
             earlier = (part, text, rest)
             rest = rest[len(text) + 1 :]
             continue
-        elif earlier and earlier[0] != "role" and f"-{text}-" in f"{rest}-":
-            # This part's text stands further on: the part before it is
+        elif earlier and earlier[0] == "pass" and f"-{text}-" in f"{rest}-":
+            # This part's text stands further on: the pass before it is
             # longer in the name than in the order, as a pass `spec`
             # in a name that reads `spec-fidelity` (F1).
+            # Only a pass holds a hyphen; after any other part, the text
+            # in between is a part of its own, as the old `-r2` (part D case 2),
+            # and the part it stands in is off.
             part, text, rest = earlier
             value = repr(text)
         else:
