@@ -233,6 +233,22 @@ def test_a_name_off_its_pattern_fails_and_says_which_part(
     assert f"the {part} part" in violations[0], violations
 
 
+@pytest.mark.xfail(
+    strict=True,
+    reason=(
+        "pandoscope/pandoscope#59, part D case 1: a pass that holds a tier word "
+        "waits on the principal's decision; no list of tiers exists to check against"
+    ),
+)
+def test_a_pass_that_holds_a_tier_word_fails() -> None:
+    # The name also reads as the pass `prose` on the tier `opus`,
+    # and the filter of the Opus Routine matches it.
+    name = "review-prose-opus-sonnet-pando58-1"
+    order = {**VALID, "id": name, "pass": "prose-opus", "model_tier": "sonnet"}
+    order["subject"] = "pandoscope/pandoscope#58"
+    assert check(order, name)
+
+
 def test_a_subject_whose_repository_has_no_shortcode_fails() -> None:
     order = {**VALID, "subject": "pandoscope/meta#26"}
     violations = check(order)
