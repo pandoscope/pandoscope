@@ -27,14 +27,18 @@ VALID = {
     "checkouts": {"pandoscope/skills": "claude/sk195-review-driver"},
     "tickets": ["pandoscope/skills#195"],
 }
-IMPLEMENTER_NAME = "implement-opus-pando57-1"
+IMPLEMENTER_NAME = "implement-build-opus-pando57-1"
 IMPLEMENTER = {
     "id": IMPLEMENTER_NAME,
     "role": "implementer",
+    "pass": "build",
     "model_tier": "opus",
     "subject": "pandoscope/pandoscope#57",
     "tickets": [],
 }
+
+
+RED = pytest.mark.xfail(strict=True)
 
 
 def check(order: Mapping[str, object], name: str = NAME) -> list[str]:
@@ -45,15 +49,17 @@ def test_a_valid_review_order_has_no_violations() -> None:
     assert check(VALID) == []
 
 
+@pytest.mark.xfail(strict=True)
 def test_an_order_naming_an_issue_passes_and_so_does_one_naming_a_pull_request() -> (
     None
 ):
     # The forge numbers issues and pull requests in one sequence (decision 106),
     # so the one field `subject` names either.
     assert check(IMPLEMENTER, IMPLEMENTER_NAME) == []
-    fix_round = {**IMPLEMENTER, "id": "implement-opus-pando58-2"}
+    name = "implement-fix-opus-pando58-2"
+    fix_round = {**IMPLEMENTER, "id": name, "pass": "fix"}
     fix_round["subject"] = "pandoscope/pandoscope#58"
-    assert check(fix_round, "implement-opus-pando58-2") == []
+    assert check(fix_round, name) == []
 
 
 def test_result_is_an_optional_field() -> None:
@@ -110,11 +116,41 @@ def test_an_order_of_any_role_without_a_tier_fails_naming_the_field(role: str) -
     assert any(v.startswith("model_tier:") for v in violations), violations
 
 
-def test_only_a_reviewer_names_a_pass_and_it_must() -> None:
-    reviewer = {k: v for k, v in VALID.items() if k != "pass"}
-    assert any(v.startswith("pass:") for v in check(reviewer))
-    implementer = {**IMPLEMENTER, "pass": "spec-fidelity"}
-    assert any(v.startswith("pass:") for v in check(implementer, IMPLEMENTER_NAME))
+@pytest.mark.parametrize(
+    "role",
+    [
+        "reviewer",
+        pytest.param("implementer", marks=pytest.mark.xfail(strict=True)),
+        pytest.param("orchestrator", marks=pytest.mark.xfail(strict=True)),
+        pytest.param("general", marks=pytest.mark.xfail(strict=True)),
+        pytest.param("probe", marks=pytest.mark.xfail(strict=True)),
+    ],
+)
+def test_an_order_of_any_role_without_a_pass_fails_naming_the_field(
+    role: str,
+) -> None:
+    # Decision 109: every role has a pass, not only the reviewer.
+    order = {k: v for k, v in IMPLEMENTER.items() if k != "pass"}
+    violations = check({**order, "role": role}, IMPLEMENTER_NAME)
+    assert any(v.startswith("pass:") for v in violations), violations
+
+
+@pytest.mark.xfail(strict=True)
+@pytest.mark.parametrize("pass_", ["spec-fidelity", "builds"])
+def test_an_implementer_pass_is_build_or_fix(pass_: str) -> None:
+    name = f"implement-{pass_}-opus-pando57-1"
+    violations = check({**IMPLEMENTER, "id": name, "pass": pass_}, name)
+    assert len(violations) == 1, violations
+    assert violations[0].startswith("pass:"), violations
+    assert "'build'" in violations[0], violations
+    assert "'fix'" in violations[0], violations
+
+
+@pytest.mark.xfail(strict=True)
+@pytest.mark.parametrize("role", ["orchestrator", "general", "probe"])
+def test_a_role_without_a_name_pattern_takes_any_pass(role: str) -> None:
+    order = {**IMPLEMENTER, "id": "probe-opus-4", "role": role, "pass": "look-1"}
+    assert check(order, "probe-opus-4") == []
 
 
 def test_a_tier_has_letters_and_digits_only() -> None:
@@ -175,10 +211,18 @@ def test_a_review_name_ends_in_its_step_and_a_repeat_letter(name: str) -> None:
         ("review-spec-fidelity-opus-pando26-1a", {}, "step"),
         ("review-spec-fidelity-opus-pando26-1-x", {}, "step"),
         # an implementer name against a reviewer's fields and back
-        ("review-opus-pando57-1", {"role": "implementer"}, "role"),
-        ("implement-sonnet-pando57-1", {"role": "implementer"}, "model_tier"),
-        ("implement-opus-pando27-1", {"role": "implementer"}, "subject"),
-        ("implement-opus-pando57", {"role": "implementer"}, "step"),
+        *(
+            pytest.param(name, {"role": "implementer"}, part, marks=RED)
+            for name, part in [
+                ("review-build-opus-pando57-1", "role"),
+                # the name of an implementer order carries its pass (decision 109)
+                ("implement-opus-pando57-1", "pass"),
+                ("implement-fix-opus-pando57-1", "pass"),
+                ("implement-build-sonnet-pando57-1", "model_tier"),
+                ("implement-build-opus-pando27-1", "subject"),
+                ("implement-build-opus-pando57", "step"),
+            ]
+        ),
     ],
 )
 def test_a_name_off_its_pattern_fails_and_says_which_part(
@@ -186,7 +230,7 @@ def test_a_name_off_its_pattern_fails_and_says_which_part(
 ) -> None:
     order = {**VALID, **change, "id": name}
     if change.get("role") == "implementer":
-        order = {k: v for k, v in order.items() if k != "pass"}
+        order = {**order, "pass": "build"}
         if part != "subject":
             order["subject"] = "pandoscope/pandoscope#57"
     violations = check(order, name)
@@ -203,12 +247,14 @@ def test_a_subject_whose_repository_has_no_shortcode_fails() -> None:
     ), violations
 
 
+@pytest.mark.xfail(strict=True)
 def test_a_role_without_a_name_pattern_keeps_only_the_id_check() -> None:
     # DECISION:FALLBACK in order_name.py: the probe role has no pattern.
     probe = {**IMPLEMENTER, "id": "probe-opus-4", "role": "probe"}
     assert check(probe, "probe-opus-4") == []
 
 
+@pytest.mark.xfail(strict=True)
 @pytest.mark.parametrize("name", ["probe-sonnet-4", "probe-4", "opus-probe-4"])
 def test_a_role_without_a_name_pattern_still_names_its_tier(name: str) -> None:
     # F2: a Routine picks an order by the tier between hyphens in its name.
@@ -219,6 +265,7 @@ def test_a_role_without_a_name_pattern_still_names_its_tier(name: str) -> None:
     assert "-opus-" in violations[0], violations
 
 
+@pytest.mark.xfail(strict=True)
 @pytest.mark.parametrize("role", ["probe", "general", "orchestrator"])
 def test_a_subject_without_a_shortcode_fails_for_every_role(role: str) -> None:
     # F3: the lookup stood after the early return of a role without a pattern.

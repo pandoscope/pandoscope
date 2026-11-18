@@ -73,12 +73,14 @@ def test_the_review_orders_in_use_pass_in_the_new_form(
     assert main(["order", "check", *files]) == 0, capsys.readouterr().out
 
 
+@pytest.mark.xfail(strict=True)
 def test_an_implementer_order_passes(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    order = waybill(tmp_path) / "implement-opus-pando57-1.yml"
+    order = waybill(tmp_path) / "implement-build-opus-pando57-1.yml"
     order.write_text(
-        "id: implement-opus-pando57-1\nrole: implementer\nmodel_tier: opus\n"
+        "id: implement-build-opus-pando57-1\nrole: implementer\npass: build\n"
+        "model_tier: opus\n"
         "subject: pandoscope/pandoscope#57\ntickets: []\n"
     )
     assert main(["order", "check", str(order)]) == 0, capsys.readouterr().out
@@ -112,13 +114,14 @@ def test_order_check_without_the_shortcodes_file_fails(
     assert "ok" not in out
 
 
+@pytest.mark.xfail(strict=True)
 def test_order_check_tells_a_role_without_a_name_pattern(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     # DECISION:FALLBACK in order_name.py: the person placing it is told here.
     order = waybill(tmp_path) / "probe-opus-4.yml"
     order.write_text(
-        "id: probe-opus-4\nrole: probe\nmodel_tier: opus\n"
+        "id: probe-opus-4\nrole: probe\npass: look\nmodel_tier: opus\n"
         "subject: pandoscope/pandoscope#57\ntickets: []\n"
     )
     assert main(["order", "check", str(order)]) == 0

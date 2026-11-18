@@ -67,7 +67,7 @@ Base {{ base }}, head {{ head }}.
 
 
 REVIEW_NAME = "review-spec-fidelity-sonnet-aet262-1"
-IMPLEMENT_NAME = "implement-opus-aet261-1"
+IMPLEMENT_NAME = "implement-build-opus-aet261-1"
 WAYBILL_FIRE = fire(REVIEW_NAME)
 IMPLEMENT_FIRE = fire(IMPLEMENT_NAME)
 
@@ -147,7 +147,7 @@ def test_an_order_without_the_pass_file_is_a_composer_error(
 # Ruling 2026-09-23 (skills#195): the order is the only receiver. No
 # environment variable and no prompt line composes a role.
 ORDER_IMPLEMENTER = (
-    f"id: {IMPLEMENT_NAME}\nrole: implementer\nmodel_tier: opus\n"
+    f"id: {IMPLEMENT_NAME}\nrole: implementer\npass: build\nmodel_tier: opus\n"
     "subject: pandoscope/aet#261\ntickets: [pandoscope/skills#195]\n"
 )
 
@@ -187,6 +187,7 @@ def test_a_fired_session_without_an_order_shouts(
     assert "WAITING" not in result.render_text
 
 
+@pytest.mark.xfail(strict=True)
 def test_the_order_carries_its_tickets_into_the_answers(
     session_root: Path, home: Path, path_dirs: list[Path]
 ) -> None:
@@ -197,15 +198,19 @@ def test_the_order_carries_its_tickets_into_the_answers(
     assert result.answers["resolved"]["role"] == "implementer"
 
 
+@pytest.mark.xfail(strict=True)
 def test_an_order_declaring_general_renders_declared_general(
     session_root: Path, home: Path, path_dirs: list[Path]
 ) -> None:
+    name = "general-opus-aet261-1"
     write_pass_and_order(
         session_root,
-        ORDER_IMPLEMENTER.replace("implementer", "general"),
-        IMPLEMENT_NAME,
+        ORDER_IMPLEMENTER.replace("implementer", "general").replace(
+            IMPLEMENT_NAME, name
+        ),
+        name,
     )
-    env = {**ENV_RUN7_FIRED, **IMPLEMENT_FIRE}
+    env = {**ENV_RUN7_FIRED, **fire(name)}
     result = compose(env, session_root, home, path_dirs)
     assert result.answers["resolved"]["role"] == "general"
     assert "UNCONFIGURED" not in result.render_text
@@ -219,11 +224,12 @@ def _skill(session_root: Path, name: str) -> None:
 
 
 IMPLEMENTER_ORDER = (
-    f"id: {IMPLEMENT_NAME}\nrole: implementer\nmodel_tier: opus\n"
+    f"id: {IMPLEMENT_NAME}\nrole: implementer\npass: build\nmodel_tier: opus\n"
     "subject: pandoscope/aet#261\ntickets: []\n"
 )
 
 
+@pytest.mark.xfail(strict=True)
 def test_role_install_follows_the_profile(
     session_root: Path, home: Path, path_dirs: list[Path]
 ) -> None:
@@ -244,6 +250,7 @@ def test_role_install_follows_the_profile(
     assert "- handing-off" in result.render_text
 
 
+@pytest.mark.xfail(strict=True)
 def test_missing_bundle_skill_is_a_composer_error(
     session_root: Path, home: Path, path_dirs: list[Path]
 ) -> None:
@@ -256,6 +263,7 @@ def test_missing_bundle_skill_is_a_composer_error(
     assert result.answers["errors"] == result.errors
 
 
+@pytest.mark.xfail(strict=True)
 def test_a_session_without_an_order_prunes_what_a_role_left(
     session_root: Path, home: Path, path_dirs: list[Path]
 ) -> None:
@@ -270,6 +278,7 @@ def test_a_session_without_an_order_prunes_what_a_role_left(
     assert not (home / ".claude" / "skills" / "handing-off").exists()
 
 
+@pytest.mark.xfail(strict=True)
 def test_role_hooks_render_beside_the_answers(
     session_root: Path, home: Path, path_dirs: list[Path]
 ) -> None:
