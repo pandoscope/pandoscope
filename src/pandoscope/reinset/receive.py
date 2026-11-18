@@ -44,6 +44,9 @@ class Order:
     pass_: str | None
     model_tier: str | None
     tickets: list[str]
+    subject: str = ""
+    code: str = ""
+    number: int = 0
 
 
 class OrderError(Exception):
@@ -69,7 +72,7 @@ def find_order(env: Mapping[str, str], session_root: Path) -> Order | None:
         msg = f"the trigger names an order but {path} is missing"
         raise OrderError(msg)
     data = yaml.safe_load(path.read_text())
-    violations = validate_order(data, path.stem)
+    violations = validate_order(data, path.stem, {})
     if violations:
         msg = f"order {path} is off the schema: " + "; ".join(violations)
         raise OrderError(msg)

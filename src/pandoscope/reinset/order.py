@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
@@ -14,7 +15,19 @@ ROLES: tuple[str, ...] = tuple(
 )
 
 
-def validate_order(data: Any, name: str) -> list[str]:
+SHORTCODES = "shortcodes.json"
+
+
+class ShortcodeError(Exception):
+    """The waybill's shortcodes file is missing or not a map of repository to code."""
+
+
+def load_shortcodes(path: Path) -> dict[str, str]:
+    """Return the map of repository to shortcode from the waybill's file."""
+    raise NotImplementedError
+
+
+def validate_order(data: Any, name: str, shortcodes: Mapping[str, str]) -> list[str]:
     """
     Return every way ``data`` departs from the order schema, each naming its field.
 

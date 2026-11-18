@@ -102,7 +102,7 @@ def run_order_check(files: list[str]) -> int:
             print(f"{path}: cannot read as YAML: {error}")
             failed += 1
             continue
-        violations = validate_order(data, path.stem)
+        violations = validate_order(data, path.stem, {})
         if violations:
             failed += 1
             for violation in violations:
