@@ -11,8 +11,8 @@ import yaml
 from pandoscope import __version__
 from pandoscope.reinset.compose import Composition, compose
 from pandoscope.reinset.order import (
-    SHORTCODES,
     ShortcodeError,
+    find_shortcodes,
     load_shortcodes,
     validate_order,
 )
@@ -111,7 +111,7 @@ def run_order_check(files: list[str]) -> int:
         path = Path(name)
         try:
             data = yaml.safe_load(path.read_text())
-            shortcodes = load_shortcodes(path.resolve().parent.parent / SHORTCODES)
+            shortcodes = load_shortcodes(find_shortcodes(path.resolve().parent.parent))
         except (OSError, yaml.YAMLError, ShortcodeError) as error:
             print(f"{path}: cannot check: {error}")
             failed += 1

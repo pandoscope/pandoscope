@@ -96,6 +96,40 @@ def load_shortcodes(path: Path) -> dict[str, str]:
     return codes
 
 
+# Every file name that a shortcode map has carried. A second one in the
+# waybill is a second source, which pandoscope#61 removed.
+MAP_NAMES = (SHORTCODES, "repo-codes.json")
+
+
+def find_shortcodes(waybill: Path) -> Path:
+    """
+    Return the waybill's one shortcodes file, ``<waybill>/shortcodes.json``.
+
+    Raises ShortcodeError when that file is missing,
+    and when the waybill holds a second map anywhere outside ``.git``:
+    another ``shortcodes.json`` or a ``repo-codes.json``.
+    The error names every file it found.
+    """
+    source = waybill / SHORTCODES
+    found = sorted(
+        path
+        for name in MAP_NAMES
+        for path in waybill.rglob(name)
+        if ".git" not in path.relative_to(waybill).parts
+    )
+    if source not in found:
+        msg = f"the waybill has no shortcodes file at {source}"
+        raise ShortcodeError(msg)
+    second = [str(path.relative_to(waybill)) for path in found if path != source]
+    if second:
+        msg = (
+            f"the waybill {waybill} holds a second shortcode map beside "
+            f"{SHORTCODES}: {', '.join(second)}; one map is the source (pandoscope#61)"
+        )
+        raise ShortcodeError(msg)
+    return source
+
+
 def validate_order(data: Any, name: str, shortcodes: Mapping[str, str]) -> list[str]:
     """
     Return every way ``data`` departs from the order schema, each naming its field.

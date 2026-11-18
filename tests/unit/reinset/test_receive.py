@@ -101,6 +101,13 @@ def test_an_order_without_the_waybills_shortcodes_raises(session_root: Path) -> 
         find_order(WAYBILL_FIRE, session_root)
 
 
+def test_an_order_beside_a_second_shortcodes_file_raises(session_root: Path) -> None:
+    write_order(session_root)
+    (session_root / "waybill" / "orders" / "shortcodes.json").write_text("{}")
+    with pytest.raises(OrderError, match=r"orders/shortcodes\.json"):
+        find_order(WAYBILL_FIRE, session_root)
+
+
 def test_the_receiver_knows_no_reference_channel() -> None:
     import pandoscope.reinset.receive as receive
 

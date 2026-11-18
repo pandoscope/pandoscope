@@ -11,8 +11,8 @@ from typing import Any
 import yaml
 
 from pandoscope.reinset.order import (
-    SHORTCODES,
     ShortcodeError,
+    find_shortcodes,
     load_shortcodes,
     validate_order,
 )
@@ -67,7 +67,8 @@ def find_order(env: Mapping[str, str], session_root: Path) -> Order | None:
     ``order/<name>`` branch, the trigger names
     ``<session_root>/waybill/orders/<name>.yml``. Raises OrderError when
     that file is missing, and when the waybill's ``shortcodes.json``
-    beside ``orders/`` is missing or broken. Raises OrderError when the
+    beside ``orders/`` is missing or broken, or a second map stands beside it.
+    Raises OrderError when the
     file departs from the order schema or its name pattern; the error
     names every violated field.
     """
@@ -80,7 +81,7 @@ def find_order(env: Mapping[str, str], session_root: Path) -> Order | None:
         msg = f"the trigger names an order but {path} is missing"
         raise OrderError(msg)
     try:
-        shortcodes = load_shortcodes(session_root / WAYBILL / SHORTCODES)
+        shortcodes = load_shortcodes(find_shortcodes(session_root / WAYBILL))
     except ShortcodeError as error:
         raise OrderError(str(error)) from error
     data = yaml.safe_load(path.read_text())

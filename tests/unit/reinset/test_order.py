@@ -6,7 +6,12 @@ from pathlib import Path
 
 import pytest
 
-from pandoscope.reinset.order import ShortcodeError, load_shortcodes, validate_order
+from pandoscope.reinset.order import (
+    ShortcodeError,
+    find_shortcodes,
+    load_shortcodes,
+    validate_order,
+)
 
 SHORTCODES = {"pandoscope/pandoscope": "pando", "pandoscope/skills": "skills"}
 NAME = "review-spec-fidelity-opus-pando26-1"
@@ -288,3 +293,29 @@ def test_a_missing_or_broken_shortcodes_file_is_an_error(
         path.write_text(text)
     with pytest.raises(ShortcodeError, match=r"shortcodes\.json"):
         load_shortcodes(path)
+
+
+def test_the_waybill_has_one_shortcodes_file(tmp_path: Path) -> None:
+    (tmp_path / "shortcodes.json").write_text(json.dumps(SHORTCODE_FILE))
+    (tmp_path / ".git").mkdir()
+    (tmp_path / ".git" / "shortcodes.json").write_text("{}")  # git's, not a map
+    assert find_shortcodes(tmp_path) == tmp_path / "shortcodes.json"
+
+
+@pytest.mark.parametrize(
+    "second", ["orders/shortcodes.json", "config/shortcodes.json", "repo-codes.json"]
+)
+def test_a_second_shortcodes_file_in_the_waybill_is_an_error(
+    tmp_path: Path, second: str
+) -> None:
+    # The guard of pandoscope#61: one map, and a second one fails.
+    (tmp_path / "shortcodes.json").write_text(json.dumps(SHORTCODE_FILE))
+    (tmp_path / second).parent.mkdir(parents=True, exist_ok=True)
+    (tmp_path / second).write_text("{}")
+    with pytest.raises(ShortcodeError, match=second):
+        find_shortcodes(tmp_path)
+
+
+def test_a_waybill_without_its_shortcodes_file_is_an_error(tmp_path: Path) -> None:
+    with pytest.raises(ShortcodeError, match=r"shortcodes\.json"):
+        find_shortcodes(tmp_path)

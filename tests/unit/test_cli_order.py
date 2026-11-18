@@ -133,3 +133,13 @@ def test_order_check_run_inside_orders_finds_the_shortcodes(
     monkeypatch.chdir(orders)
     assert main(["order", "check", "review-spec-fidelity-opus-pando26-1.yml"]) == 0
     assert "ok" in capsys.readouterr().out
+
+
+def test_order_check_with_a_second_shortcodes_file_fails(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    order = waybill(tmp_path) / "review-spec-fidelity-opus-pando26-1.yml"
+    order.write_text(GOOD)
+    (tmp_path / "repo-codes.json").write_text("{}")
+    assert main(["order", "check", str(order)]) == 1
+    assert "repo-codes.json" in capsys.readouterr().out
