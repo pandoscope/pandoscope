@@ -97,8 +97,8 @@ def find_order(env: Mapping[str, str], session_root: Path) -> Order | None:
         data["role"],
         data["subject"],
         repo,
-        # A role without a name pattern needs no shortcode.
-        shortcodes.get(repo, ""),
+        # validate_order fails a subject without a shortcode.
+        shortcodes[repo],
         int(match.group("n")),
         data.get("base"),
         data.get("pass"),

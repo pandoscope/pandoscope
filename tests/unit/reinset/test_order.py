@@ -193,6 +193,17 @@ def test_a_role_without_a_name_pattern_keeps_only_the_id_check() -> None:
     assert check(probe, "probe-4") == []
 
 
+@pytest.mark.parametrize("role", ["probe", "general", "orchestrator"])
+def test_a_subject_without_a_shortcode_fails_for_every_role(role: str) -> None:
+    # F3: the lookup stood after the early return of a role without a pattern.
+    order = {**IMPLEMENTER, "id": "probe-opus-4", "role": role}
+    order["subject"] = "other/repo#3"
+    violations = check(order, "probe-opus-4")
+    assert any(
+        v.startswith("subject:") and "shortcodes.json" in v for v in violations
+    ), violations
+
+
 def test_shortcodes_load_from_the_waybill_file(tmp_path: Path) -> None:
     path = tmp_path / "shortcodes.json"
     path.write_text(json.dumps({"_comment": "seeded once", **SHORTCODES}))

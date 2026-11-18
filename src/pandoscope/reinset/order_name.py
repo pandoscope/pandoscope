@@ -35,11 +35,20 @@ def name_violations(
     ``data`` must already validate against the order schema.
     ``shortcodes`` maps a repository to its shortcode,
     as the waybill's ``shortcodes.json`` does.
-    Returns one violation that names the first part of the name that is off,
-    or a ``subject`` violation when the subject's repository has no shortcode.
+    Returns a ``subject`` violation when the subject's repository has no
+    shortcode, whatever the role,
+    and otherwise one violation that names the first part of the name that is off.
     Returns an empty list when the name fits,
     and when the role has no pattern.
     """
+    subject = _SUBJECT.match(data["subject"])
+    assert subject is not None  # noqa: S101 — the schema pins the pattern
+    code = shortcodes.get(subject["repo"])
+    if code is None:
+        return [
+            f"subject: {subject['repo']!r} has no shortcode in shortcodes.json, "
+            "and every order needs one"
+        ]
     pattern = name_pattern(data["role"])
     if pattern is None:
         # DECISION:FALLBACK: a role without a name pattern
@@ -52,14 +61,6 @@ def name_violations(
         # Test: test_a_role_without_a_name_pattern_keeps_only_the_id_check
         # and test_order_check_tells_a_role_without_a_name_pattern.
         return []
-    subject = _SUBJECT.match(data["subject"])
-    assert subject is not None  # noqa: S101 — the schema pins the pattern
-    code = shortcodes.get(subject["repo"])
-    if code is None:
-        return [
-            f"subject: {subject['repo']!r} has no shortcode in shortcodes.json, "
-            "and the order's name needs one"
-        ]
     values = {
         "pass": data.get("pass"),
         "model_tier": data["model_tier"],
