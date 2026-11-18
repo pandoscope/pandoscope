@@ -249,6 +249,45 @@ def test_a_pass_that_holds_a_tier_word_fails() -> None:
     assert check(order, name)
 
 
+@pytest.mark.xfail(strict=True)
+@pytest.mark.parametrize("role", ["reviewer", "implementer"])
+def test_an_extra_part_after_the_tier_blames_the_part_it_stands_in(role: str) -> None:
+    # Part D case 2: the old `-r2` stands where the subject belongs,
+    # and the tier in the name agrees with the order.
+    pass_ = "spec-fidelity" if role == "reviewer" else "build"
+    word = "review" if role == "reviewer" else "implement"
+    name = f"{word}-{pass_}-opus-r2-pando58-4"
+    order = {**VALID, "id": name, "role": role, "pass": pass_}
+    order["subject"] = "pandoscope/pandoscope#58"
+    violations = check(order, name)
+    assert len(violations) == 1, violations
+    assert "the subject part" in violations[0], violations
+    assert "'r2-pando58-4'" in violations[0], violations
+
+
+@pytest.mark.xfail(strict=True)
+@pytest.mark.parametrize("role", ["probe", "general", "orchestrator"])
+@pytest.mark.parametrize(
+    ("name", "owner"),
+    [
+        ("implement-opus-pando57-1", "implementer"),
+        ("implement-build-opus-pando57-1", "implementer"),
+        ("review-spec-fidelity-opus-pando57-1", "reviewer"),
+    ],
+)
+def test_a_name_that_begins_with_a_roles_word_needs_that_role(
+    role: str, name: str, owner: str
+) -> None:
+    # Part D case 3: the name of one role on an order of another.
+    order = {**IMPLEMENTER, "id": name, "role": role}
+    violations = check(order, name)
+    assert len(violations) == 1, violations
+    assert violations[0].startswith("id:"), violations
+    assert "the role part" in violations[0], violations
+    assert repr(owner) in violations[0], violations
+    assert repr(role) in violations[0], violations
+
+
 def test_a_subject_whose_repository_has_no_shortcode_fails() -> None:
     order = {**VALID, "subject": "pandoscope/meta#26"}
     violations = check(order)
