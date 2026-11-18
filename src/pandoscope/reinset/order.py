@@ -9,6 +9,8 @@ from typing import Any
 
 import jsonschema
 
+from pandoscope.reinset.order_name import name_violations
+
 SCHEMA_PATH = Path(__file__).parent / "schemas" / "order.json"
 ROLES: tuple[str, ...] = tuple(
     json.loads(SCHEMA_PATH.read_text())["properties"]["role"]["enum"]
@@ -23,8 +25,28 @@ class ShortcodeError(Exception):
 
 
 def load_shortcodes(path: Path) -> dict[str, str]:
-    """Return the map of repository to shortcode from the waybill's file."""
-    raise NotImplementedError
+    """
+    Return the map of repository to shortcode from the waybill's ``shortcodes.json``.
+
+    Keys that start with ``_``, such as ``_comment``, are not repositories
+    and are left out.
+    Raises ShortcodeError when the file is missing, is not JSON,
+    or is not an object whose values are strings.
+    """
+    try:
+        data = json.loads(path.read_text())
+    except (OSError, json.JSONDecodeError) as error:
+        msg = f"cannot read the shortcodes file {path}: {error}"
+        raise ShortcodeError(msg) from error
+    if not isinstance(data, dict):
+        msg = f"the shortcodes file {path} is not an object: {data!r}"
+        raise ShortcodeError(msg)
+    codes = {repo: code for repo, code in data.items() if not repo.startswith("_")}
+    wrong = {repo: code for repo, code in codes.items() if not isinstance(code, str)}
+    if wrong:
+        msg = f"the shortcodes file {path} maps repositories to non-strings: {wrong!r}"
+        raise ShortcodeError(msg)
+    return codes
 
 
 def validate_order(data: Any, name: str, shortcodes: Mapping[str, str]) -> list[str]:
@@ -33,8 +55,10 @@ def validate_order(data: Any, name: str, shortcodes: Mapping[str, str]) -> list[
 
     ``name`` is the order's file base name. The order's ``id`` must
     equal it: the Routine fires from the branch ``order/<name>``, so an
-    id that disagrees would send the session after the wrong order. An
-    empty list means the order is valid.
+    id that disagrees would send the session after the wrong order.
+    An order that fits the schema must also fit its role's name pattern
+    (``order_name.py``), with the subject's repository looked up in
+    ``shortcodes``. An empty list means the order is valid.
     """
     if not isinstance(data, dict):
         return ["the order is not a mapping"]
@@ -46,6 +70,8 @@ def validate_order(data: Any, name: str, shortcodes: Mapping[str, str]) -> list[
         violations.append(f"{field}: {error.message}")
     if data.get("id") != name:
         violations.append(f"id: {data.get('id')!r} must equal the file name {name!r}")
+    if not violations:
+        violations = name_violations(data, shortcodes)
     return violations
 
 

@@ -33,12 +33,10 @@ def check(order: Mapping[str, object], name: str = NAME) -> list[str]:
     return validate_order(order, name, SHORTCODES)
 
 
-@pytest.mark.xfail(strict=True)
 def test_a_valid_review_order_has_no_violations() -> None:
     assert check(VALID) == []
 
 
-@pytest.mark.xfail(strict=True)
 def test_an_order_naming_an_issue_passes_and_so_does_one_naming_a_pull_request() -> (
     None
 ):
@@ -50,7 +48,6 @@ def test_an_order_naming_an_issue_passes_and_so_does_one_naming_a_pull_request()
     assert check(fix_round, "implement-opus-pando58-2") == []
 
 
-@pytest.mark.xfail(strict=True)
 def test_result_is_an_optional_field() -> None:
     order = {
         **VALID,
@@ -73,11 +70,7 @@ def test_result_is_an_optional_field() -> None:
         ({"checkouts": ["pandoscope/skills"]}, "checkouts"),
         ({"tickets": ["195"]}, "tickets"),
         ({"tickets": "pandoscope/skills#195"}, "tickets"),
-        pytest.param(
-            {"pull_request": "pandoscope/pandoscope#26"},
-            "pull_request",  # gone
-            marks=pytest.mark.xfail(strict=True),
-        ),
+        ({"pull_request": "pandoscope/pandoscope#26"}, "pull_request"),  # gone
     ],
 )
 def test_each_violation_names_its_field(change: dict[str, object], field: str) -> None:
@@ -91,7 +84,7 @@ def test_each_violation_names_its_field(change: dict[str, object], field: str) -
     [
         "id",
         "role",
-        pytest.param("subject", marks=pytest.mark.xfail(strict=True)),
+        "subject",
         "model_tier",
         "tickets",
     ],
@@ -103,14 +96,12 @@ def test_required_fields_are_named_when_missing(missing: str) -> None:
 
 
 @pytest.mark.parametrize("role", ["implementer", "orchestrator", "general", "probe"])
-@pytest.mark.xfail(strict=True)
 def test_an_order_of_any_role_without_a_tier_fails_naming_the_field(role: str) -> None:
     order = {k: v for k, v in IMPLEMENTER.items() if k != "model_tier"}
     violations = check({**order, "role": role}, IMPLEMENTER_NAME)
     assert any(v.startswith("model_tier:") for v in violations), violations
 
 
-@pytest.mark.xfail(strict=True)
 def test_only_a_reviewer_names_a_pass_and_it_must() -> None:
     reviewer = {k: v for k, v in VALID.items() if k != "pass"}
     assert any(v.startswith("pass:") for v in check(reviewer))
@@ -143,7 +134,6 @@ def test_the_model_tier_is_model_tier_not_tier() -> None:
         "review-spec-fidelity-opus-pando26-12c",
     ],
 )
-@pytest.mark.xfail(strict=True)
 def test_a_review_name_ends_in_its_step_and_a_repeat_letter(name: str) -> None:
     assert check({**VALID, "id": name}, name) == []
 
@@ -173,7 +163,6 @@ def test_a_review_name_ends_in_its_step_and_a_repeat_letter(name: str) -> None:
         ("implement-opus-pando57", {"role": "implementer"}, "step"),
     ],
 )
-@pytest.mark.xfail(strict=True)
 def test_a_name_off_its_pattern_fails_and_says_which_part(
     name: str, change: dict[str, object], part: str
 ) -> None:
@@ -188,7 +177,6 @@ def test_a_name_off_its_pattern_fails_and_says_which_part(
     assert f"the {part} part" in violations[0], violations
 
 
-@pytest.mark.xfail(strict=True)
 def test_a_subject_whose_repository_has_no_shortcode_fails() -> None:
     order = {**VALID, "subject": "pandoscope/meta#26"}
     violations = check(order)
@@ -197,14 +185,12 @@ def test_a_subject_whose_repository_has_no_shortcode_fails() -> None:
     ), violations
 
 
-@pytest.mark.xfail(strict=True)
 def test_a_role_without_a_name_pattern_keeps_only_the_id_check() -> None:
     # DECISION:FALLBACK in order_name.py: the probe role has no pattern.
     probe = {**IMPLEMENTER, "id": "probe-4", "role": "probe"}
     assert check(probe, "probe-4") == []
 
 
-@pytest.mark.xfail(strict=True)
 def test_shortcodes_load_from_the_waybill_file(tmp_path: Path) -> None:
     path = tmp_path / "shortcodes.json"
     path.write_text(json.dumps({"_comment": "seeded once", **SHORTCODES}))
@@ -212,7 +198,6 @@ def test_shortcodes_load_from_the_waybill_file(tmp_path: Path) -> None:
 
 
 @pytest.mark.parametrize("text", [None, "[]", '{"a/b": 1}', "{"])
-@pytest.mark.xfail(strict=True)
 def test_a_missing_or_broken_shortcodes_file_is_an_error(
     tmp_path: Path, text: str | None
 ) -> None:

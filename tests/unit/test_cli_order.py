@@ -51,7 +51,6 @@ def waybill(tmp_path: Path) -> Path:
     return orders
 
 
-@pytest.mark.xfail(strict=True)
 def test_order_check_passes_a_valid_order(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -61,7 +60,6 @@ def test_order_check_passes_a_valid_order(
     assert "ok" in capsys.readouterr().out
 
 
-@pytest.mark.xfail(strict=True)
 def test_the_review_orders_in_use_pass_in_the_new_form(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -74,7 +72,6 @@ def test_the_review_orders_in_use_pass_in_the_new_form(
     assert main(["order", "check", *files]) == 0, capsys.readouterr().out
 
 
-@pytest.mark.xfail(strict=True)
 def test_an_implementer_order_passes(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -102,7 +99,6 @@ def test_order_check_names_every_violation_and_fails(
     assert str(order) in out
 
 
-@pytest.mark.xfail(strict=True)
 def test_order_check_without_the_shortcodes_file_fails(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -115,7 +111,6 @@ def test_order_check_without_the_shortcodes_file_fails(
     assert "ok" not in out
 
 
-@pytest.mark.xfail(strict=True)
 def test_order_check_tells_a_role_without_a_name_pattern(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:

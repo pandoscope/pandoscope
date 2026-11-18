@@ -10,7 +10,13 @@ import yaml
 
 from pandoscope import __version__
 from pandoscope.reinset.compose import Composition, compose
-from pandoscope.reinset.order import validate_order
+from pandoscope.reinset.order import (
+    SHORTCODES,
+    ShortcodeError,
+    load_shortcodes,
+    validate_order,
+)
+from pandoscope.reinset.order_name import name_pattern
 from pandoscope.stamp import TEMPLATE_URL, parse_data, stamp
 
 
@@ -92,21 +98,34 @@ def main(argv: list[str] | None = None) -> int:
 
 
 def run_order_check(files: list[str]) -> int:
-    """Validate each order file. Print every violation. Return 1 when any file fails."""
+    """
+    Validate each order file. Print every violation. Return 1 when any file fails.
+
+    Each file is ``<waybill>/orders/<name>.yml``; the subject's shortcode
+    comes from ``<waybill>/shortcodes.json``, and a file without it fails.
+    An order whose role has no name pattern passes with a line that says
+    its name went unchecked.
+    """
     failed = 0
     for name in files:
         path = Path(name)
         try:
             data = yaml.safe_load(path.read_text())
-        except (OSError, yaml.YAMLError) as error:
-            print(f"{path}: cannot read as YAML: {error}")
+            shortcodes = load_shortcodes(path.parent.parent / SHORTCODES)
+        except (OSError, yaml.YAMLError, ShortcodeError) as error:
+            print(f"{path}: cannot check: {error}")
             failed += 1
             continue
-        violations = validate_order(data, path.stem, {})
+        violations = validate_order(data, path.stem, shortcodes)
         if violations:
             failed += 1
             for violation in violations:
                 print(f"{path}: {violation}")
+        elif name_pattern(data["role"]) is None:
+            print(
+                f"{path}: ok, but the role {data['role']!r} has no name pattern, "
+                "so only the id is checked against the file name"
+            )
         else:
             print(f"{path}: ok")
     return 1 if failed else 0

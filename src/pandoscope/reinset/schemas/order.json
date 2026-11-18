@@ -2,16 +2,16 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://pandoscope.dev/schemas/order.json",
   "title": "Waybill order",
-  "description": "The order that a fired session reads (pandoscope/waybill#1). The waybill repository holds one file per order under orders/, named after its branch order/<id>. Strict: an unknown key is a violation.",
+  "description": "The order that a fired session reads (pandoscope/waybill#1). The waybill repository holds one file per order under orders/, named after its branch order/<id>. Strict: an unknown key is a violation. The subject is the issue or the pull request the order works on; the forge numbers both in one sequence per repository (pandoscope#57).",
   "type": "object",
   "additionalProperties": false,
-  "required": ["id", "role", "pull_request", "tickets"],
+  "required": ["id", "role", "model_tier", "subject", "tickets"],
   "properties": {
     "id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
     "role": {"enum": ["orchestrator", "implementer", "reviewer", "general", "probe"]},
     "pass": {"type": "string", "pattern": "^[a-z0-9-]+$"},
     "model_tier": {"type": "string", "pattern": "^[a-z0-9-]+$"},
-    "pull_request": {"$ref": "#/$defs/ticket"},
+    "subject": {"$ref": "#/$defs/ticket"},
     "base": {"type": "string", "pattern": "^[^\\s~^:?*\\[\\\\]+$"},
     "checkouts": {
       "type": "object",
@@ -22,8 +22,8 @@
     "result": {"type": "string", "minLength": 1}
   },
   "if": {"properties": {"role": {"const": "reviewer"}}},
-  "then": {"required": ["pass", "model_tier"]},
-  "else": {"not": {"anyOf": [{"required": ["pass"]}, {"required": ["model_tier"]}]}},
+  "then": {"required": ["pass"]},
+  "else": {"not": {"required": ["pass"]}},
   "$defs": {
     "ticket": {"type": "string", "pattern": "^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+#[0-9]+$"}
   }

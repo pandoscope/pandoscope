@@ -86,7 +86,7 @@ def compose(
             "role": order.role,
             "pass": order.pass_,
             "model_tier": order.model_tier,
-            "pull_request": order.pull_request,
+            "subject": order.subject,
             "tickets": order.tickets,
         },
         "errors": errors,

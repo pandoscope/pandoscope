@@ -27,7 +27,6 @@ def write_order(session_root: Path, text: str = ORDER, name: str = NAME) -> None
     write_waybill_order(session_root, name, text)
 
 
-@pytest.mark.xfail(strict=True)
 def test_the_order_is_read_from_the_fired_branch(session_root: Path) -> None:
     write_order(session_root)
     order = find_order(WAYBILL_FIRE, session_root)
@@ -87,7 +86,6 @@ def test_an_order_off_the_schema_raises_naming_every_field(session_root: Path) -
     assert "pull-request" in str(raised.value)
 
 
-@pytest.mark.xfail(strict=True)
 def test_an_order_whose_name_disagrees_with_its_fields_raises(
     session_root: Path,
 ) -> None:
@@ -96,7 +94,6 @@ def test_an_order_whose_name_disagrees_with_its_fields_raises(
         find_order(WAYBILL_FIRE, session_root)
 
 
-@pytest.mark.xfail(strict=True)
 def test_an_order_without_the_waybills_shortcodes_raises(session_root: Path) -> None:
     write_order(session_root)
     (session_root / "waybill" / "shortcodes.json").unlink()
