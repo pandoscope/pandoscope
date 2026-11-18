@@ -11,6 +11,7 @@ import yaml
 
 from pandoscope.reinset.detect import detect
 from pandoscope.reinset.hooks import render_hooks
+from pandoscope.reinset.implement import ImplementError, implementer_task
 from pandoscope.reinset.install import install_bundle
 from pandoscope.reinset.principal import UNKNOWN
 from pandoscope.reinset.profiles import load_profile
@@ -47,14 +48,15 @@ def compose(
     The waybill order is the only receiver (skills#195, waybill#1). It
     arrives when the Routine fires from an order branch of the waybill
     repository.
-    The order names the role, the pull request, the tickets,
-    and for a reviewer the pass and model tier.
+    The order names the role, the model tier, the subject, the tickets,
+    and for a reviewer the pass.
+    A reviewer's and an implementer's task are composed from it.
     Without an order the composer sets the role general
     and renders the loud UNCONFIGURED state.
     The composer renders its own errors and never raises them,
     because the session must hear them.
     They are an order that does not validate against the schema,
-    any review error from hydrating the task
+    any review or implementer error from composing the task
     and a bundle skill or hook with no source.
     The render step raises UnmanagedTargetError.
     """
@@ -66,7 +68,9 @@ def compose(
         order = find_order(env, session_root)
         if order is not None and order.role == "reviewer":
             task = hydrate(session_root, order)
-    except (OrderError, ReviewError) as error:
+        if order is not None and order.role == "implementer":
+            task = implementer_task(session_root, order)
+    except (OrderError, ReviewError, ImplementError) as error:
         errors.append(str(error))
         order = None
     resolved = {

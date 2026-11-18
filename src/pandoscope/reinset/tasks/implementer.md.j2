@@ -1,0 +1,23 @@
+Order {{ id }}, on the model tier {{ model_tier }}.
+{% if fix_round %}
+This order is a fix round on the pull request {{ subject }}.
+Its tickets: {{ tickets }}.
+
+- Work on the pull request's branch `{{ branch }}` in the clone `{{ clone }}`,
+  and push your commits to it.
+  Open no other pull request.
+- Your work list is every entry with `status: open` whose `owner` lists {{ subject }},
+  in the disposition files under `{{ dispositions }}`.
+  Fix or decline each entry.
+- Set each entry's `status` as `{{ dispositions }}/README.md` says,
+  and push that change straight to `main` of the waybill repository.
+{% else %}
+This order builds {{ subject }}.
+The tickets: {{ tickets }}.
+Each ticket's body is the specification.
+
+- Create the branch `{{ branch }}` from `origin/{{ base }}` in the clone `{{ clone }}`,
+  and work on it.
+- Open one pull request from it, ready for review,
+  and name every ticket in its body.
+{% endif %}

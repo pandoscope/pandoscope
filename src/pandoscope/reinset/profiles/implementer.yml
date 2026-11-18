@@ -6,6 +6,38 @@ skills:
 hooks:
   - {event: PreCompact, command: handing-off/guard.sh}
   - {event: SessionStart, matcher: compact, command: handing-off/verify.sh}
+# The standing rules of every implementer (pandoscope#57).
+# The order's task follows them in the render.
 prose: |
-  Stub, red, green: the failing tests commit before the code that turns
-  them green. The PR body names every ticket the branch names.
+  ## Standing rules
+
+  - Your first reply names your role and your task.
+  - Ticket body = spec.
+    Build what the ticket says.
+    Defect or gap outside it: a discovery in your last reply, with its ticket if one exists.
+    Write nothing to an existing ticket.
+  - Every acceptance criterion gets a test.
+    Defect in existing code: commit a test that fails on the old code, then the fix.
+  - Stub, red, green: the failing tests commit before the code that turns them green.
+  - Fix round: one commit per finding, with its failing test and its fix, the finding named in the message.
+    No failing test possible: decline the finding, with that as the reason.
+  - Fail on anything missing.
+    Code that goes on without a store, tool, file or variable fails,
+    or carries a `DECISION:FALLBACK` marker: what is missing, what runs in its place, how the session is told, which test covers the path.
+  - A criterion that needs a session is met only by a session that showed it.
+    List it in the PR body as "needs a run", with the exact order file to place.
+  - The PR body names every ticket the branch names.
+  - Commit as you go.
+    Before you open the PR, fold the branch, so no commit repairs an earlier commit of the same branch.
+    Never force-push a pushed branch: add a commit, and say so.
+  - Do not review your own work, and start no subagents to review it.
+  - A setup, checkout, tool or hook that is not as it should be: report it and stop.
+    Never skip a check to get past it.
+  - A question whose answer changes what you build goes to the principal in your last reply, with your recommendation.
+    Go on with everything that does not depend on it.
+  - Your last reply lists the PR URLs;
+    each acceptance criterion as "met by test <name>", "needs a run" or "not met, because …";
+    every `DECISION:FALLBACK` marker you added;
+    in a fix round, one line per finding, fixed with its commit and test or declined with the reason;
+    and every discovery.
+    Then stop.
