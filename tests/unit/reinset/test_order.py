@@ -4,9 +4,12 @@ import json
 from collections.abc import Mapping
 from pathlib import Path
 
+import jsonschema
 import pytest
 
+from pandoscope.reinset import order as order_module
 from pandoscope.reinset.order import (
+    SHORTCODES_SCHEMA_PATH,
     ShortcodeError,
     find_shortcodes,
     load_shortcodes,
@@ -261,14 +264,12 @@ def test_shortcodes_load_from_the_forge_form(tmp_path: Path) -> None:
 @pytest.mark.parametrize(
     ("repos", "words"),
     [
-        # one spelling per shortcode: a case-only twin is an error
-        ({"AET": "o/a", "aet": "o/b"}, ["AET", "aet"]),
-        # one shortcode per repository
-        ({"PANDO": "o/p", "pd": "o/p"}, ["PANDO", "pd", "o/p"]),
+        # one shortcode per repository, and the error names both
+        ({"pando": "o/p", "pd": "o/p"}, ["pando", "pd", "o/p"]),
         # a repository is written owner/repo
-        ({"PANDO": "pandoscope"}, ["PANDO", "pandoscope"]),
-        ({"PANDO": 7}, ["PANDO"]),
-        # a shortcode is letters and digits, so its lowercase form fits a name
+        ({"pando": "pandoscope"}, ["pando", "pandoscope"]),
+        ({"pando": 7}, ["pando"]),
+        # a shortcode is letters only
         ({"PAN-DO": "o/p"}, ["PAN-DO"]),
     ],
 )
@@ -281,6 +282,105 @@ def test_a_shortcodes_file_that_reads_two_ways_is_an_error(
         load_shortcodes(path)
     for word in words:
         assert word in str(raised.value), raised.value
+
+
+@pytest.mark.xfail(strict=True)
+@pytest.mark.parametrize("short", ["Pando", "pando1", "p", "pandos"])
+@pytest.mark.parametrize("form", ["flat", "forge"])
+def test_a_shortcode_off_two_to_five_lowercase_letters_fails_naming_it(
+    tmp_path: Path, short: str, form: str
+) -> None:
+    # Decision 122: a capital letter, a digit, one letter or six letters.
+    repos = {short: "pandoscope/pandoscope"}
+    path = tmp_path / "shortcodes.json"
+    path.write_text(json.dumps(repos if form == "flat" else {"repos": repos}))
+    with pytest.raises(ShortcodeError) as raised:
+        load_shortcodes(path)
+    assert repr(short) in str(raised.value), raised.value
+
+
+@pytest.mark.xfail(strict=True)
+def test_a_shortcode_is_used_as_written(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The schema is the one home of the shape rules: under a schema that
+    # allows any shape, the loader states none of its own.
+    schema = tmp_path / "any.json"
+    schema.write_text("{}")
+    monkeypatch.setattr(order_module, "SHORTCODES_SCHEMA_PATH", schema)
+    path = tmp_path / "shortcodes.json"
+    path.write_text(json.dumps({"Pando7": "pandoscope", "_note": 1}))
+    assert load_shortcodes(path) == {"pandoscope": "Pando7"}
+
+
+@pytest.mark.xfail(strict=True)
+@pytest.mark.parametrize(
+    ("text", "key"),
+    [
+        ('{"pando": "o/p", "pando": "o/q"}', "pando"),
+        ('{"repos": {"pando": "o/p", "pando": "o/p"}}', "pando"),
+        ('{"repos": {}, "repos": {"pando": "o/p"}}', "repos"),
+    ],
+)
+def test_a_key_written_twice_is_an_error(tmp_path: Path, text: str, key: str) -> None:
+    # A JSON parser keeps the last of two equal keys without a word.
+    path = tmp_path / "shortcodes.json"
+    path.write_text(text)
+    with pytest.raises(ShortcodeError) as raised:
+        load_shortcodes(path)
+    assert repr(key) in str(raised.value), raised.value
+    assert "twice" in str(raised.value), raised.value
+
+
+def schema_errors(data: object) -> list[str]:
+    schema = json.loads(SHORTCODES_SCHEMA_PATH.read_text())
+    validator = jsonschema.Draft202012Validator(schema)
+    return [error.message for error in validator.iter_errors(data)]
+
+
+WAYBILL_FORM = {
+    "_comment": "the org's one map",
+    "repos": {"aet": "pandoscope/agentic-engineering-template", "sc": "o/sc"},
+}
+
+
+@pytest.mark.parametrize(
+    "data",
+    [
+        WAYBILL_FORM,
+        {**SHORTCODE_FILE},
+        {
+            "forge": "https://forge.example.test",
+            "patterns": {"ticket": "{base}/{repo}/issues/{n}"},
+            "repos": {"pando": "pandoscope/pandoscope", "_why": "a note"},
+        },
+    ],
+)
+def test_the_schema_takes_both_forms_and_comment_keys(data: object) -> None:
+    assert schema_errors(data) == []
+
+
+@pytest.mark.xfail(strict=True)
+@pytest.mark.parametrize(
+    "data",
+    [
+        [],
+        {"repos": []},
+        {"Pando": "o/p"},
+        {"pando1": "o/p"},
+        {"p": "o/p"},
+        {"pandos": "o/p"},
+        {"repos": {"Pando": "o/p"}},
+        {"pando": "pandoscope"},
+        {"pando": 7},
+        {"repos": {"pando": "o/p/q"}},
+        # a key beside the map under repos is a forge setting or a comment
+        {"repos": {"pando": "o/p"}, "owner": "pandoscope"},
+        {"repos": {"pando": "o/p"}, "forge": 7},
+    ],
+)
+def test_the_schema_states_the_shape(data: object) -> None:
+    assert schema_errors(data), data
 
 
 @pytest.mark.parametrize("text", [None, "[]", '{"ab": 1}', '{"repos": []}', "{"])
