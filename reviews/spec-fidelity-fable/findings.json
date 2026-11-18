@@ -1,0 +1,35 @@
+{
+  "pr": "pandoscope/pandoscope#58",
+  "head": "ead1cec78aaf4aedfce4b8cfad91eb502882bf0f",
+  "pass": "spec-fidelity",
+  "model_tier": "fable",
+  "findings": [
+    {
+      "file": "src/pandoscope/reinset/schemas/order.json",
+      "line": 12,
+      "rule": "Every order requires `model_tier` (decision 87), in lowercase letters and digits only, so that no name reads two ways.",
+      "input": "orders/review-prose-opus-sonnet-pando58-1.yml with `role: reviewer`, `pass: prose-opus`, `model_tier: sonnet`, `subject: pandoscope/pandoscope#58`, `tickets: []`",
+      "finding_basis": "judged",
+      "confidence": 40,
+      "finding": "The order passes the check although its name also reads as pass `prose` on tier `opus`, because `pass` may hold a hyphen followed by a tier word, so the opus filter `order/[0-9a-z-]+-opus-.*` picks an order whose `model_tier` is `sonnet`."
+    },
+    {
+      "file": "src/pandoscope/reinset/order_name.py",
+      "line": 94,
+      "rule": "The check walks the name part by part against the order's fields and names the part that disagrees: role, pass, model_tier, subject or step.",
+      "input": "orders/review-spec-fidelity-opus-r2-pando58-4.yml with `role: reviewer`, `pass: spec-fidelity`, `model_tier: opus`, `subject: pandoscope/pandoscope#58` (the old `-r2` in the middle of a name)",
+      "finding_basis": "judged",
+      "confidence": 50,
+      "finding": "The violation reads \"the model_tier part must be 'opus', and the name reads 'opus-r2-pando58-4' there\", so it names model_tier as the part that is off although the name's tier agrees with the order's `model_tier`."
+    },
+    {
+      "file": "src/pandoscope/reinset/order_name.py",
+      "line": 73,
+      "rule": "An order whose name is off its pattern, or disagrees with its role, pass, tier or subject, fails the order check, and the message says which part.",
+      "input": "orders/implement-opus-pando57-1.yml with `id: implement-opus-pando57-1`, `role: probe`, `model_tier: opus`, `subject: pandoscope/pandoscope#57`, `tickets: []`",
+      "finding_basis": "judged",
+      "confidence": 35,
+      "finding": "The order passes with \"ok, but the role 'probe' has no name pattern\" although its name is the implementer pattern and so disagrees with its role; the pull request body declares the rest of such a name unchecked."
+    }
+  ]
+}
