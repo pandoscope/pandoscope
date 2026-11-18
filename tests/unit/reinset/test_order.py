@@ -83,3 +83,14 @@ def test_the_model_tier_is_model_tier_not_tier() -> None:
     assert any(
         "tier" in v for v in validate_order({**order, "tier": "opus"}, str(VALID["id"]))
     )
+
+
+@pytest.mark.xfail(strict=True)
+def test_a_forbidden_pass_names_the_field_pass() -> None:
+    # The `not` rule fails with no path. Its message opens with the whole
+    # order, so the field was read as `{`.
+    implementer = {k: v for k, v in VALID.items() if k != "model_tier"}
+    violations = validate_order(
+        {**implementer, "role": "implementer"}, "review-spec-fidelity-opus-pr26"
+    )
+    assert [v.split(":", 1)[0] for v in violations] == ["pass"]
