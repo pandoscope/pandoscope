@@ -61,7 +61,7 @@ def test_an_order_naming_an_issue_passes_and_so_does_one_naming_a_pull_request()
 def test_result_is_an_optional_field() -> None:
     order = {
         **VALID,
-        "result": "pandoscope/pandoscope@claude/review-spec-fidelity-opus-pr26",
+        "result": "pandoscope/pandoscope@claude/review-spec-fidelity-opus-pando26",
     }
     assert check(order) == []
 
