@@ -85,7 +85,6 @@ def test_the_model_tier_is_model_tier_not_tier() -> None:
     )
 
 
-@pytest.mark.xfail(strict=True)
 def test_a_forbidden_pass_names_the_field_pass() -> None:
     # The `not` rule fails with no path. Its message opens with the whole
     # order, so the field was read as `{`.
