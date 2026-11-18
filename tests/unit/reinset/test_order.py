@@ -38,9 +38,6 @@ IMPLEMENTER = {
 }
 
 
-RED = pytest.mark.xfail(strict=True)
-
-
 def check(order: Mapping[str, object], name: str = NAME) -> list[str]:
     return validate_order(order, name, SHORTCODES)
 
@@ -49,7 +46,6 @@ def test_a_valid_review_order_has_no_violations() -> None:
     assert check(VALID) == []
 
 
-@pytest.mark.xfail(strict=True)
 def test_an_order_naming_an_issue_passes_and_so_does_one_naming_a_pull_request() -> (
     None
 ):
@@ -120,10 +116,10 @@ def test_an_order_of_any_role_without_a_tier_fails_naming_the_field(role: str) -
     "role",
     [
         "reviewer",
-        pytest.param("implementer", marks=pytest.mark.xfail(strict=True)),
-        pytest.param("orchestrator", marks=pytest.mark.xfail(strict=True)),
-        pytest.param("general", marks=pytest.mark.xfail(strict=True)),
-        pytest.param("probe", marks=pytest.mark.xfail(strict=True)),
+        "implementer",
+        "orchestrator",
+        "general",
+        "probe",
     ],
 )
 def test_an_order_of_any_role_without_a_pass_fails_naming_the_field(
@@ -135,7 +131,6 @@ def test_an_order_of_any_role_without_a_pass_fails_naming_the_field(
     assert any(v.startswith("pass:") for v in violations), violations
 
 
-@pytest.mark.xfail(strict=True)
 @pytest.mark.parametrize("pass_", ["spec-fidelity", "builds"])
 def test_an_implementer_pass_is_build_or_fix(pass_: str) -> None:
     name = f"implement-{pass_}-opus-pando57-1"
@@ -146,7 +141,6 @@ def test_an_implementer_pass_is_build_or_fix(pass_: str) -> None:
     assert "'fix'" in violations[0], violations
 
 
-@pytest.mark.xfail(strict=True)
 @pytest.mark.parametrize("role", ["orchestrator", "general", "probe"])
 def test_a_role_without_a_name_pattern_takes_any_pass(role: str) -> None:
     order = {**IMPLEMENTER, "id": "probe-opus-4", "role": role, "pass": "look-1"}
@@ -212,7 +206,7 @@ def test_a_review_name_ends_in_its_step_and_a_repeat_letter(name: str) -> None:
         ("review-spec-fidelity-opus-pando26-1-x", {}, "step"),
         # an implementer name against a reviewer's fields and back
         *(
-            pytest.param(name, {"role": "implementer"}, part, marks=RED)
+            (name, {"role": "implementer"}, part)
             for name, part in [
                 ("review-build-opus-pando57-1", "role"),
                 # the name of an implementer order carries its pass (decision 109)
@@ -247,14 +241,12 @@ def test_a_subject_whose_repository_has_no_shortcode_fails() -> None:
     ), violations
 
 
-@pytest.mark.xfail(strict=True)
 def test_a_role_without_a_name_pattern_keeps_only_the_id_check() -> None:
     # DECISION:FALLBACK in order_name.py: the probe role has no pattern.
     probe = {**IMPLEMENTER, "id": "probe-opus-4", "role": "probe"}
     assert check(probe, "probe-opus-4") == []
 
 
-@pytest.mark.xfail(strict=True)
 @pytest.mark.parametrize("name", ["probe-sonnet-4", "probe-4", "opus-probe-4"])
 def test_a_role_without_a_name_pattern_still_names_its_tier(name: str) -> None:
     # F2: a Routine picks an order by the tier between hyphens in its name.
@@ -265,7 +257,6 @@ def test_a_role_without_a_name_pattern_still_names_its_tier(name: str) -> None:
     assert "-opus-" in violations[0], violations
 
 
-@pytest.mark.xfail(strict=True)
 @pytest.mark.parametrize("role", ["probe", "general", "orchestrator"])
 def test_a_subject_without_a_shortcode_fails_for_every_role(role: str) -> None:
     # F3: the lookup stood after the early return of a role without a pattern.

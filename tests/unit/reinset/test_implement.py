@@ -44,7 +44,6 @@ def dispositions(session_root: Path) -> Path:
     return path
 
 
-@pytest.mark.xfail(strict=True)
 def test_a_first_build_states_its_tickets_and_its_branch(session_root: Path) -> None:
     pr_clone(session_root, "aet", 262)
     task = implementer_task(session_root, order_of(session_root, BUILD, BUILD_ORDER))
@@ -56,14 +55,12 @@ def test_a_first_build_states_its_tickets_and_its_branch(session_root: Path) -> 
     assert "dispositions" not in task
 
 
-@pytest.mark.xfail(strict=True)
 def test_a_first_build_takes_the_orders_base(session_root: Path) -> None:
     pr_clone(session_root, "aet", 262)
     order = order_of(session_root, BUILD, BUILD_ORDER + "base: feature\n")
     assert "`origin/feature`" in implementer_task(session_root, order)
 
 
-@pytest.mark.xfail(strict=True)
 def test_a_repeat_run_gets_a_branch_of_its_own(session_root: Path) -> None:
     pr_clone(session_root, "aet", 262)
     name = "implement-build-opus-aet261-1b"
@@ -71,7 +68,6 @@ def test_a_repeat_run_gets_a_branch_of_its_own(session_root: Path) -> None:
     assert "`claude/aet261-implement-1b`" in implementer_task(session_root, order)
 
 
-@pytest.mark.xfail(strict=True)
 def test_a_fix_round_works_on_the_pull_requests_branch_and_its_dispositions(
     session_root: Path,
 ) -> None:
@@ -88,7 +84,6 @@ def test_a_fix_round_works_on_the_pull_requests_branch_and_its_dispositions(
     assert "implement-1" not in task
 
 
-@pytest.mark.xfail(strict=True)
 def test_a_fix_round_without_a_branch_at_the_head_is_an_error(
     session_root: Path,
 ) -> None:
@@ -99,7 +94,6 @@ def test_a_fix_round_without_a_branch_at_the_head_is_an_error(
         implementer_task(session_root, order)
 
 
-@pytest.mark.xfail(strict=True)
 def test_a_fix_round_with_two_branches_at_the_head_is_an_error(
     session_root: Path,
 ) -> None:
@@ -112,7 +106,6 @@ def test_a_fix_round_with_two_branches_at_the_head_is_an_error(
         implementer_task(session_root, order)
 
 
-@pytest.mark.xfail(strict=True)
 def test_a_fix_round_without_the_dispositions_is_an_error(session_root: Path) -> None:
     head = pr_clone(session_root, "aet", 262)
     pr_branch(session_root, head)
@@ -121,14 +114,12 @@ def test_a_fix_round_without_the_dispositions_is_an_error(session_root: Path) ->
         implementer_task(session_root, order)
 
 
-@pytest.mark.xfail(strict=True)
 def test_a_subject_without_a_clone_is_an_error(session_root: Path) -> None:
     order = order_of(session_root, BUILD, BUILD_ORDER)
     with pytest.raises(ImplementError, match="aet"):
         implementer_task(session_root, order)
 
 
-@pytest.mark.xfail(strict=True)
 def test_a_clone_of_another_repository_is_an_error(session_root: Path) -> None:
     pr_clone(session_root, "aet", 262)
     git(session_root / "aet", "remote", "set-url", "origin", "https://x.test/acme/aet")
@@ -137,7 +128,6 @@ def test_a_clone_of_another_repository_is_an_error(session_root: Path) -> None:
         implementer_task(session_root, order)
 
 
-@pytest.mark.xfail(strict=True)
 def test_the_composed_implementer_holds_its_task_and_the_standing_rules(
     session_root: Path, home: Path, path_dirs: list[Path]
 ) -> None:
@@ -161,7 +151,6 @@ def test_the_composed_implementer_holds_its_task_and_the_standing_rules(
     assert not [e for e in result.errors if "aet" in e], result.errors
 
 
-@pytest.mark.xfail(strict=True)
 def test_a_composed_fix_round_without_a_branch_is_a_composer_error(
     session_root: Path, home: Path, path_dirs: list[Path]
 ) -> None:
@@ -174,7 +163,6 @@ def test_a_composed_fix_round_without_a_branch_is_a_composer_error(
     assert "## Task" not in result.render_text
 
 
-@pytest.mark.xfail(strict=True)
 @pytest.mark.parametrize(
     ("pass_", "number", "kind"),
     [("build", 262, "pull request"), ("fix", 261, "issue")],
@@ -201,7 +189,6 @@ def test_a_pass_that_disagrees_with_its_subject_is_an_error(
     assert kind in message, message
 
 
-@pytest.mark.xfail(strict=True)
 def test_a_composed_build_on_a_pull_request_is_a_composer_error(
     session_root: Path, home: Path, path_dirs: list[Path]
 ) -> None:

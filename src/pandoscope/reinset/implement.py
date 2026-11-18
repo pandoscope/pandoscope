@@ -7,6 +7,7 @@ from pathlib import Path
 
 import jinja2
 
+from pandoscope.reinset.order_name import BUILD, FIX
 from pandoscope.reinset.receive import WAYBILL, Order
 from pandoscope.reinset.review import ReviewError, _check_origin, _default_branch, _git
 
@@ -22,16 +23,18 @@ def implementer_task(session_root: Path, order: Order) -> str:
     """
     Return the implementer's task, rendered from ``tasks/implementer.md.j2``.
 
-    The order's subject is an issue or a pull request of ``order.repo``.
-    A pull request makes a fix round:
+    The order's pass decides, and its subject must fit it.
+    The pass fix makes a fix round on a pull request of ``order.repo``:
     the task names the pull request's branch
     and the waybill's disposition files under the session root.
-    An issue makes a first build:
+    The pass build makes a first build on an issue:
     the task names the tickets, the order's base or the default branch,
     and a new branch ``claude/<code><n>-implement-<step>``.
     Raises ImplementError when the subject's clone is missing
     or belongs to another repository,
     when a ref cannot be read,
+    when the pass is build and the subject a pull request
+    or the pass fix and the subject an issue, naming both,
     when no branch or more than one points at a pull request's head,
     and when a fix round finds no disposition folder.
     """
@@ -42,6 +45,7 @@ def implementer_task(session_root: Path, order: Order) -> str:
     try:
         _check_origin(clone, order.repo)
         head = _pull_head(clone, order.number)
+        _check_pass(order, head)
         values = {
             "id": order.data["id"],
             "model_tier": order.model_tier,
@@ -72,6 +76,24 @@ def _pull_head(clone: Path, number: int) -> str | None:
     # and only a pull request has a ref refs/pull/<n>/head.
     listed = _git(clone, "ls-remote", "origin", f"refs/pull/{number}/head")
     return listed.split()[0] if listed else None
+
+
+def _check_pass(order: Order, head: str | None) -> None:
+    """Raise ImplementError when the order's pass and its subject disagree."""
+    # The order check knows only the subject's number;
+    # git tells the composer what the number is (decision 109).
+    if order.pass_ == BUILD and head is not None:
+        msg = (
+            f"the order's pass {BUILD!r} builds the ticket of an issue, "
+            f"and its subject {order.subject} is a pull request"
+        )
+        raise ImplementError(msg)
+    if order.pass_ == FIX and head is None:
+        msg = (
+            f"the order's pass {FIX!r} fixes the findings on a pull request, "
+            f"and its subject {order.subject} is an issue"
+        )
+        raise ImplementError(msg)
 
 
 def _first_build(clone: Path, order: Order) -> dict[str, str]:

@@ -143,35 +143,11 @@ def validate_order(data: Any, name: str, shortcodes: Mapping[str, str]) -> list[
 
 
 def _field_of(error: jsonschema.ValidationError) -> str:
-    # A required-key, unknown-key or forbidden-key error has no path.
-    # A forbidden key is one the `not` rule requires and the order holds.
-    # The other two name their key in the message,
+    # A required-key or unknown-key error has no path.
+    # Both name their key in the message,
     # so every violation still names its field.
-    if error.validator == "not":
-        forbidden = [
-            k
-            for k in _required_keys(error.validator_value)
-            if isinstance(error.instance, dict) and k in error.instance
-        ]
-        if forbidden:
-            return ",".join(forbidden)
     if error.validator in ("required", "additionalProperties"):
         quoted = [part for part in error.message.split("'") if part and " " not in part]
         if quoted:
             return str(quoted[0])
     return "order"
-
-
-def _required_keys(rule: Any) -> list[str]:
-    """Every key that a ``required`` keyword anywhere inside ``rule`` lists."""
-    if isinstance(rule, dict):
-        keys = list(rule.get("required", []))
-        for value in rule.values():
-            keys += [k for k in _required_keys(value) if k not in keys]
-        return keys
-    if isinstance(rule, list):
-        keys = []
-        for value in rule:
-            keys += [k for k in _required_keys(value) if k not in keys]
-        return keys
-    return []

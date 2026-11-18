@@ -187,7 +187,6 @@ def test_a_fired_session_without_an_order_shouts(
     assert "WAITING" not in result.render_text
 
 
-@pytest.mark.xfail(strict=True)
 def test_the_order_carries_its_tickets_into_the_answers(
     session_root: Path, home: Path, path_dirs: list[Path]
 ) -> None:
@@ -198,7 +197,6 @@ def test_the_order_carries_its_tickets_into_the_answers(
     assert result.answers["resolved"]["role"] == "implementer"
 
 
-@pytest.mark.xfail(strict=True)
 def test_an_order_declaring_general_renders_declared_general(
     session_root: Path, home: Path, path_dirs: list[Path]
 ) -> None:
@@ -229,7 +227,6 @@ IMPLEMENTER_ORDER = (
 )
 
 
-@pytest.mark.xfail(strict=True)
 def test_role_install_follows_the_profile(
     session_root: Path, home: Path, path_dirs: list[Path]
 ) -> None:
@@ -250,7 +247,6 @@ def test_role_install_follows_the_profile(
     assert "- handing-off" in result.render_text
 
 
-@pytest.mark.xfail(strict=True)
 def test_missing_bundle_skill_is_a_composer_error(
     session_root: Path, home: Path, path_dirs: list[Path]
 ) -> None:
@@ -263,7 +259,6 @@ def test_missing_bundle_skill_is_a_composer_error(
     assert result.answers["errors"] == result.errors
 
 
-@pytest.mark.xfail(strict=True)
 def test_a_session_without_an_order_prunes_what_a_role_left(
     session_root: Path, home: Path, path_dirs: list[Path]
 ) -> None:
@@ -278,7 +273,6 @@ def test_a_session_without_an_order_prunes_what_a_role_left(
     assert not (home / ".claude" / "skills" / "handing-off").exists()
 
 
-@pytest.mark.xfail(strict=True)
 def test_role_hooks_render_beside_the_answers(
     session_root: Path, home: Path, path_dirs: list[Path]
 ) -> None:

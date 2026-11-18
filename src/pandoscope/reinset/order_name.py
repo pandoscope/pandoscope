@@ -7,15 +7,21 @@ from collections.abc import Mapping
 from typing import Any
 
 # DECISION: one pattern per role, in this table and nowhere else.
-# The review pattern is ruled (waybill decisions 98 to 100).
-# The implementer pattern is the recommendation of pandoscope#57,
-# not ruled: a different ruling changes its one line.
+# The review pattern is ruled (waybill decisions 98 to 100),
+# and every name carries its pass (decision 109).
 # Each Routine picks its orders by branch name,
 # so the model tier stands as a part of its own in every pattern.
 PATTERNS: dict[str, str] = {
     "reviewer": "review-<pass>-<model_tier>-<code><n>-<step>",
-    "implementer": "implement-<model_tier>-<code><n>-<step>",
+    "implementer": "implement-<pass>-<model_tier>-<code><n>-<step>",
 }
+# DECISION: the implementer's two passes, named here and nowhere else.
+# Not ruled; pandoscope#59 lists them under "To decide".
+# A first build works on an issue, a fix round on a pull request,
+# and the composer fails an order whose subject is the other kind.
+BUILD = "build"
+FIX = "fix"
+IMPLEMENTER_PASSES = (BUILD, FIX)
 # The step counts from 1; a repeat run of a step takes b, c and so on.
 STEP = re.compile(r"[1-9][0-9]*[b-z]?")
 _SUBJECT = re.compile(r"^(?P<repo>[^#]+)#(?P<n>\d+)$")
@@ -37,6 +43,7 @@ def name_violations(
     as the waybill's ``shortcodes.json`` does.
     Returns a ``subject`` violation when the subject's repository has no
     shortcode, whatever the role,
+    a ``pass`` violation when an implementer's pass is neither build nor fix,
     and otherwise one violation that names the first part of the name that is off.
     For a role without a pattern, returns a violation when the name does
     not hold ``-<model_tier>-``.
@@ -50,6 +57,12 @@ def name_violations(
             f"subject: {subject['repo']!r} has no shortcode in shortcodes.json, "
             "and every order needs one"
         ]
+    if data["role"] == "implementer" and data["pass"] not in IMPLEMENTER_PASSES:
+        return [
+            f"pass: {data['pass']!r} is no implementer's pass: "
+            f"{BUILD!r} builds the ticket of an issue, "
+            f"{FIX!r} fixes the findings on a pull request"
+        ]
     pattern = name_pattern(data["role"])
     if pattern is None:
         # A Routine picks an order by the tier between hyphens in its
@@ -62,7 +75,8 @@ def name_violations(
             ]
         # DECISION:FALLBACK: a role without a name pattern
         # (orchestrator, general, probe; pandoscope#57 leaves them alone).
-        # Missing: the pattern to check the rest of the name against.
+        # Missing: the pattern to check the rest of the name against,
+        # and a list of the role's passes: the pass is required, its value unchecked.
         # In its place: the schema's check that the id equals the file name,
         # and the check above that the name holds the tier.
         # Told: `pandoscope order check` prints that the name is unchecked,
@@ -72,7 +86,7 @@ def name_violations(
         # and test_order_check_tells_a_role_without_a_name_pattern.
         return []
     values = {
-        "pass": data.get("pass"),
+        "pass": data["pass"],
         "model_tier": data["model_tier"],
         "subject": f"{code}{subject['n']}",
     }

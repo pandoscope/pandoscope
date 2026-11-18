@@ -48,8 +48,8 @@ def compose(
     The waybill order is the only receiver (skills#195, waybill#1). It
     arrives when the Routine fires from an order branch of the waybill
     repository.
-    The order names the role, the model tier, the subject, the tickets,
-    and for a reviewer the pass.
+    The order names the role, the pass, the model tier, the subject
+    and the tickets.
     A reviewer's and an implementer's task are composed from it.
     Without an order the composer sets the role general
     and renders the loud UNCONFIGURED state.
