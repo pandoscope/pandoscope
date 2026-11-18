@@ -67,6 +67,8 @@ def name_violations(
     }
     name = str(data["id"])
     rest = name
+    # The part before this one and where the name read it.
+    earlier: tuple[str, str, str] | None = None
     for token in pattern.split("-"):
         part, text = _part(token, values)
         if part == "step":
@@ -75,8 +77,15 @@ def name_violations(
             value = "a number from 1, with b, c and so on for a repeat run"
         elif rest == text or rest.startswith(f"{text}-"):
             # A name that stops here is short of the parts after this one.
+            earlier = (part, text, rest)
             rest = rest[len(text) + 1 :]
             continue
+        elif earlier and earlier[0] != "role" and f"-{text}-" in f"{rest}-":
+            # This part's text stands further on: the part before it is
+            # longer in the name than in the order, as a pass `spec`
+            # in a name that reads `spec-fidelity` (F1).
+            part, text, rest = earlier
+            value = repr(text)
         else:
             value = repr(text)
         return [

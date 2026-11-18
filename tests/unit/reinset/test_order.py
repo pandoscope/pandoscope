@@ -150,6 +150,8 @@ def test_a_review_name_ends_in_its_step_and_a_repeat_letter(name: str) -> None:
         ("review-spec-fidelity-opus-pando27-1", {}, "subject"),
         ("review-spec-fidelity-opus-skills26-1", {}, "subject"),
         ("review-spec-fidelity-opus-pr26-1", {}, "subject"),
+        # a pass that is a hyphen-prefix of the name's pass part (F1)
+        ("review-spec-fidelity-opus-pando26-1", {"pass": "spec"}, "pass"),
         # the step: absent, from 0, the old round suffix, an `a`, a tail
         ("review-spec-fidelity-opus-pando26", {}, "step"),
         ("review-spec-fidelity-opus-pando26-0", {}, "step"),
