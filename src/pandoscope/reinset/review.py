@@ -189,7 +189,10 @@ def hydrate(session_root: Path, order: Order) -> str:
     # The reviewer runs no git steps (skills#224).
     # The files on disk are the head,
     # on the branch that the driver publishes at Stop.
-    branch = f"claude/review-{order.pass_}-{order.model_tier}-pr{order.number}"
+    # The branch writes the subject as the order's name does (decision 112).
+    branch = (
+        f"claude/review-{order.pass_}-{order.model_tier}-{order.code}{order.number}"
+    )
     try:
         _git(clone, "switch", "-q", "-C", branch, head)
     except subprocess.CalledProcessError as error:
