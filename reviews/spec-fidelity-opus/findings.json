@@ -1,0 +1,26 @@
+{
+  "pr": "pandoscope/pandoscope#58",
+  "head": "a19422a9a1316a86cbb2826a61effe80e3be9cee",
+  "pass": "spec-fidelity",
+  "model_tier": "opus",
+  "findings": [
+    {
+      "file": "src/pandoscope/reinset/implement.py",
+      "line": 86,
+      "rule": "It fits the ticket gate's branch pattern, with the subject as its ticket.",
+      "input": "The waybill's shortcodes.json holds {\"s3\": \"o/a\", \"s\": \"o/b\"}. load_shortcodes accepts it, because order.py:28 allows digits after the first letter. An implementer order names the subject o/a#12 and the id implement-opus-s312-1.",
+      "finding_basis": "judged",
+      "confidence": 40,
+      "finding": "The composer names the first-build branch claude/s312-implement-1. The ticket gate's branch_pattern reads it as code `s` and ticket 312, not as the subject's ticket 12. The same `s312` would also be the name code of o/b#312, so the order name and the branch name read two ways for any shortcode that ends in a digit."
+    },
+    {
+      "file": "src/pandoscope/reinset/review.py",
+      "line": 192,
+      "rule": "An order's name, a reference in a reply and a branch name use the same shortcode for one repository, apart from letter case where a pattern demands it.",
+      "input": "The review order review-spec-fidelity-opus-pando58-6, whose subject is pandoscope/pandoscope#58 with the shortcode PANDO.",
+      "finding_basis": "judged",
+      "confidence": 30,
+      "finding": "The order's name writes the subject as `pando58`, but the composer still names the review branch claude/review-spec-fidelity-opus-pr58. So the branch for this one repository uses `pr` in place of its shortcode, and the pull request body's account of this unmet criterion names only the ticket gate."
+    }
+  ]
+}
