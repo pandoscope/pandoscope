@@ -8,7 +8,7 @@ import pytest
 from pandoscope.reinset.receive import find_order
 from pandoscope.reinset.review import ReviewError, hydrate, pull_refs
 
-from .conftest import commit, git, pr_clone
+from .conftest import commit, fire, git, pr_clone, write_waybill_order
 
 PROMPT = """\
 Review {{ repo }}#{{ n }} ({{ pass }}, tier {{ model_tier }}):
@@ -16,25 +16,21 @@ base {{ base }}, head {{ head }}.
 Tickets: {{ tickets }}.
 """
 
+NAME = "review-spec-fidelity-opus-aet262-1"
 ORDER = (
-    "id: probe-4\nrole: reviewer\npass: spec-fidelity\nmodel_tier: opus\n"
-    "pull_request: pandoscope/aet#262\nbase: feature\n"
+    f"id: {NAME}\nrole: reviewer\npass: spec-fidelity\nmodel_tier: opus\n"
+    "subject: pandoscope/aet#262\nbase: feature\n"
     "tickets: [pandoscope/skills#179, pandoscope/aet#261]\n"
 )
 
-FIRE = {
-    "CCR_TRIGGER_REPO": "pandoscope/waybill",
-    "CCR_TRIGGER_HEAD_REF": "order/probe-4",
-}
+FIRE = fire(NAME)
 
 
 def write(session_root: Path, prompt: str = PROMPT, order: str = ORDER) -> None:
     review = session_root / "skills" / "original" / "thread-ledger" / "review"
     review.mkdir(parents=True)
     (review / "spec-fidelity.md").write_text(prompt)
-    orders = session_root / "waybill" / "orders"
-    orders.mkdir(parents=True)
-    (orders / "probe-4.yml").write_text(order)
+    write_waybill_order(session_root, NAME, order)
 
 
 def review_branch_on(session_root: Path, head: str) -> None:

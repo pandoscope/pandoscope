@@ -10,7 +10,12 @@ from typing import Any
 
 import yaml
 
-from pandoscope.reinset.order import validate_order
+from pandoscope.reinset.order import (
+    ShortcodeError,
+    find_shortcodes,
+    load_shortcodes,
+    validate_order,
+)
 
 # When the Routine fires on waybill (waybill#1), the harness sets the
 # trigger in the environment. It also checks out the pull request head
@@ -29,17 +34,21 @@ class Order:
     The waybill order that the Routine fired from (waybill#1).
 
     The order is the only receiver (ruling 2026-09-23, skills#195).
-    It names the role, the pull request under work and the tickets.
-    For a reviewer it also names the pass and the model tier.
-    It may name the pull request's base.
+    It names the role, the model tier, the tickets
+    and its subject: the issue or the pull request under work,
+    split here into ``repo``, the repository's shortcode ``code`` and ``number``.
+    For a reviewer it also names the pass.
+    It may name a base.
     The Routine prompt carries no data.
     """
 
     path: Path
     data: dict[str, Any]
     role: str
+    subject: str
     repo: str
-    pull_request: int
+    code: str
+    number: int
     base: str | None
     pass_: str | None
     model_tier: str | None
@@ -57,8 +66,11 @@ def find_order(env: Mapping[str, str], session_root: Path) -> Order | None:
     When the Routine fires on the waybill repository from an
     ``order/<name>`` branch, the trigger names
     ``<session_root>/waybill/orders/<name>.yml``. Raises OrderError when
-    that file is missing. Raises OrderError when the file departs from
-    the order schema; the error names every violated field.
+    that file is missing, and when the waybill's ``shortcodes.json``
+    beside ``orders/`` is missing or broken, or a second map stands beside it.
+    Raises OrderError when the
+    file departs from the order schema or its name pattern; the error
+    names every violated field.
     """
     repo = env.get(TRIGGER_REPO_ENV, "")
     head = env.get(TRIGGER_HEAD_ENV, "")
@@ -68,18 +80,26 @@ def find_order(env: Mapping[str, str], session_root: Path) -> Order | None:
     if not path.is_file():
         msg = f"the trigger names an order but {path} is missing"
         raise OrderError(msg)
+    try:
+        shortcodes = load_shortcodes(find_shortcodes(session_root / WAYBILL))
+    except ShortcodeError as error:
+        raise OrderError(str(error)) from error
     data = yaml.safe_load(path.read_text())
-    violations = validate_order(data, path.stem)
+    violations = validate_order(data, path.stem, shortcodes)
     if violations:
         msg = f"order {path} is off the schema: " + "; ".join(violations)
         raise OrderError(msg)
-    match = _TICKET.match(data["pull_request"])
+    match = _TICKET.match(data["subject"])
     assert match is not None  # noqa: S101 — the schema pins the pattern
+    repo = match.group("repo")
     return Order(
         path,
         data,
         data["role"],
-        match.group("repo"),
+        data["subject"],
+        repo,
+        # validate_order fails a subject without a shortcode.
+        shortcodes[repo],
         int(match.group("n")),
         data.get("base"),
         data.get("pass"),

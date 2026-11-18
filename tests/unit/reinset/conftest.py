@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import subprocess
 from pathlib import Path
 
@@ -135,3 +136,35 @@ def pr_clone(
     # A session clone carries no origin/HEAD (measured 2026-09-24).
     git(session_root / name, "remote", "set-head", "origin", "-d")
     return head
+
+
+# The waybill's shortcodes file: shortcode to repository (pandoscope#61).
+SHORTCODES = {"AET": "pandoscope/aet", "PANDO": "pandoscope/pandoscope"}
+
+
+def write_waybill_order(session_root: Path, name: str, text: str) -> Path:
+    """
+    Write ``waybill/orders/<name>.yml`` and the waybill's shortcodes file.
+
+    Returns the order's path.
+    """
+    waybill = session_root / "waybill"
+    orders = waybill / "orders"
+    orders.mkdir(parents=True, exist_ok=True)
+    (waybill / "shortcodes.json").write_text(json.dumps(SHORTCODES))
+    path = orders / f"{name}.yml"
+    path.write_text(text)
+    return path
+
+
+def fire(name: str) -> dict[str, str]:
+    """The trigger of a Routine that fires from the order branch of ``name``."""
+    return {
+        "CCR_TRIGGER_SOURCE": "github",
+        "CCR_TRIGGER_EVENT": "pull_request.opened",
+        "CCR_TRIGGER_REPO": "pandoscope/waybill",
+        "CCR_TRIGGER_PR_NUMBER": "5",
+        "CCR_TRIGGER_HEAD_REF": f"order/{name}",
+        "CCR_TRIGGER_BASE_REF": "main",
+        "CCR_TRIGGER_HEAD_SHA": "3cb001e",
+    }

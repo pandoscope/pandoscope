@@ -57,8 +57,9 @@ opens on the waybill repository from a branch `order/<name>`. The
 harness sets `CCR_TRIGGER_REPO` and `CCR_TRIGGER_HEAD_REF` in the
 environment. It also checks out the pull request head. The checkout
 puts `waybill/orders/<name>.yml` on disk.
-That file names the role, the pull request under work and the tickets,
-and for a reviewer the pass and model tier.
+That file names the role, the model tier, the subject and the tickets,
+and for a reviewer the pass.
+The subject is the issue or the pull request under work, as `owner/repo#n`.
 The composer reads that file and sets the role.
 For a reviewer it appends the review task to `CLAUDE.md`.
 The task is the whole of `skills/original/thread-ledger/review/<pass>.md`.
@@ -71,6 +72,16 @@ A pass file that uses the variable `candidates` gets the hits of the prose check
 The prose check is `skills/original/writing-prose/check.sh`.
 The composer runs the check.
 The reviewer never runs it.
+For an implementer it appends the implementer task,
+rendered from `src/pandoscope/reinset/tasks/implementer.md.j2`.
+The composer reads the subject from the clone of its repository:
+a ref `refs/pull/<n>/head` makes it a pull request.
+An issue makes a first build,
+with the tickets and the branch `claude/<code><n>-implement-<step>` from the order's base.
+A pull request makes a fix round,
+with the pull request's branch
+and the open entries that it owns in the disposition files under `waybill/dispositions/`.
+The implementer profile carries the standing rules of every implementer.
 Without an order the composer sets the role general
 and renders the loud UNCONFIGURED state.
 The Routine's saved prompt is one orientation sentence.
@@ -95,7 +106,7 @@ The dispatcher reads this file at every fire.
 The composer writes the following keys to the answers file:
 `detected` (harness facts),
 `resolved` (harness, environment, role, principal, model),
-`order` (path, role, pass, model tier, pull request number, tickets; null without an order),
+`order` (path, role, pass, model tier, subject, tickets; null without an order),
 `errors`,
 `installed` (the skills the role's bundle copied)
 and `hooks` (the hooks rendered to `$REINSET_HOOKS`).
@@ -103,10 +114,24 @@ and `hooks` (the hooks rendered to `$REINSET_HOOKS`).
 The composer validates the order against a strict schema
 (`src/pandoscope/reinset/schemas/order.json`). The schema rejects
 unknown keys. It requires `role`. It requires `id` to equal the file
-name. It takes `pull_request` as `owner/repo#n`. It takes `tickets`
+name. It takes `subject` as `owner/repo#n`. It takes `tickets`
 as a list of the same form. It takes `checkouts` as a map from
 `owner/repo` to a ref.
-For a reviewer it also requires `pass` and `model_tier`, both lowercase.
+It requires `model_tier` on every order, in lowercase letters and digits only,
+and `pass` on a reviewer's alone, in lowercase.
+An order that fits the schema must also fit its role's name pattern
+(`src/pandoscope/reinset/order_name.py`):
+`review-<pass>-<model_tier>-<code><n>-<step>` for a reviewer
+and `implement-<model_tier>-<code><n>-<step>` for an implementer.
+`<code><n>` is the subject, with the lowercase form of its repository's shortcode.
+The shortcodes have one source, the waybill's `shortcodes.json`.
+It maps each shortcode to its repository, in the format the thread ledger reads:
+a flat object, or `repos` beside the forge and its link patterns.
+Two shortcodes that differ only in case, or two for one repository, are an error.
+The step counts from 1, and a repeat run of a step takes a letter from `b`.
+A name that disagrees with a field fails, and the error names the part.
+The other roles have no name pattern,
+so their name must hold `-<model_tier>-` and is otherwise checked against the file name alone.
 When the order does not validate against the schema,
 the composer reports an error that names every violated field.
 The session therefore never runs on a half-read order.
@@ -118,7 +143,12 @@ SESSION_ROOT=/home/user pandoscope compose
 ### `pandoscope order check FILE...`
 
 Validate waybill order files against the schema that the composer
-uses. The command prints every violation with its field. It exits 1
+uses, and against the name patterns.
+The shortcodes come from `shortcodes.json` beside the `orders/` folder,
+and a missing shortcodes file fails every order.
+So does a second shortcode map anywhere in the waybill,
+such as another `shortcodes.json` or a `repo-codes.json`.
+The command prints every violation with its field. It exits 1
 when any file fails. Waybill's pull request checks run it. A broken
 order therefore turns red before anyone fires on it.
 
