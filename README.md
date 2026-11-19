@@ -83,8 +83,8 @@ The composer reads the subject from the clone of its repository:
 a ref `refs/pull/<n>/head` makes it a pull request.
 A build on a pull request is a composer error, and so is a fix round on an issue.
 The implementer profile carries the standing rules of every implementer.
-Without an order the composer sets the role general
-and renders the loud UNCONFIGURED state.
+Without an order the session has no role:
+the composer installs nothing and renders the loud UNCONFIGURED state.
 The Routine's saved prompt is one orientation sentence.
 Every Routine saves the same sentence. It tells
 the model that the hooks composed its role and task into `CLAUDE.md`.
@@ -106,7 +106,7 @@ The dispatcher reads this file at every fire.
 
 The composer writes the following keys to the answers file:
 `detected` (harness facts),
-`resolved` (harness, environment, role, principal, model),
+`resolved` (harness, environment, role, principal, model; the role null without an order),
 `order` (path, role, pass, model tier, subject, tickets; null without an order),
 `errors`,
 `installed` (the skills the role's bundle copied)

@@ -13,9 +13,6 @@ from pandoscope.reinset.render import (
     write_render,
 )
 
-GENERAL = Profile(
-    "general", "pandoscope", Path("general.yml"), {"role": "general", "skills": []}
-)
 IMPLEMENTER = Profile(
     "implementer",
     "meta",
@@ -24,7 +21,7 @@ IMPLEMENTER = Profile(
 )
 
 
-def answers(role: str) -> dict[str, Any]:
+def answers(role: str | None) -> dict[str, Any]:
     return {
         "detected": {"harness": "claude-code"},
         "resolved": {"role": role},
@@ -32,12 +29,14 @@ def answers(role: str) -> dict[str, Any]:
     }
 
 
-def test_general_is_the_loud_unconfigured_state() -> None:
-    text = render(answers("general"), GENERAL, [])
+def test_no_role_is_the_loud_unconfigured_state() -> None:
+    # Decision 143, answer 4: without an order the session has no role.
+    text = render(answers(None), None, [])
     assert "UNCONFIGURED" in text
     # Nothing is installed (D15).
     assert "skill" not in text.lower()
     assert not text.lstrip().startswith("# Role")
+    assert "general" not in text
 
 
 def test_role_render_names_role_layer_and_skills() -> None:
@@ -52,7 +51,7 @@ def test_role_render_names_role_layer_and_skills() -> None:
 
 def test_composer_errors_are_rendered_loudly() -> None:
     error = "order waybill/orders/x.yml is off the schema: role: 'x' is not one of"
-    text = render(answers("general"), GENERAL, [error])
+    text = render(answers(None), None, [error])
     assert "COMPOSER ERROR" in text
     assert error in text
     assert "UNCONFIGURED" in text
@@ -86,25 +85,16 @@ def test_a_task_is_rendered_after_the_profile() -> None:
 
 
 def test_the_unconfigured_declaration_points_at_the_order() -> None:
-    text = render(answers("general"), GENERAL, [])
+    text = render(answers(None), None, [])
     assert "REINSET_REF" not in text
     declaration = [line for line in text.splitlines() if "order/" in line]
     assert len(declaration) == 1
     assert "waybill" in declaration[0]
 
 
-def test_general_declared_by_an_order_is_configured() -> None:
-    declared = answers("general")
-    declared["order"] = {"role": "general", "pull_request": 1}
-    text = render(declared, GENERAL, [])
-    assert "UNCONFIGURED" not in text
-    assert "Role: general" in text
-    assert "nothing is installed" in text
-
-
 def test_a_fired_session_without_an_order_shouts() -> None:
-    fired = answers("general")
+    fired = answers(None)
     fired["detected"] = {"harness": "claude-code", "spawned": True}
-    text = render(fired, GENERAL, [])
+    text = render(fired, None, [])
     assert "WAITING" not in text
     assert "UNCONFIGURED" in text

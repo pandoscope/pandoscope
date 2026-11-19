@@ -21,10 +21,12 @@ EVENTS = ("SessionStart", "UserPromptSubmit", "PreToolUse", "Stop", "PreCompact"
 
 
 def render_hooks(
-    profile: Profile, home: Path, target: Path
+    profile: Profile | None, home: Path, target: Path
 ) -> tuple[dict[str, Any], list[str]]:
     """
     Write the hooks file for ``profile`` at ``target``; return it and the errors.
+
+    Without a profile, the session has no role and the file holds no hook.
 
     Each profile entry is ``{event, command[, matcher]}``.
     Its ``command`` is ``<skill>/<script>`` under the installed skills.
@@ -35,10 +37,11 @@ def render_hooks(
     a script missing on disk and an unknown event.
     """
     skills_dir = home / ".claude" / "skills"
-    bundle = {str(name) for name in profile.data.get("skills") or []}
+    data = profile.data if profile is not None else {}
+    bundle = {str(name) for name in data.get("skills") or []}
     rendered: dict[str, list[dict[str, str]]] = {}
     errors: list[str] = []
-    for entry in profile.data.get("hooks") or []:
+    for entry in data.get("hooks") or []:
         event = str(entry.get("event", ""))
         command = str(entry.get("command", ""))
         skill, _, script = command.partition("/")
