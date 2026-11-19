@@ -4,8 +4,9 @@ from pathlib import Path
 
 import pytest
 
+from pandoscope.reinset import implement
 from pandoscope.reinset.compose import compose
-from pandoscope.reinset.implement import ImplementError, implementer_task
+from pandoscope.reinset.implement import PASS_DIR, ImplementError, implementer_task
 from pandoscope.reinset.receive import Order, find_order
 
 from .conftest import ENV_RUN7_FIRED, fire, git, pr_clone, write_waybill_order
@@ -53,6 +54,58 @@ def test_a_first_build_states_its_tickets_and_its_branch(session_root: Path) -> 
     assert "`origin/main`" in task
     assert "pull request" in task
     assert "dispositions" not in task
+
+
+@pytest.mark.parametrize(
+    ("name", "text", "number"),
+    [(BUILD, BUILD_ORDER, 261), (FIX, FIX_ORDER, 262)],
+)
+def test_the_task_is_the_pass_file_that_the_pass_names(
+    session_root: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    name: str,
+    text: str,
+    number: int,
+) -> None:
+    # Decision 137: for every role, the pass names its pass file.
+    head = pr_clone(session_root, "aet", 262)
+    pr_branch(session_root, head)
+    dispositions(session_root)
+    passes = tmp_path / "passes"
+    passes.mkdir()
+    for pass_ in ("build", "fix"):
+        (passes / f"{pass_}.md.j2").write_text(f"{pass_}: {{{{ subject }}}}\n")
+    monkeypatch.setattr(implement, "PASS_DIR", passes)
+    order = order_of(session_root, name, text)
+    task = implementer_task(session_root, order)
+    assert task == f"{order.pass_}: pandoscope/aet#{number}\n"
+
+
+def test_a_pass_without_its_pass_file_is_an_error(
+    session_root: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    pr_clone(session_root, "aet", 262)
+    monkeypatch.setattr(implement, "PASS_DIR", tmp_path)
+    order = order_of(session_root, BUILD, BUILD_ORDER)
+    with pytest.raises(ImplementError, match="no implementer pass file at"):
+        implementer_task(session_root, order)
+
+
+@pytest.mark.parametrize(
+    ("pass_", "other"),
+    [
+        ("build", ["fix round", "finding", "disposition", "status"]),
+        ("fix", ["first build", "Create the branch", "Open one pull request", "base"]),
+    ],
+)
+def test_a_pass_file_reads_nothing_of_the_other_pass(
+    pass_: str, other: list[str]
+) -> None:
+    # Decision 137: "a role should only read its own pass's instructions".
+    text = (PASS_DIR / f"{pass_}.md.j2").read_text()
+    for word in other:
+        assert word not in text, word
 
 
 def test_a_first_build_takes_the_orders_base(session_root: Path) -> None:

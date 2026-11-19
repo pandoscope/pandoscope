@@ -71,9 +71,10 @@ A pass file that uses the variable `candidates` gets the hits of the prose check
 The prose check is `skills/original/writing-prose/check.sh`.
 The composer runs the check.
 The reviewer never runs it.
-For an implementer it appends the implementer task,
-rendered from `src/pandoscope/reinset/tasks/implementer.md.j2`.
-The order's pass decides the task.
+For an implementer it appends the implementer task:
+the pass file `src/pandoscope/reinset/tasks/implementer/<pass>.md.j2`,
+rendered as a Jinja template from the order and the subject's clone.
+A pass reads only its own file.
 The pass `build` makes a first build on an issue,
 with the tickets and the branch `claude/<code><n>-implement-<step>` from the order's base.
 The pass `fix` makes a fix round on a pull request,

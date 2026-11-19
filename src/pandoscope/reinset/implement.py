@@ -11,7 +11,9 @@ from pandoscope.reinset.order_name import BUILD, FIX
 from pandoscope.reinset.receive import WAYBILL, Order
 from pandoscope.reinset.review import ReviewError, _check_origin, _default_branch, _git
 
-TASK = Path(__file__).parent / "tasks" / "implementer.md.j2"
+# DECISION: an implementer's pass files live beside the composer for now,
+# and move into skills with pandoscope/skills#285 (decision 137).
+PASS_DIR = Path(__file__).parent / "tasks" / "implementer"
 DISPOSITIONS = Path(WAYBILL) / "dispositions"
 
 
@@ -21,16 +23,18 @@ class ImplementError(Exception):
 
 def implementer_task(session_root: Path, order: Order) -> str:
     """
-    Return the implementer's task, rendered from ``tasks/implementer.md.j2``.
+    Return the implementer's task: the pass file ``<pass>.md.j2``, rendered.
 
-    The order's pass decides, and its subject must fit it.
+    The order's pass names the file under ``PASS_DIR`` (decision 137),
+    and its subject must fit the pass.
     The pass fix makes a fix round on a pull request of ``order.repo``:
-    the task names the pull request's branch
+    the file gets the pull request's branch
     and the waybill's disposition files under the session root.
     The pass build makes a first build on an issue:
-    the task names the tickets, the order's base or the default branch,
+    the file gets the tickets, the order's base or the default branch,
     and a new branch ``claude/<code><n>-implement-<step>``.
-    Raises ImplementError when the subject's clone is missing
+    Raises ImplementError when the pass has no pass file,
+    when the subject's clone is missing
     or belongs to another repository,
     when a ref cannot be read,
     when the pass is build and the subject a pull request
@@ -38,6 +42,10 @@ def implementer_task(session_root: Path, order: Order) -> str:
     when no branch or more than one points at a pull request's head,
     and when a fix round finds no disposition folder.
     """
+    path = PASS_DIR / f"{order.pass_}.md.j2"
+    if not path.is_file():
+        msg = f"no implementer pass file at {path}"
+        raise ImplementError(msg)
     clone = session_root / order.repo.rsplit("/", 1)[-1]
     if not (clone / ".git").exists():
         msg = f"no clone of the subject's repository {order.repo} at {clone}"
@@ -51,7 +59,6 @@ def implementer_task(session_root: Path, order: Order) -> str:
             "model_tier": order.model_tier,
             "subject": order.subject,
             "clone": str(clone),
-            "fix_round": head is not None,
         }
         if head is None:
             values |= _first_build(clone, order)
@@ -66,7 +73,7 @@ def implementer_task(session_root: Path, order: Order) -> str:
         keep_trailing_newline=True,
         trim_blocks=True,
     )
-    return env.from_string(TASK.read_text()).render(values)
+    return env.from_string(path.read_text()).render(values)
 
 
 def _pull_head(clone: Path, number: int) -> str | None:
