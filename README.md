@@ -131,7 +131,7 @@ The shortcodes have one source, the waybill's `shortcodes.json`.
 It maps each shortcode to its repository, in the format the thread ledger reads.
 The schema `src/pandoscope/reinset/schemas/shortcodes.json` states its shape:
 a shortcode is two to five lowercase letters,
-a repository is `owner/repo`,
+a repository is `owner/repo` in lowercase,
 and the map stands alone or under `repos` beside the forge and its link patterns.
 A key that starts with `_`, such as `_comment`, is a comment.
 Two shortcodes for one repository are an error, and so is a key written twice.

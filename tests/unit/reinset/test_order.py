@@ -390,6 +390,21 @@ def test_a_shortcode_off_two_to_five_lowercase_letters_fails_naming_it(
     assert repr(short) in str(raised.value), raised.value
 
 
+@pytest.mark.parametrize("repo", ["Pandoscope/skills", "pandoscope/Skills"])
+@pytest.mark.parametrize("form", ["flat", "forge"])
+def test_a_repository_with_a_capital_letter_fails_naming_it(
+    tmp_path: Path, repo: str, form: str
+) -> None:
+    # Decision 143, answer 6: a repository in the map is written in lowercase,
+    # so two spellings of one repository cannot get two shortcodes.
+    repos = {"sk": "pandoscope/skills", "skl": repo}
+    path = tmp_path / "shortcodes.json"
+    path.write_text(json.dumps(repos if form == "flat" else {"repos": repos}))
+    with pytest.raises(ShortcodeError) as raised:
+        load_shortcodes(path)
+    assert repr(repo) in str(raised.value), raised.value
+
+
 def test_a_shortcode_is_used_as_written(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -462,6 +477,8 @@ def test_the_schema_takes_both_forms_and_comment_keys(data: object) -> None:
         {"pando": "pandoscope"},
         {"pando": 7},
         {"repos": {"pando": "o/p/q"}},
+        {"pando": "O/p"},
+        {"repos": {"pando": "o/P"}},
         # a key beside the map under repos is a forge setting or a comment
         {"repos": {"pando": "o/p"}, "owner": "pandoscope"},
         {"repos": {"pando": "o/p"}, "forge": 7},

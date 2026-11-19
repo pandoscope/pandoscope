@@ -21,7 +21,11 @@
       "type": "string",
       "pattern": "^[a-z]{2,5}(?![\\s\\S])"
     },
-    "repository": {"type": "string", "pattern": "^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+(?![\\s\\S])"},
+    "repository": {
+      "description": "owner/repo in lowercase (decision 143), so that one repository has one spelling and one shortcode.",
+      "type": "string",
+      "pattern": "^[a-z0-9._-]+/[a-z0-9._-]+(?![\\s\\S])"
+    },
     "map": {
       "type": "object",
       "propertyNames": {"if": {"pattern": "^_"}, "else": {"$ref": "#/$defs/shortcode"}},
