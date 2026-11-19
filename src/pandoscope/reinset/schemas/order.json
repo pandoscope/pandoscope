@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://pandoscope.dev/schemas/order.json",
   "title": "Waybill order",
-  "description": "The order that a fired session reads (pandoscope/waybill#1). The waybill repository holds one file per order under orders/, named after its branch order/<id>. Strict: an unknown key is a violation. The subject is the issue or the pull request the order works on; the forge numbers both in one sequence per repository (pandoscope#57). An order names a worker role, and every worker role has a name pattern (decisions 135 and 143). Every order names its pass (decision 109): a reviewer's names its pass file, an implementer's is build or fix (src/pandoscope/reinset/order_name.py).",
+  "description": "The order that a fired session reads (pandoscope/waybill#1). The waybill repository holds one file per order under orders/, named after its branch order/<id>. Strict: an unknown key is a violation. The subject is the issue or the pull request the order works on; the forge numbers both in one sequence per repository (pandoscope#57). An order names a worker role, and every worker role has a name pattern (decisions 135 and 143). Every order names its pass (decision 109): it names the role's pass file, which the composer looks up (decision 137).",
   "type": "object",
   "additionalProperties": false,
   "required": ["id", "role", "pass", "model_tier", "subject", "tickets"],

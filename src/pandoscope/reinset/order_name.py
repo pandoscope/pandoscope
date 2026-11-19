@@ -15,13 +15,6 @@ PATTERNS: dict[str, str] = {
     "reviewer": "review-<pass>-<model_tier>-<code><n>-<step>",
     "implementer": "implement-<pass>-<model_tier>-<code><n>-<step>",
 }
-# DECISION: the implementer's two passes, named here and nowhere else.
-# Not ruled; pandoscope#59 lists them under "To decide".
-# A first build works on an issue, a fix round on a pull request,
-# and the composer fails an order whose subject is the other kind.
-BUILD = "build"
-FIX = "fix"
-IMPLEMENTER_PASSES = (BUILD, FIX)
 # The literal word that opens each pattern, and the role it belongs to.
 ROLE_OF_WORD = {pattern.split("-", 1)[0]: role for role, pattern in PATTERNS.items()}
 # The step counts from 1; a repeat run of a step takes b, c and so on.
@@ -45,7 +38,6 @@ def name_violations(
     as the waybill's ``shortcodes.json`` does.
     Returns a ``subject`` violation when the subject's repository has no
     shortcode, whatever the role,
-    a ``pass`` violation when an implementer's pass is neither build nor fix,
     a role part violation when the name begins with the word of another role,
     whatever the order's role,
     and otherwise one violation that names the first part of the name that is off.
@@ -58,12 +50,6 @@ def name_violations(
         return [
             f"subject: {subject['repo']!r} has no shortcode in shortcodes.json, "
             "and every order needs one"
-        ]
-    if data["role"] == "implementer" and data["pass"] not in IMPLEMENTER_PASSES:
-        return [
-            f"pass: {data['pass']!r} is no implementer's pass: "
-            f"{BUILD!r} builds the ticket of an issue, "
-            f"{FIX!r} fixes the findings on a pull request"
         ]
     word = str(data["id"]).split("-", 1)[0]
     owner = ROLE_OF_WORD.get(word)

@@ -7,13 +7,17 @@ from pathlib import Path
 
 import jinja2
 
-from pandoscope.reinset.order_name import BUILD, FIX
 from pandoscope.reinset.receive import WAYBILL, Order
 from pandoscope.reinset.review import ReviewError, _check_origin, _default_branch, _git
 
 # DECISION: an implementer's pass files live beside the composer for now,
 # and move into skills with pandoscope/skills#285 (decision 137).
 PASS_DIR = Path(__file__).parent / "tasks" / "implementer"
+# A role's passes are its pass files (decision 137).
+# DECISION: the composer states which subject each pass works on,
+# here and nowhere else: a first build an issue, a fix round a pull request.
+# git tells the two apart; the order check knows only the number.
+WORKS_ON_A_PULL_REQUEST = {"build": False, "fix": True}
 DISPOSITIONS = Path(WAYBILL) / "dispositions"
 
 
@@ -39,6 +43,7 @@ def implementer_task(session_root: Path, order: Order) -> str:
     when a ref cannot be read,
     when the pass is build and the subject a pull request
     or the pass fix and the subject an issue, naming both,
+    when the composer does not know which subject the pass works on,
     when no branch or more than one points at a pull request's head,
     and when a fix round finds no disposition folder.
     """
@@ -89,15 +94,22 @@ def _check_pass(order: Order, head: str | None) -> None:
     """Raise ImplementError when the order's pass and its subject disagree."""
     # The order check knows only the subject's number;
     # git tells the composer what the number is (decision 109).
-    if order.pass_ == BUILD and head is not None:
+    on_pull_request = WORKS_ON_A_PULL_REQUEST.get(order.pass_)
+    if on_pull_request is None:
         msg = (
-            f"the order's pass {BUILD!r} builds the ticket of an issue, "
+            f"the pass file of {order.pass_!r} exists, and the composer does not "
+            f"know which subject it works on: {sorted(WORKS_ON_A_PULL_REQUEST)}"
+        )
+        raise ImplementError(msg)
+    if not on_pull_request and head is not None:
+        msg = (
+            f"the order's pass {order.pass_!r} builds the ticket of an issue, "
             f"and its subject {order.subject} is a pull request"
         )
         raise ImplementError(msg)
-    if order.pass_ == FIX and head is None:
+    if on_pull_request and head is None:
         msg = (
-            f"the order's pass {FIX!r} fixes the findings on a pull request, "
+            f"the order's pass {order.pass_!r} fixes the findings on a pull request, "
             f"and its subject {order.subject} is an issue"
         )
         raise ImplementError(msg)

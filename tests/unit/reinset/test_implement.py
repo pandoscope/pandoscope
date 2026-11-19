@@ -108,6 +108,37 @@ def test_a_pass_file_reads_nothing_of_the_other_pass(
         assert word not in text, word
 
 
+def test_a_composed_pass_without_its_pass_file_is_a_composer_error(
+    session_root: Path, home: Path, path_dirs: list[Path]
+) -> None:
+    pr_clone(session_root, "aet", 262)
+    name = "implement-refactor-opus-aet261-1"
+    write_waybill_order(
+        session_root,
+        name,
+        BUILD_ORDER.replace(BUILD, name).replace("pass: build", "pass: refactor"),
+    )
+    result = compose({**ENV_RUN7_FIRED, **fire(name)}, session_root, home, path_dirs)
+    assert len(result.errors) == 1, result.errors
+    assert "no implementer pass file at" in result.errors[0]
+    assert str(PASS_DIR / "refactor.md.j2") in result.errors[0]
+    assert "## Task" not in result.render_text
+
+
+def test_a_pass_file_whose_subject_the_composer_does_not_know_is_an_error(
+    session_root: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The composer alone states which subject each pass works on.
+    pr_clone(session_root, "aet", 262)
+    (tmp_path / "refactor.md.j2").write_text("{{ subject }}\n")
+    monkeypatch.setattr(implement, "PASS_DIR", tmp_path)
+    name = "implement-refactor-opus-aet261-1"
+    text = BUILD_ORDER.replace(BUILD, name).replace("pass: build", "pass: refactor")
+    order = order_of(session_root, name, text)
+    with pytest.raises(ImplementError, match="'refactor'"):
+        implementer_task(session_root, order)
+
+
 def test_a_first_build_takes_the_orders_base(session_root: Path) -> None:
     pr_clone(session_root, "aet", 262)
     order = order_of(session_root, BUILD, BUILD_ORDER + "base: feature\n")

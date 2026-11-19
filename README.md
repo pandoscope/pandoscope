@@ -125,8 +125,8 @@ as a list of the same form. It takes `checkouts` as a map from
 `owner/repo` to a ref.
 It requires `model_tier` on every order, in lowercase letters and digits only.
 It requires `pass` on every order, in lowercase.
-A reviewer's pass names its pass file.
-An implementer's pass is `build` or `fix`.
+The pass names its role's pass file,
+and the composer fails a pass without one.
 An order that fits the schema must also fit its role's name pattern
 (`src/pandoscope/reinset/order_name.py`):
 `review-<pass>-<model_tier>-<code><n>-<step>` for a reviewer

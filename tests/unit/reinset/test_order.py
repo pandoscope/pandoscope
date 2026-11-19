@@ -138,13 +138,11 @@ def test_an_order_of_any_role_without_a_pass_fails_naming_the_field(
 
 
 @pytest.mark.parametrize("pass_", ["spec-fidelity", "builds"])
-def test_an_implementer_pass_is_build_or_fix(pass_: str) -> None:
+def test_the_order_check_holds_no_list_of_implementer_passes(pass_: str) -> None:
+    # Decision 137: a role's passes are its pass files,
+    # which the composer looks up, as for a reviewer.
     name = f"implement-{pass_}-opus-pando57-1"
-    violations = check({**IMPLEMENTER, "id": name, "pass": pass_}, name)
-    assert len(violations) == 1, violations
-    assert violations[0].startswith("pass:"), violations
-    assert "'build'" in violations[0], violations
-    assert "'fix'" in violations[0], violations
+    assert check({**IMPLEMENTER, "id": name, "pass": pass_}, name) == []
 
 
 def test_a_tier_has_letters_and_digits_only() -> None:
