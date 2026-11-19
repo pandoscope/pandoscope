@@ -114,7 +114,11 @@ and `hooks` (the hooks rendered to `$REINSET_HOOKS`).
 
 The composer validates the order against a strict schema
 (`src/pandoscope/reinset/schemas/order.json`). The schema rejects
-unknown keys. It requires `role`. It requires `id` to equal the file
+unknown keys. It requires `role`, `reviewer` or `implementer`.
+The principal starts an orchestrator,
+and a probe is started from within a session,
+so neither has an order.
+It requires `id` to equal the file
 name. It takes `subject` as `owner/repo#n`. It takes `tickets`
 as a list of the same form. It takes `checkouts` as a map from
 `owner/repo` to a ref.
@@ -138,9 +142,6 @@ Two shortcodes for one repository are an error, and so is a key written twice.
 The step counts from 1, and a repeat run of a step takes a letter from `b`.
 A name that disagrees with a field fails, and the error names the part.
 A name that begins with `review` or `implement` needs the role of that pattern.
-The other roles have no name pattern.
-Their pass is unchecked,
-and their name must hold `-<model_tier>-` and is otherwise checked against the file name alone.
 When the order does not validate against the schema,
 the composer reports an error that names every violated field.
 The session therefore never runs on a half-read order.

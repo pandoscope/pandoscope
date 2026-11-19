@@ -105,7 +105,19 @@ def test_required_fields_are_named_when_missing(missing: str) -> None:
     assert any(missing in v for v in violations), violations
 
 
-@pytest.mark.parametrize("role", ["implementer", "orchestrator", "general", "probe"])
+@pytest.mark.parametrize("role", ["orchestrator", "general", "probe"])
+def test_an_order_names_a_worker_role_only(role: str) -> None:
+    # Decisions 135 and 143: an orchestrator is started by the principal,
+    # a probe is a subagent or a session an orchestrator starts,
+    # and the role general goes.
+    name = f"{role}-build-opus-pando57-1"
+    violations = check({**IMPLEMENTER, "id": name, "role": role}, name)
+    assert len(violations) == 1, violations
+    assert violations[0].startswith("role:"), violations
+    assert repr(role) in violations[0], violations
+
+
+@pytest.mark.parametrize("role", ["reviewer", "implementer"])
 def test_an_order_of_any_role_without_a_tier_fails_naming_the_field(role: str) -> None:
     order = {k: v for k, v in IMPLEMENTER.items() if k != "model_tier"}
     violations = check({**order, "role": role}, IMPLEMENTER_NAME)
@@ -114,13 +126,7 @@ def test_an_order_of_any_role_without_a_tier_fails_naming_the_field(role: str) -
 
 @pytest.mark.parametrize(
     "role",
-    [
-        "reviewer",
-        "implementer",
-        "orchestrator",
-        "general",
-        "probe",
-    ],
+    ["reviewer", "implementer"],
 )
 def test_an_order_of_any_role_without_a_pass_fails_naming_the_field(
     role: str,
@@ -139,12 +145,6 @@ def test_an_implementer_pass_is_build_or_fix(pass_: str) -> None:
     assert violations[0].startswith("pass:"), violations
     assert "'build'" in violations[0], violations
     assert "'fix'" in violations[0], violations
-
-
-@pytest.mark.parametrize("role", ["orchestrator", "general", "probe"])
-def test_a_role_without_a_name_pattern_takes_any_pass(role: str) -> None:
-    order = {**IMPLEMENTER, "id": "probe-opus-4", "role": role, "pass": "look-1"}
-    assert check(order, "probe-opus-4") == []
 
 
 def test_a_tier_has_letters_and_digits_only() -> None:
@@ -264,13 +264,12 @@ def test_an_extra_part_after_the_tier_blames_the_part_it_stands_in(role: str) ->
     assert "'r2-pando58-4'" in violations[0], violations
 
 
-@pytest.mark.parametrize("role", ["probe", "general", "orchestrator"])
 @pytest.mark.parametrize(
-    ("name", "owner"),
+    ("name", "role", "owner"),
     [
-        ("implement-opus-pando57-1", "implementer"),
-        ("implement-build-opus-pando57-1", "implementer"),
-        ("review-spec-fidelity-opus-pando57-1", "reviewer"),
+        ("implement-opus-pando57-1", "reviewer", "implementer"),
+        ("implement-build-opus-pando57-1", "reviewer", "implementer"),
+        ("review-spec-fidelity-opus-pando57-1", "implementer", "reviewer"),
     ],
 )
 def test_a_name_that_begins_with_a_roles_word_needs_that_role(
@@ -294,28 +293,10 @@ def test_a_subject_whose_repository_has_no_shortcode_fails() -> None:
     ), violations
 
 
-def test_a_role_without_a_name_pattern_keeps_only_the_id_check() -> None:
-    # DECISION:FALLBACK in order_name.py: the probe role has no pattern.
-    probe = {**IMPLEMENTER, "id": "probe-opus-4", "role": "probe"}
-    assert check(probe, "probe-opus-4") == []
-
-
-@pytest.mark.parametrize("name", ["probe-sonnet-4", "probe-4", "opus-probe-4"])
-def test_a_role_without_a_name_pattern_still_names_its_tier(name: str) -> None:
-    # F2: a Routine picks an order by the tier between hyphens in its name.
-    probe = {**IMPLEMENTER, "id": name, "role": "probe"}
-    violations = check(probe, name)
-    assert len(violations) == 1, violations
-    assert violations[0].startswith("id:"), violations
-    assert "-opus-" in violations[0], violations
-
-
-@pytest.mark.parametrize("role", ["probe", "general", "orchestrator"])
+@pytest.mark.parametrize("role", ["reviewer", "implementer"])
 def test_a_subject_without_a_shortcode_fails_for_every_role(role: str) -> None:
-    # F3: the lookup stood after the early return of a role without a pattern.
-    order = {**IMPLEMENTER, "id": "probe-opus-4", "role": role}
-    order["subject"] = "other/repo#3"
-    violations = check(order, "probe-opus-4")
+    order = {**IMPLEMENTER, "role": role, "subject": "other/repo#3"}
+    violations = check(order, IMPLEMENTER_NAME)
     assert any(
         v.startswith("subject:") and "shortcodes.json" in v for v in violations
     ), violations

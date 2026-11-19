@@ -29,9 +29,9 @@ STEP = re.compile(r"[1-9][0-9]*[b-z]?")
 _SUBJECT = re.compile(r"^(?P<repo>[^#]+)#(?P<n>\d+)$")
 
 
-def name_pattern(role: str) -> str | None:
-    """Return the name pattern of ``role``'s orders, or None when it has none."""
-    return PATTERNS.get(role)
+def name_pattern(role: str) -> str:
+    """Return the name pattern of ``role``'s orders; the schema lists these roles."""
+    return PATTERNS[role]
 
 
 def name_violations(
@@ -49,8 +49,6 @@ def name_violations(
     a role part violation when the name begins with the word of another role,
     whatever the order's role,
     and otherwise one violation that names the first part of the name that is off.
-    For a role without a pattern, returns a violation when the name does
-    not hold ``-<model_tier>-``.
     Returns an empty list when the name fits.
     """
     subject = _SUBJECT.match(data["subject"])
@@ -78,27 +76,6 @@ def name_violations(
             f"{data['role']!r}"
         ]
     pattern = name_pattern(data["role"])
-    if pattern is None:
-        # A Routine picks an order by the tier between hyphens in its
-        # branch name, so even a name without a pattern must hold it (F2).
-        tier = f"-{data['model_tier']}-"
-        if tier not in str(data["id"]):
-            return [
-                f"id: {data['id']!r} must hold {tier!r}, "
-                "because a Routine picks an order by the model_tier part of its name"
-            ]
-        # DECISION:FALLBACK: a role without a name pattern
-        # (orchestrator, general, probe; pandoscope#57 leaves them alone).
-        # Missing: the pattern to check the rest of the name against,
-        # and a list of the role's passes: the pass is required, its value unchecked.
-        # In its place: the schema's check that the id equals the file name,
-        # and the check above that the name holds the tier.
-        # Told: `pandoscope order check` prints that the name is unchecked,
-        # so the person who places the order sees it;
-        # the session gets its role from the order as before.
-        # Test: test_a_role_without_a_name_pattern_keeps_only_the_id_check
-        # and test_order_check_tells_a_role_without_a_name_pattern.
-        return []
     values = {
         "pass": data["pass"],
         "model_tier": data["model_tier"],

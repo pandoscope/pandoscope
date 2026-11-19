@@ -17,7 +17,6 @@ from pandoscope.reinset.order import (
     load_shortcodes,
     validate_order,
 )
-from pandoscope.reinset.order_name import name_pattern
 from pandoscope.stamp import TEMPLATE_URL, parse_data, stamp
 
 
@@ -138,8 +137,6 @@ def run_order_check(files: list[str]) -> int:
 
     Each file is ``<waybill>/orders/<name>.yml``; the subject's shortcode
     comes from ``<waybill>/shortcodes.json``, and a file without it fails.
-    An order whose role has no name pattern passes with a line that says
-    its name went unchecked.
     """
     failed = 0
     for name in files:
@@ -156,11 +153,6 @@ def run_order_check(files: list[str]) -> int:
             failed += 1
             for violation in violations:
                 print(f"{path}: {violation}")
-        elif name_pattern(data["role"]) is None:
-            print(
-                f"{path}: ok, but the role {data['role']!r} has no name pattern, "
-                "so only its tier and the file name are checked"
-            )
         else:
             print(f"{path}: ok")
     return 1 if failed else 0

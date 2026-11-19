@@ -113,17 +113,19 @@ def test_order_check_without_the_shortcodes_file_fails(
     assert "ok" not in out
 
 
-def test_order_check_tells_a_role_without_a_name_pattern(
+def test_order_check_fails_an_order_of_a_role_that_is_no_worker(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    # DECISION:FALLBACK in order_name.py: the person placing it is told here.
-    order = waybill(tmp_path) / "probe-opus-4.yml"
+    # Decision 135: a probe is a subagent or a session, never an order.
+    order = waybill(tmp_path) / "probe-look-opus-pando57-1.yml"
     order.write_text(
-        "id: probe-opus-4\nrole: probe\npass: look\nmodel_tier: opus\n"
-        "subject: pandoscope/pandoscope#57\ntickets: []\n"
+        "id: probe-look-opus-pando57-1\nrole: probe\npass: look\n"
+        "model_tier: opus\nsubject: pandoscope/pandoscope#57\ntickets: []\n"
     )
-    assert main(["order", "check", str(order)]) == 0
-    assert "no name pattern" in capsys.readouterr().out
+    assert main(["order", "check", str(order)]) == 1
+    out = capsys.readouterr().out
+    assert "role:" in out
+    assert "'probe'" in out
 
 
 def test_order_check_run_inside_orders_finds_the_shortcodes(

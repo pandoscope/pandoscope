@@ -197,22 +197,25 @@ def test_the_order_carries_its_tickets_into_the_answers(
     assert result.answers["resolved"]["role"] == "implementer"
 
 
-def test_an_order_declaring_general_renders_declared_general(
-    session_root: Path, home: Path, path_dirs: list[Path]
+@pytest.mark.parametrize("role", ["general", "orchestrator", "probe"])
+def test_an_order_of_a_role_that_is_no_worker_is_a_composer_error(
+    session_root: Path, home: Path, path_dirs: list[Path], role: str
 ) -> None:
-    name = "general-opus-aet261-1"
+    # Decisions 135 and 143: an order names a worker role only.
+    name = f"{role}-build-opus-aet261-1"
     write_pass_and_order(
         session_root,
-        ORDER_IMPLEMENTER.replace("implementer", "general").replace(
+        ORDER_IMPLEMENTER.replace("role: implementer", f"role: {role}").replace(
             IMPLEMENT_NAME, name
         ),
         name,
     )
     env = {**ENV_RUN7_FIRED, **fire(name)}
     result = compose(env, session_root, home, path_dirs)
-    assert result.answers["resolved"]["role"] == "general"
-    assert "UNCONFIGURED" not in result.render_text
-    assert "Role: general" in result.render_text
+    assert len(result.errors) == 1, result.errors
+    assert f"role: {role!r}" in result.errors[0]
+    assert "UNCONFIGURED" in result.render_text
+    assert f"Role: {role}" not in result.render_text
 
 
 def _skill(session_root: Path, name: str) -> None:
