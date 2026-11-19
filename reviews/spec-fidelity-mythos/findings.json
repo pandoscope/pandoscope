@@ -1,0 +1,35 @@
+{
+  "pr": "pandoscope/pandoscope#64",
+  "head": "1fcea90fd6cdcf6f5dd4a54e5cf5070ac5e1a31c",
+  "pass": "spec-fidelity",
+  "model_tier": "mythos",
+  "findings": [
+    {
+      "file": "src/pandoscope/reinset/profiles/implementer.yml",
+      "line": 2,
+      "rule": "The profile keeps only what holds for every pass of the role.",
+      "input": "An implementer order with `pass: fix` on a pull request, such as `implement-fix-opus-aet262-3`: the render prints the profile's summary above the task.",
+      "finding_basis": "judged",
+      "confidence": 40,
+      "finding": "The composed instructions of a fix round still open with the profile summary \"Delivers one ticket test-first on its own branch and opens the PR\", which holds for the build pass only, while the fix pass file says to work on the pull request's branch and \"Open no other pull request\"."
+    },
+    {
+      "file": "src/pandoscope/reinset/tasks/implementer/fix.md.j2",
+      "line": 14,
+      "rule": "The composed instructions of both paths still state every rule that they state after pandoscope/pandoscope#58, each once.",
+      "input": "An implementer order with `pass: fix` on a pull request, such as `implement-fix-opus-aet262-3`.",
+      "finding_basis": "judged",
+      "confidence": 30,
+      "finding": "The composed instructions of a fix round no longer state \"Stub, red, green: the failing tests commit before the code that turns them green\" nor the rule that no commit repairs an earlier commit of the same branch, both of which the fix path stated after pandoscope#58 from the profile; the change moved them into build.md.j2 alone, and the ticket names neither as a rule of a first build only."
+    },
+    {
+      "file": "src/pandoscope/reinset/implement.py",
+      "line": 98,
+      "rule": "The valid passes of a role are the pass files that exist for it.",
+      "input": "A pass file `src/pandoscope/reinset/tasks/implementer/refactor.md.j2` exists and an order names `pass: refactor` (`implement-refactor-opus-aet261-1`).",
+      "finding_basis": "judged",
+      "confidence": 30,
+      "finding": "The composer fails the order with \"the composer does not know which subject it works on\" although the pass file exists, because the table `WORKS_ON_A_PULL_REQUEST` is a second list of the implementer's valid passes beside the pass files."
+    }
+  ]
+}
