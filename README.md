@@ -83,7 +83,8 @@ and the open entries that it owns in the disposition files under `waybill/dispos
 The composer reads the subject from the clone of its repository:
 a ref `refs/pull/<n>/head` makes it a pull request.
 A build on a pull request is a composer error, and so is a fix round on an issue.
-The implementer profile carries the standing rules of every implementer.
+The implementer profile carries the rules that hold for every pass,
+and a rule of one pass stands in that pass's file alone.
 Without an order the session has no role:
 the composer installs nothing and renders the loud UNCONFIGURED state.
 The Routine's saved prompt is one orientation sentence.

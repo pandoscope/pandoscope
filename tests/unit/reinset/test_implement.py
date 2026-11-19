@@ -7,6 +7,7 @@ import pytest
 from pandoscope.reinset import implement
 from pandoscope.reinset.compose import compose
 from pandoscope.reinset.implement import PASS_DIR, ImplementError, implementer_task
+from pandoscope.reinset.profiles import load_profile
 from pandoscope.reinset.receive import Order, find_order
 
 from .conftest import ENV_RUN7_FIRED, fire, git, pr_clone, write_waybill_order
@@ -212,27 +213,78 @@ def test_a_clone_of_another_repository_is_an_error(session_root: Path) -> None:
         implementer_task(session_root, order)
 
 
-def test_the_composed_implementer_holds_its_task_and_the_standing_rules(
-    session_root: Path, home: Path, path_dirs: list[Path]
+# The rules that the composed instructions state after pandoscope#58,
+# split by the pass they hold for (pandoscope#60, decision 137).
+EVERY_PASS_RULES = (
+    "Your first reply names your role and your task",
+    "Build what the ticket says",
+    "Every acceptance criterion gets a test",
+    "fails on the old code",
+    "or carries a `DECISION:FALLBACK` marker",
+    'List it in the PR body as "needs a run"',
+    "The PR body names every ticket",
+    # pandoscope#60: the build task named the tickets in the body a second time.
+    "every ticket",
+    "Commit as you go",
+    "Never force-push a pushed branch",
+    "Do not review your own work",
+    "Never skip a check",
+    "goes to the principal in your last reply",
+    "Your last reply lists",
+)
+BUILD_RULES = ("Stub, red, green", "Before you open the PR, fold the branch")
+FIX_RULES = (
+    "commit per finding",
+    "No failing test possible: decline the finding",
+    "one line per finding",
+)
+
+
+def composed(session_root: Path, home: Path, path_dirs: list[Path], pass_: str) -> str:
+    head = pr_clone(session_root, "aet", 262)
+    pr_branch(session_root, head)
+    dispositions(session_root)
+    name, text = {"build": (BUILD, BUILD_ORDER), "fix": (FIX, FIX_ORDER)}[pass_]
+    write_waybill_order(session_root, name, text)
+    result = compose({**ENV_RUN7_FIRED, **fire(name)}, session_root, home, path_dirs)
+    assert not [e for e in result.errors if "aet" in e], result.errors
+    return result.render_text
+
+
+@pytest.mark.parametrize(
+    ("pass_", "own", "other"),
+    [("build", BUILD_RULES, FIX_RULES), ("fix", FIX_RULES, BUILD_RULES)],
+)
+def test_the_composed_instructions_state_each_rule_of_their_pass_once(
+    session_root: Path,
+    home: Path,
+    path_dirs: list[Path],
+    pass_: str,
+    own: tuple[str, ...],
+    other: tuple[str, ...],
 ) -> None:
-    pr_clone(session_root, "aet", 262)
-    write_waybill_order(session_root, BUILD, BUILD_ORDER)
-    result = compose({**ENV_RUN7_FIRED, **fire(BUILD)}, session_root, home, path_dirs)
-    text = result.render_text
+    text = composed(session_root, home, path_dirs, pass_)
     assert "# Role: implementer" in text
     assert "## Task" in text
-    assert "`claude/aet261-implement-1`" in text
-    for rule in (
-        "fails on the old code",
-        "one commit per finding",
-        "DECISION:FALLBACK",
-        "Build what the ticket says",
-        "Do not review your own work",
-        "Your last reply lists",
-        "Your first reply names your role and your task",
-    ):
-        assert rule in text, rule
-    assert not [e for e in result.errors if "aet" in e], result.errors
+    for rule in EVERY_PASS_RULES + own:
+        assert text.count(rule) == 1, rule
+    for rule in other:
+        assert rule not in text, rule
+
+
+def sentences(text: str) -> set[str]:
+    """The lines of a text that carry words, without list markers."""
+    lines = (line.strip().removeprefix("- ").strip() for line in text.splitlines())
+    return {line for line in lines if line and not line.startswith("#")}
+
+
+@pytest.mark.parametrize("pass_", ["build", "fix"])
+def test_no_sentence_stands_in_both_the_profile_and_a_pass_file(
+    session_root: Path, pass_: str
+) -> None:
+    prose = load_profile("implementer", session_root).data["prose"]
+    shared = sentences(prose) & sentences((PASS_DIR / f"{pass_}.md.j2").read_text())
+    assert shared == set(), shared
 
 
 def test_a_composed_fix_round_without_a_branch_is_a_composer_error(

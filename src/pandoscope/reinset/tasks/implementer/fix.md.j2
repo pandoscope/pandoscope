@@ -10,3 +10,10 @@ Its tickets: {{ tickets }}.
   Fix or decline each entry.
 - Set each entry's `status` as `{{ dispositions }}/README.md` says,
   and push that change straight to `main` of the waybill repository.
+
+### Rules of the fix pass
+
+- One commit per finding, with its failing test and its fix, the finding named in the message.
+  No failing test possible: decline the finding, with that as the reason.
+- Your last reply also lists one line per finding:
+  fixed, with its commit and test, or declined, with the reason.

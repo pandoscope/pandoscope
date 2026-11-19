@@ -5,5 +5,9 @@ Each ticket's body is the specification.
 
 - Create the branch `{{ branch }}` from `origin/{{ base }}` in the clone `{{ clone }}`,
   and work on it.
-- Open one pull request from it, ready for review,
-  and name every ticket in its body.
+- Open one pull request from it, ready for review.
+
+### Rules of the build pass
+
+- Stub, red, green: the failing tests commit before the code that turns them green.
+- Before you open the PR, fold the branch, so no commit repairs an earlier commit of the same branch.
