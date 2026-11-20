@@ -4,17 +4,20 @@ import json
 from collections.abc import Mapping
 from pathlib import Path
 
+import jsonschema
 import pytest
 
+from pandoscope.reinset import order as order_module
 from pandoscope.reinset.order import (
+    SHORTCODES_SCHEMA_PATH,
     ShortcodeError,
     find_shortcodes,
     load_shortcodes,
     validate_order,
 )
 
-SHORTCODES = {"pandoscope/pandoscope": "pando", "pandoscope/skills": "skills"}
-NAME = "review-spec-fidelity-opus-pando26-1"
+SHORTCODES = {"pandoscope/pandoscope": "pando", "pandoscope/skills": "sk"}
+NAME = "review_spec-fidelity_opus_pando26_1"
 VALID = {
     "id": NAME,
     "role": "reviewer",
@@ -24,10 +27,11 @@ VALID = {
     "checkouts": {"pandoscope/skills": "claude/sk195-review-driver"},
     "tickets": ["pandoscope/skills#195"],
 }
-IMPLEMENTER_NAME = "implement-opus-pando57-1"
+IMPLEMENTER_NAME = "implement_build_opus_pando57_1"
 IMPLEMENTER = {
     "id": IMPLEMENTER_NAME,
     "role": "implementer",
+    "pass": "build",
     "model_tier": "opus",
     "subject": "pandoscope/pandoscope#57",
     "tickets": [],
@@ -48,15 +52,16 @@ def test_an_order_naming_an_issue_passes_and_so_does_one_naming_a_pull_request()
     # The forge numbers issues and pull requests in one sequence (decision 106),
     # so the one field `subject` names either.
     assert check(IMPLEMENTER, IMPLEMENTER_NAME) == []
-    fix_round = {**IMPLEMENTER, "id": "implement-opus-pando58-2"}
+    name = "implement_fix_opus_pando58_2"
+    fix_round = {**IMPLEMENTER, "id": name, "pass": "fix"}
     fix_round["subject"] = "pandoscope/pandoscope#58"
-    assert check(fix_round, "implement-opus-pando58-2") == []
+    assert check(fix_round, name) == []
 
 
 def test_result_is_an_optional_field() -> None:
     order = {
         **VALID,
-        "result": "pandoscope/pandoscope@claude/review-spec-fidelity-opus-pr26",
+        "result": "pandoscope/pandoscope@claude/review-spec-fidelity-opus-pando26",
     }
     assert check(order) == []
 
@@ -100,24 +105,50 @@ def test_required_fields_are_named_when_missing(missing: str) -> None:
     assert any(missing in v for v in violations), violations
 
 
-@pytest.mark.parametrize("role", ["implementer", "orchestrator", "general", "probe"])
+@pytest.mark.parametrize("role", ["orchestrator", "general", "probe"])
+def test_an_order_names_a_worker_role_only(role: str) -> None:
+    # Decisions 135 and 143: an orchestrator is started by the principal,
+    # a probe is a subagent or a session an orchestrator starts,
+    # and the role general goes.
+    name = f"{role}_build_opus_pando57_1"
+    violations = check({**IMPLEMENTER, "id": name, "role": role}, name)
+    assert len(violations) == 1, violations
+    assert violations[0].startswith("role:"), violations
+    assert repr(role) in violations[0], violations
+
+
+@pytest.mark.parametrize("role", ["reviewer", "implementer"])
 def test_an_order_of_any_role_without_a_tier_fails_naming_the_field(role: str) -> None:
     order = {k: v for k, v in IMPLEMENTER.items() if k != "model_tier"}
     violations = check({**order, "role": role}, IMPLEMENTER_NAME)
     assert any(v.startswith("model_tier:") for v in violations), violations
 
 
-def test_only_a_reviewer_names_a_pass_and_it_must() -> None:
-    reviewer = {k: v for k, v in VALID.items() if k != "pass"}
-    assert any(v.startswith("pass:") for v in check(reviewer))
-    implementer = {**IMPLEMENTER, "pass": "spec-fidelity"}
-    assert any(v.startswith("pass:") for v in check(implementer, IMPLEMENTER_NAME))
+@pytest.mark.parametrize(
+    "role",
+    ["reviewer", "implementer"],
+)
+def test_an_order_of_any_role_without_a_pass_fails_naming_the_field(
+    role: str,
+) -> None:
+    # Decision 109: every role has a pass, not only the reviewer.
+    order = {k: v for k, v in IMPLEMENTER.items() if k != "pass"}
+    violations = check({**order, "role": role}, IMPLEMENTER_NAME)
+    assert any(v.startswith("pass:") for v in violations), violations
+
+
+@pytest.mark.parametrize("pass_", ["spec-fidelity", "builds"])
+def test_the_order_check_holds_no_list_of_implementer_passes(pass_: str) -> None:
+    # Decision 137: a role's passes are its pass files,
+    # which the composer looks up, as for a reviewer.
+    name = f"implement_{pass_}_opus_pando57_1"
+    assert check({**IMPLEMENTER, "id": name, "pass": pass_}, name) == []
 
 
 def test_a_tier_has_letters_and_digits_only() -> None:
-    # B1: with a hyphen, review-spec-fidelity-opus-pando26-3 read as
+    # B1: with a hyphen between all parts, review-spec-fidelity-opus-pando26-3 read as
     # pass `spec` and tier `fidelity-opus`, and the opus Routine took it.
-    name = "review-spec-fidelity-opus-pando26-3"
+    name = "review_spec-fidelity_opus_pando26_3"
     order = {**VALID, "id": name, "pass": "spec", "model_tier": "fidelity-opus"}
     assert any(v.startswith("model_tier:") for v in check(order, name))
 
@@ -141,10 +172,10 @@ def test_the_model_tier_is_model_tier_not_tier() -> None:
 @pytest.mark.parametrize(
     "name",
     [
-        "review-spec-fidelity-opus-pando26-1",
-        "review-spec-fidelity-opus-pando26-4",
-        "review-spec-fidelity-opus-pando26-4b",
-        "review-spec-fidelity-opus-pando26-12c",
+        "review_spec-fidelity_opus_pando26_1",
+        "review_spec-fidelity_opus_pando26_4",
+        "review_spec-fidelity_opus_pando26_4b",
+        "review_spec-fidelity_opus_pando26_12c",
     ],
 )
 def test_a_review_name_ends_in_its_step_and_a_repeat_letter(name: str) -> None:
@@ -155,27 +186,36 @@ def test_a_review_name_ends_in_its_step_and_a_repeat_letter(name: str) -> None:
     ("name", "change", "part"),
     [
         # the role part
-        ("implement-opus-pando26-1", {}, "role"),
+        ("implement_opus_pando26_1", {}, "role"),
         ("probe-4", {}, "role"),
         # the pass, the tier and the subject
-        ("review-prose-opus-pando26-1", {}, "pass"),
-        ("review-spec-fidelity-sonnet-pando26-1", {}, "model_tier"),
-        ("review-spec-fidelity-opus-pando27-1", {}, "subject"),
-        ("review-spec-fidelity-opus-skills26-1", {}, "subject"),
-        ("review-spec-fidelity-opus-pr26-1", {}, "subject"),
+        ("review_prose_opus_pando26_1", {}, "pass"),
+        ("review_spec-fidelity_sonnet_pando26_1", {}, "model_tier"),
+        ("review_spec-fidelity_opus_pando27_1", {}, "subject"),
+        ("review_spec-fidelity_opus_sk26_1", {}, "subject"),
+        ("review_spec-fidelity_opus_pr26_1", {}, "subject"),
         # a pass that is a hyphen-prefix of the name's pass part (F1)
-        ("review-spec-fidelity-opus-pando26-1", {"pass": "spec"}, "pass"),
-        # the step: absent, from 0, the old round suffix, an `a`, a tail
-        ("review-spec-fidelity-opus-pando26", {}, "step"),
-        ("review-spec-fidelity-opus-pando26-0", {}, "step"),
-        ("review-spec-fidelity-opus-pando26-r2", {}, "step"),
-        ("review-spec-fidelity-opus-pando26-1a", {}, "step"),
-        ("review-spec-fidelity-opus-pando26-1-x", {}, "step"),
+        ("review_spec-fidelity_opus_pando26_1", {"pass": "spec"}, "pass"),
+        # the step: absent, from 0, the old round suffix, an `a`, a tail part, a tail
+        ("review_spec-fidelity_opus_pando26", {}, "step"),
+        ("review_spec-fidelity_opus_pando26_0", {}, "step"),
+        ("review_spec-fidelity_opus_pando26_r2", {}, "step"),
+        ("review_spec-fidelity_opus_pando26_1a", {}, "step"),
+        ("review_spec-fidelity_opus_pando26_1_x", {}, "step"),
+        ("review_spec-fidelity_opus_pando26_1-x", {}, "step"),
         # an implementer name against a reviewer's fields and back
-        ("review-opus-pando57-1", {"role": "implementer"}, "role"),
-        ("implement-sonnet-pando57-1", {"role": "implementer"}, "model_tier"),
-        ("implement-opus-pando27-1", {"role": "implementer"}, "subject"),
-        ("implement-opus-pando57", {"role": "implementer"}, "step"),
+        *(
+            (name, {"role": "implementer"}, part)
+            for name, part in [
+                ("review_build_opus_pando57_1", "role"),
+                # the name of an implementer order carries its pass (decision 109)
+                ("implement_opus_pando57_1", "pass"),
+                ("implement_fix_opus_pando57_1", "pass"),
+                ("implement_build_sonnet_pando57_1", "model_tier"),
+                ("implement_build_opus_pando27_1", "subject"),
+                ("implement_build_opus_pando57", "step"),
+            ]
+        ),
     ],
 )
 def test_a_name_off_its_pattern_fails_and_says_which_part(
@@ -183,13 +223,90 @@ def test_a_name_off_its_pattern_fails_and_says_which_part(
 ) -> None:
     order = {**VALID, **change, "id": name}
     if change.get("role") == "implementer":
-        order = {k: v for k, v in order.items() if k != "pass"}
+        order = {**order, "pass": "build"}
         if part != "subject":
             order["subject"] = "pandoscope/pandoscope#57"
     violations = check(order, name)
     assert len(violations) == 1, violations
     assert violations[0].startswith("id:"), violations
     assert f"the {part} part" in violations[0], violations
+
+
+def test_a_pass_that_holds_a_tier_word_is_told_from_a_tier() -> None:
+    # Part D case 1, ruled by decision 155 (question 34): an underscore
+    # separates the parts, so the pass `prose-opus` on the tier `sonnet`
+    # reads one way only, with no list of tiers to check against.
+    name = "review_prose-opus_sonnet_pando58_1"
+    order = {**VALID, "id": name, "pass": "prose-opus", "model_tier": "sonnet"}
+    order["subject"] = "pandoscope/pandoscope#58"
+    assert check(order, name) == []
+    misread = {**order, "pass": "prose", "model_tier": "opus"}
+    violations = check(misread, name)
+    assert len(violations) == 1, violations
+    assert "the pass part must be 'prose'" in violations[0], violations
+
+
+@pytest.mark.parametrize(
+    ("name", "change"),
+    [
+        ("review-spec-fidelity-opus-pando26-1", {}),
+        ("implement-build-opus-pando57-1", IMPLEMENTER),
+    ],
+)
+def test_a_name_with_a_hyphen_between_its_parts_fails(
+    name: str, change: Mapping[str, object]
+) -> None:
+    # Decision 155, question 34: an underscore separates the parts of a name,
+    # and a hyphen stands only inside a part.
+    order = {**VALID, **change, "id": name}
+    violations = check(order, name)
+    assert len(violations) == 1, violations
+    assert violations[0].startswith("id:"), violations
+    assert "the role part" in violations[0], violations
+
+
+def test_a_hyphen_inside_a_part_is_part_of_it() -> None:
+    # The pass `spec-fidelity` keeps its hyphen; only the underscore separates.
+    name = "review_spec_fidelity_opus_pando26_1"
+    violations = check({**VALID, "id": name}, name)
+    assert len(violations) == 1, violations
+    assert "the pass part must be 'spec-fidelity'" in violations[0], violations
+
+
+@pytest.mark.parametrize("role", ["reviewer", "implementer"])
+def test_an_extra_part_after_the_tier_blames_the_part_it_stands_in(role: str) -> None:
+    # Part D case 2: the old `-r2` stands where the subject belongs,
+    # and the tier in the name agrees with the order.
+    pass_ = "spec-fidelity" if role == "reviewer" else "build"
+    word = "review" if role == "reviewer" else "implement"
+    name = f"{word}_{pass_}_opus_r2_pando58_4"
+    order = {**VALID, "id": name, "role": role, "pass": pass_}
+    order["subject"] = "pandoscope/pandoscope#58"
+    violations = check(order, name)
+    assert len(violations) == 1, violations
+    assert "the subject part" in violations[0], violations
+    assert "'r2_pando58_4'" in violations[0], violations
+
+
+@pytest.mark.parametrize(
+    ("name", "role", "owner"),
+    [
+        ("implement_opus_pando57_1", "reviewer", "implementer"),
+        ("implement_build_opus_pando57_1", "reviewer", "implementer"),
+        ("review_spec-fidelity_opus_pando57_1", "implementer", "reviewer"),
+    ],
+)
+def test_a_name_that_begins_with_a_roles_word_needs_that_role(
+    role: str, name: str, owner: str
+) -> None:
+    # Part D case 3: the name of one role on an order of another.
+    order = {**IMPLEMENTER, "id": name, "role": role}
+    violations = check(order, name)
+    assert len(violations) == 1, violations
+    assert violations[0].startswith("id:"), violations
+    assert "the role part" in violations[0], violations
+    assert repr(owner) in violations[0], violations
+    assert repr(role) in violations[0], violations
 
 
 def test_a_subject_whose_repository_has_no_shortcode_fails() -> None:
@@ -200,28 +317,10 @@ def test_a_subject_whose_repository_has_no_shortcode_fails() -> None:
     ), violations
 
 
-def test_a_role_without_a_name_pattern_keeps_only_the_id_check() -> None:
-    # DECISION:FALLBACK in order_name.py: the probe role has no pattern.
-    probe = {**IMPLEMENTER, "id": "probe-opus-4", "role": "probe"}
-    assert check(probe, "probe-opus-4") == []
-
-
-@pytest.mark.parametrize("name", ["probe-sonnet-4", "probe-4", "opus-probe-4"])
-def test_a_role_without_a_name_pattern_still_names_its_tier(name: str) -> None:
-    # F2: a Routine picks an order by the tier between hyphens in its name.
-    probe = {**IMPLEMENTER, "id": name, "role": "probe"}
-    violations = check(probe, name)
-    assert len(violations) == 1, violations
-    assert violations[0].startswith("id:"), violations
-    assert "-opus-" in violations[0], violations
-
-
-@pytest.mark.parametrize("role", ["probe", "general", "orchestrator"])
+@pytest.mark.parametrize("role", ["reviewer", "implementer"])
 def test_a_subject_without_a_shortcode_fails_for_every_role(role: str) -> None:
-    # F3: the lookup stood after the early return of a role without a pattern.
-    order = {**IMPLEMENTER, "id": "probe-opus-4", "role": role}
-    order["subject"] = "other/repo#3"
-    violations = check(order, "probe-opus-4")
+    order = {**IMPLEMENTER, "role": role, "subject": "other/repo#3"}
+    violations = check(order, IMPLEMENTER_NAME)
     assert any(
         v.startswith("subject:") and "shortcodes.json" in v for v in violations
     ), violations
@@ -231,15 +330,14 @@ def test_a_subject_without_a_shortcode_fails_for_every_role(role: str) -> None:
 # format the thread ledger reads (pandoscope#61).
 SHORTCODE_FILE = {
     "_comment": "seeded once",
-    "PANDO": "pandoscope/pandoscope",
-    "skills": "pandoscope/skills",
+    "pando": "pandoscope/pandoscope",
+    "sk": "pandoscope/skills",
 }
 
 
 def test_shortcodes_load_from_the_waybill_file(tmp_path: Path) -> None:
     path = tmp_path / "shortcodes.json"
     path.write_text(json.dumps(SHORTCODE_FILE))
-    # An order's name takes the lowercase form of each shortcode.
     assert load_shortcodes(path) == SHORTCODES
 
 
@@ -262,14 +360,12 @@ def test_shortcodes_load_from_the_forge_form(tmp_path: Path) -> None:
 @pytest.mark.parametrize(
     ("repos", "words"),
     [
-        # one spelling per shortcode: a case-only twin is an error
-        ({"AET": "o/a", "aet": "o/b"}, ["AET", "aet"]),
-        # one shortcode per repository
-        ({"PANDO": "o/p", "pd": "o/p"}, ["PANDO", "pd", "o/p"]),
+        # one shortcode per repository, and the error names both
+        ({"pando": "o/p", "pd": "o/p"}, ["pando", "pd", "o/p"]),
         # a repository is written owner/repo
-        ({"PANDO": "pandoscope"}, ["PANDO", "pandoscope"]),
-        ({"PANDO": 7}, ["PANDO"]),
-        # a shortcode is letters and digits, so its lowercase form fits a name
+        ({"pando": "pandoscope"}, ["pando", "pandoscope"]),
+        ({"pando": 7}, ["pando"]),
+        # a shortcode is letters only
         ({"PAN-DO": "o/p"}, ["PAN-DO"]),
     ],
 )
@@ -282,6 +378,123 @@ def test_a_shortcodes_file_that_reads_two_ways_is_an_error(
         load_shortcodes(path)
     for word in words:
         assert word in str(raised.value), raised.value
+
+
+@pytest.mark.parametrize("short", ["Pando", "pando1", "p", "pandos", "sk\n"])
+@pytest.mark.parametrize("form", ["flat", "forge"])
+def test_a_shortcode_off_two_to_five_lowercase_letters_fails_naming_it(
+    tmp_path: Path, short: str, form: str
+) -> None:
+    # Decision 122: a capital letter, a digit, one letter or six letters,
+    # and a trailing line feed, which $ in a Python regex lets through.
+    repos = {short: "pandoscope/pandoscope"}
+    path = tmp_path / "shortcodes.json"
+    path.write_text(json.dumps(repos if form == "flat" else {"repos": repos}))
+    with pytest.raises(ShortcodeError) as raised:
+        load_shortcodes(path)
+    assert repr(short) in str(raised.value), raised.value
+
+
+@pytest.mark.parametrize("repo", ["Pandoscope/skills", "pandoscope/Skills"])
+@pytest.mark.parametrize("form", ["flat", "forge"])
+def test_a_repository_with_a_capital_letter_fails_naming_it(
+    tmp_path: Path, repo: str, form: str
+) -> None:
+    # Decision 143, answer 6: a repository in the map is written in lowercase,
+    # so two spellings of one repository cannot get two shortcodes.
+    repos = {"sk": "pandoscope/skills", "skl": repo}
+    path = tmp_path / "shortcodes.json"
+    path.write_text(json.dumps(repos if form == "flat" else {"repos": repos}))
+    with pytest.raises(ShortcodeError) as raised:
+        load_shortcodes(path)
+    assert repr(repo) in str(raised.value), raised.value
+
+
+def test_a_shortcode_is_used_as_written(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The schema is the one home of the shape rules: under a schema that
+    # allows any shape, the loader states none of its own.
+    schema = tmp_path / "any.json"
+    schema.write_text("{}")
+    monkeypatch.setattr(order_module, "SHORTCODES_SCHEMA_PATH", schema)
+    path = tmp_path / "shortcodes.json"
+    path.write_text(json.dumps({"Pando7": "pandoscope", "_note": 1}))
+    assert load_shortcodes(path) == {"pandoscope": "Pando7"}
+
+
+@pytest.mark.parametrize(
+    ("text", "key"),
+    [
+        ('{"pando": "o/p", "pando": "o/q"}', "pando"),
+        ('{"repos": {"pando": "o/p", "pando": "o/p"}}', "pando"),
+        ('{"repos": {}, "repos": {"pando": "o/p"}}', "repos"),
+    ],
+)
+def test_a_key_written_twice_is_an_error(tmp_path: Path, text: str, key: str) -> None:
+    # A JSON parser keeps the last of two equal keys without a word.
+    path = tmp_path / "shortcodes.json"
+    path.write_text(text)
+    with pytest.raises(ShortcodeError) as raised:
+        load_shortcodes(path)
+    assert repr(key) in str(raised.value), raised.value
+    assert "twice" in str(raised.value), raised.value
+
+
+def schema_errors(data: object) -> list[str]:
+    schema = json.loads(SHORTCODES_SCHEMA_PATH.read_text())
+    validator = jsonschema.Draft202012Validator(schema)
+    return [error.message for error in validator.iter_errors(data)]
+
+
+WAYBILL_FORM = {
+    "_comment": "the org's one map",
+    "repos": {"aet": "pandoscope/agentic-engineering-template", "sc": "o/sc"},
+}
+
+
+@pytest.mark.parametrize(
+    "data",
+    [
+        WAYBILL_FORM,
+        {**SHORTCODE_FILE},
+        {
+            "forge": "https://forge.example.test",
+            "patterns": {"ticket": "{base}/{repo}/issues/{n}"},
+            "repos": {"pando": "pandoscope/pandoscope", "_why": "a note"},
+        },
+    ],
+)
+def test_the_schema_takes_both_forms_and_comment_keys(data: object) -> None:
+    assert schema_errors(data) == []
+
+
+@pytest.mark.parametrize(
+    "data",
+    [
+        [],
+        {"repos": []},
+        {"Pando": "o/p"},
+        {"pando1": "o/p"},
+        {"p": "o/p"},
+        {"pandos": "o/p"},
+        {"repos": {"Pando": "o/p"}},
+        {"pando": "pandoscope"},
+        {"pando": 7},
+        {"repos": {"pando": "o/p/q"}},
+        {"pando": "O/p"},
+        {"repos": {"pando": "o/P"}},
+        # a key beside the map under repos is a forge setting or a comment
+        {"repos": {"pando": "o/p"}, "owner": "pandoscope"},
+        {"repos": {"pando": "o/p"}, "forge": 7},
+        # $ in a Python regex also matches before a final line feed
+        {"sk\n": "o/p"},
+        {"repos": {"sk\n": "o/p"}},
+        {"pando": "o/p\n"},
+    ],
+)
+def test_the_schema_states_the_shape(data: object) -> None:
+    assert schema_errors(data), data
 
 
 @pytest.mark.parametrize("text", [None, "[]", '{"ab": 1}', '{"repos": []}', "{"])

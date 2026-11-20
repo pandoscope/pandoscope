@@ -16,7 +16,7 @@ base {{ base }}, head {{ head }}.
 Tickets: {{ tickets }}.
 """
 
-NAME = "review-spec-fidelity-opus-aet262-1"
+NAME = "review_spec-fidelity_opus_aet262_1"
 ORDER = (
     f"id: {NAME}\nrole: reviewer\npass: spec-fidelity\nmodel_tier: opus\n"
     "subject: pandoscope/aet#262\nbase: feature\n"
@@ -36,7 +36,7 @@ def write(session_root: Path, prompt: str = PROMPT, order: str = ORDER) -> None:
 def review_branch_on(session_root: Path, head: str) -> None:
     """Push a branch built on the pull request head, as a reviewer does."""
     work = session_root.parent / "aet-origin-work"
-    git(work, "switch", "-q", "-c", "claude/review-x-pr262", head)
+    git(work, "switch", "-q", "-c", "claude/review-x-aet262", head)
     commit(work, "findings")
     git(work, "push", "-q", str(session_root.parent / "aet-origin.git"), "HEAD")
     git(work, "switch", "-q", "main")
@@ -201,6 +201,8 @@ def test_hydrate_switches_the_clone_to_the_review_branch_at_the_head(
     session_root: Path,
 ) -> None:
     # The reviewer runs no git steps (skills#224).
+    # The branch writes the subject as the order's name does,
+    # with the repository's shortcode (decision 112, pandoscope#61).
     head = pr_clone(session_root, "aet", 262)
     write(session_root)
     order = find_order(FIRE, session_root)
@@ -208,7 +210,7 @@ def test_hydrate_switches_the_clone_to_the_review_branch_at_the_head(
     hydrate(session_root, order)
     clone = session_root / "aet"
     assert git(clone, "branch", "--show-current") == (
-        "claude/review-spec-fidelity-opus-pr262"
+        "claude/review-spec-fidelity-opus-aet262"
     )
     assert git(clone, "rev-parse", "HEAD") == head
 

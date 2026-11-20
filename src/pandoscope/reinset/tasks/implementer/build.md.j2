@@ -1,0 +1,12 @@
+Order {{ id }}, on the model tier {{ model_tier }}.
+This order builds {{ subject }}.
+The tickets: {{ tickets }}.
+Each ticket's body is the specification.
+
+- Create the branch `{{ branch }}` from `origin/{{ base }}` in the clone `{{ clone }}`,
+  and work on it.
+- Open one pull request from it, ready for review.
+
+### Rules of the build pass
+
+- Stub, red, green: the failing tests commit before the code that turns them green.

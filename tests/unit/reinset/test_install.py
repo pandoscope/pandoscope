@@ -156,16 +156,14 @@ def test_no_prune_keeps_managed_skills_from_an_earlier_pass(
     assert (home / ".claude" / "skills" / "grilling").is_dir()
 
 
-def test_general_with_prune_leaves_no_managed_skill(
+def test_no_profile_with_prune_leaves_no_managed_skill(
     session_root: Path, home: Path
 ) -> None:
-    # D15: the unconfigured state installs nothing.
+    # D15: the unconfigured state has no role and installs nothing.
     make_skill(session_root / "skills" / "original" / "handing-off", "handing-off")
     repos = repos_in(session_root)
     install_bundle(profile("handing-off"), session_root, home, repos, prune=True)
-    report = install_bundle(
-        profile(role="general"), session_root, home, repos, prune=True
-    )
+    report = install_bundle(None, session_root, home, repos, prune=True)
     assert report.removed == ["handing-off"]
     assert not (home / ".claude" / "skills" / "handing-off").exists()
 

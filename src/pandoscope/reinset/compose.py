@@ -48,10 +48,11 @@ def compose(
     The waybill order is the only receiver (skills#195, waybill#1). It
     arrives when the Routine fires from an order branch of the waybill
     repository.
-    The order names the role, the model tier, the subject, the tickets,
-    and for a reviewer the pass.
+    The order names the role, the pass, the model tier, the subject
+    and the tickets.
     A reviewer's and an implementer's task are composed from it.
-    Without an order the composer sets the role general
+    Without an order the session has no role:
+    the composer loads no profile, installs nothing
     and renders the loud UNCONFIGURED state.
     The composer renders its own errors and never raises them,
     because the session must hear them.
@@ -76,7 +77,7 @@ def compose(
     resolved = {
         "harness": detected.get("harness", UNKNOWN),
         "environment": detected.get("environment", UNKNOWN),
-        "role": order.role if order is not None else "general",
+        "role": order.role if order is not None else None,
         "principal": detected.get("identity", UNKNOWN),
         "model": detected.get("model", {}).get("served", UNKNOWN),
     }
@@ -100,7 +101,7 @@ def compose(
         or home / ".claude" / "reinset" / f"{detected['session_id']}.yml"
     )
     answers_path.parent.mkdir(parents=True, exist_ok=True)
-    profile = load_profile(resolved["role"], session_root)
+    profile = None if order is None else load_profile(order.role, session_root)
     # The composer runs once, at SessionStart.
     # Every pass is a fresh session and may remove what an earlier role left (D2, D15).
     hooks_path = Path(env.get(HOOKS_ENV) or home / ".claude" / "reinset" / "hooks.json")
@@ -117,7 +118,9 @@ def compose(
     else:
         answers["installed"] = []
         hooks = {}
-        if profile.data.get("skills") or profile.data.get("hooks"):
+        if profile is not None and (
+            profile.data.get("skills") or profile.data.get("hooks")
+        ):
             errors.append(
                 f"harness {resolved['harness']!r} has no known skill format; "
                 "the role's bundle is not installed"
