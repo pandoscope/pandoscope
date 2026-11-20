@@ -226,13 +226,16 @@ EVERY_PASS_RULES = (
     # pandoscope#60: the build task named the tickets in the body a second time.
     "every ticket",
     "Commit as you go",
+    # Decision 155, question 42: this rule holds for every pass,
+    # and "Stub, red, green" for a first build only.
+    "so no commit repairs an earlier commit of the same branch",
     "Never force-push a pushed branch",
     "Do not review your own work",
     "Never skip a check",
     "goes to the principal in your last reply",
     "Your last reply lists",
 )
-BUILD_RULES = ("Stub, red, green", "Before you open the PR, fold the branch")
+BUILD_RULES = ("Stub, red, green",)
 FIX_RULES = (
     "commit per finding",
     "No failing test possible: decline the finding",

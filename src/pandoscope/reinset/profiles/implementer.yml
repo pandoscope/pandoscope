@@ -26,6 +26,7 @@ prose: |
     List it in the PR body as "needs a run", with the exact order file to place.
   - The PR body names every ticket the branch names.
   - Commit as you go.
+    Before you push, fold the commits not yet pushed, so no commit repairs an earlier commit of the same branch.
     Never force-push a pushed branch: add a commit, and say so.
   - Do not review your own work, and start no subagents to review it.
   - A setup, checkout, tool or hook that is not as it should be: report it and stop.
