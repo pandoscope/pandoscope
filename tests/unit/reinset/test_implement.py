@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import pytest
@@ -138,6 +139,17 @@ def test_a_pass_file_whose_subject_the_composer_does_not_know_is_an_error(
     order = order_of(session_root, name, text)
     with pytest.raises(ImplementError, match="'refactor'"):
         implementer_task(session_root, order)
+
+
+def test_the_readme_says_a_new_pass_needs_its_file_and_its_line_in_the_table() -> None:
+    # Decision 155, question 43: the table stays until pandoscope/pandoscope#66
+    # replaces it, and the README says so in one sentence.
+    readme = (Path(__file__).parents[3] / "README.md").read_text()
+    sentence = next(
+        (s for s in re.split(r"\.\s", readme) if "WORKS_ON_A_PULL_REQUEST" in s), ""
+    )
+    assert "pass file" in sentence, sentence
+    assert "pandoscope/pandoscope#66" in sentence, sentence
 
 
 def test_a_first_build_takes_the_orders_base(session_root: Path) -> None:

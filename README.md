@@ -83,6 +83,8 @@ and the open entries that it owns in the disposition files under `waybill/dispos
 The composer reads the subject from the clone of its repository:
 a ref `refs/pull/<n>/head` makes it a pull request.
 A build on a pull request is a composer error, and so is a fix round on an issue.
+Until pandoscope/pandoscope#66 replaces it, the table `WORKS_ON_A_PULL_REQUEST` in `src/pandoscope/reinset/implement.py` says which subject a pass takes,
+so a new pass needs its pass file and its line in that table.
 The implementer profile carries the rules that hold for every pass,
 and a rule of one pass stands in that pass's file alone.
 Without an order the session has no role:
