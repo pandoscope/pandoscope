@@ -7,6 +7,7 @@ from pathlib import Path
 
 import jinja2
 
+from pandoscope.reinset.order_name import SEPARATOR
 from pandoscope.reinset.receive import WAYBILL, Order
 from pandoscope.reinset.review import ReviewError, _check_origin, _default_branch, _git
 
@@ -118,7 +119,7 @@ def _check_pass(order: Order, head: str | None) -> None:
 def _first_build(clone: Path, order: Order) -> dict[str, str]:
     # The step is the last part of the name: a repeat run (`1b`)
     # gets a branch of its own.
-    step = str(order.data["id"]).rsplit("-", 1)[-1]
+    step = str(order.data["id"]).rsplit(SEPARATOR, 1)[-1]
     tickets = [order.subject, *(t for t in order.tickets if t != order.subject)]
     return {
         "base": order.base or _default_branch(clone),

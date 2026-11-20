@@ -13,12 +13,12 @@ from pandoscope.reinset.receive import Order, find_order
 from .conftest import ENV_RUN7_FIRED, fire, git, pr_clone, write_waybill_order
 
 # pr_clone makes pull request 262; 261 is no pull request, so an issue.
-BUILD = "implement-build-opus-aet261-1"
+BUILD = "implement_build_opus_aet261_1"
 BUILD_ORDER = (
     f"id: {BUILD}\nrole: implementer\npass: build\nmodel_tier: opus\n"
     "subject: pandoscope/aet#261\ntickets: [pandoscope/skills#195]\n"
 )
-FIX = "implement-fix-opus-aet262-3"
+FIX = "implement_fix_opus_aet262_3"
 FIX_ORDER = (
     f"id: {FIX}\nrole: implementer\npass: fix\nmodel_tier: opus\n"
     "subject: pandoscope/aet#262\ntickets: [pandoscope/aet#261]\n"
@@ -113,7 +113,7 @@ def test_a_composed_pass_without_its_pass_file_is_a_composer_error(
     session_root: Path, home: Path, path_dirs: list[Path]
 ) -> None:
     pr_clone(session_root, "aet", 262)
-    name = "implement-refactor-opus-aet261-1"
+    name = "implement_refactor_opus_aet261_1"
     write_waybill_order(
         session_root,
         name,
@@ -133,7 +133,7 @@ def test_a_pass_file_whose_subject_the_composer_does_not_know_is_an_error(
     pr_clone(session_root, "aet", 262)
     (tmp_path / "refactor.md.j2").write_text("{{ subject }}\n")
     monkeypatch.setattr(implement, "PASS_DIR", tmp_path)
-    name = "implement-refactor-opus-aet261-1"
+    name = "implement_refactor_opus_aet261_1"
     text = BUILD_ORDER.replace(BUILD, name).replace("pass: build", "pass: refactor")
     order = order_of(session_root, name, text)
     with pytest.raises(ImplementError, match="'refactor'"):
@@ -148,7 +148,7 @@ def test_a_first_build_takes_the_orders_base(session_root: Path) -> None:
 
 def test_a_repeat_run_gets_a_branch_of_its_own(session_root: Path) -> None:
     pr_clone(session_root, "aet", 262)
-    name = "implement-build-opus-aet261-1b"
+    name = "implement_build_opus_aet261_1b"
     order = order_of(session_root, name, BUILD_ORDER.replace(BUILD, name))
     assert "`claude/aet261-implement-1b`" in implementer_task(session_root, order)
 
@@ -311,7 +311,7 @@ def test_a_pass_that_disagrees_with_its_subject_is_an_error(
     head = pr_clone(session_root, "aet", 262)
     pr_branch(session_root, head)
     dispositions(session_root)
-    name = f"implement-{pass_}-opus-aet{number}-1"
+    name = f"implement_{pass_}_opus_aet{number}_1"
     text = (
         f"id: {name}\nrole: implementer\npass: {pass_}\nmodel_tier: opus\n"
         f"subject: pandoscope/aet#{number}\ntickets: []\n"
@@ -329,7 +329,7 @@ def test_a_composed_build_on_a_pull_request_is_a_composer_error(
     session_root: Path, home: Path, path_dirs: list[Path]
 ) -> None:
     pr_clone(session_root, "aet", 262)
-    name = "implement-build-opus-aet262-1"
+    name = "implement_build_opus_aet262_1"
     write_waybill_order(
         session_root,
         name,

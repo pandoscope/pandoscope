@@ -66,8 +66,8 @@ Base {{ base }}, head {{ head }}.
 """
 
 
-REVIEW_NAME = "review-spec-fidelity-sonnet-aet262-1"
-IMPLEMENT_NAME = "implement-build-opus-aet261-1"
+REVIEW_NAME = "review_spec-fidelity_sonnet_aet262_1"
+IMPLEMENT_NAME = "implement_build_opus_aet261_1"
 WAYBILL_FIRE = fire(REVIEW_NAME)
 IMPLEMENT_FIRE = fire(IMPLEMENT_NAME)
 
@@ -202,7 +202,7 @@ def test_an_order_of_a_role_that_is_no_worker_is_a_composer_error(
     session_root: Path, home: Path, path_dirs: list[Path], role: str
 ) -> None:
     # Decisions 135 and 143: an order names a worker role only.
-    name = f"{role}-build-opus-aet261-1"
+    name = f"{role}_build_opus_aet261_1"
     write_pass_and_order(
         session_root,
         ORDER_IMPLEMENTER.replace("role: implementer", f"role: {role}").replace(

@@ -16,7 +16,7 @@ base {{ base }}, head {{ head }}.
 Tickets: {{ tickets }}.
 """
 
-NAME = "review-spec-fidelity-opus-aet262-1"
+NAME = "review_spec-fidelity_opus_aet262_1"
 ORDER = (
     f"id: {NAME}\nrole: reviewer\npass: spec-fidelity\nmodel_tier: opus\n"
     "subject: pandoscope/aet#262\nbase: feature\n"

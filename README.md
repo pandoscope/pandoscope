@@ -130,8 +130,11 @@ The pass names its role's pass file,
 and the composer fails a pass without one.
 An order that fits the schema must also fit its role's name pattern
 (`src/pandoscope/reinset/order_name.py`):
-`review-<pass>-<model_tier>-<code><n>-<step>` for a reviewer
-and `implement-<pass>-<model_tier>-<code><n>-<step>` for an implementer.
+`review_<pass>_<model_tier>_<code><n>_<step>` for a reviewer
+and `implement_<pass>_<model_tier>_<code><n>_<step>` for an implementer,
+as in `review_spec-fidelity_opus_pando58_1`.
+An underscore separates the parts, and a hyphen stands only inside a part,
+so the pass `prose-opus` on the tier `sonnet` reads one way only.
 `<code><n>` is the subject, with its repository's shortcode as written.
 The shortcodes have one source, the waybill's `shortcodes.json`.
 It maps each shortcode to its repository, in the format the thread ledger reads.

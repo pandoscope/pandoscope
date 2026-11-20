@@ -17,7 +17,7 @@ from pandoscope.reinset.order import (
 )
 
 SHORTCODES = {"pandoscope/pandoscope": "pando", "pandoscope/skills": "sk"}
-NAME = "review-spec-fidelity-opus-pando26-1"
+NAME = "review_spec-fidelity_opus_pando26_1"
 VALID = {
     "id": NAME,
     "role": "reviewer",
@@ -27,7 +27,7 @@ VALID = {
     "checkouts": {"pandoscope/skills": "claude/sk195-review-driver"},
     "tickets": ["pandoscope/skills#195"],
 }
-IMPLEMENTER_NAME = "implement-build-opus-pando57-1"
+IMPLEMENTER_NAME = "implement_build_opus_pando57_1"
 IMPLEMENTER = {
     "id": IMPLEMENTER_NAME,
     "role": "implementer",
@@ -52,7 +52,7 @@ def test_an_order_naming_an_issue_passes_and_so_does_one_naming_a_pull_request()
     # The forge numbers issues and pull requests in one sequence (decision 106),
     # so the one field `subject` names either.
     assert check(IMPLEMENTER, IMPLEMENTER_NAME) == []
-    name = "implement-fix-opus-pando58-2"
+    name = "implement_fix_opus_pando58_2"
     fix_round = {**IMPLEMENTER, "id": name, "pass": "fix"}
     fix_round["subject"] = "pandoscope/pandoscope#58"
     assert check(fix_round, name) == []
@@ -110,7 +110,7 @@ def test_an_order_names_a_worker_role_only(role: str) -> None:
     # Decisions 135 and 143: an orchestrator is started by the principal,
     # a probe is a subagent or a session an orchestrator starts,
     # and the role general goes.
-    name = f"{role}-build-opus-pando57-1"
+    name = f"{role}_build_opus_pando57_1"
     violations = check({**IMPLEMENTER, "id": name, "role": role}, name)
     assert len(violations) == 1, violations
     assert violations[0].startswith("role:"), violations
@@ -141,14 +141,14 @@ def test_an_order_of_any_role_without_a_pass_fails_naming_the_field(
 def test_the_order_check_holds_no_list_of_implementer_passes(pass_: str) -> None:
     # Decision 137: a role's passes are its pass files,
     # which the composer looks up, as for a reviewer.
-    name = f"implement-{pass_}-opus-pando57-1"
+    name = f"implement_{pass_}_opus_pando57_1"
     assert check({**IMPLEMENTER, "id": name, "pass": pass_}, name) == []
 
 
 def test_a_tier_has_letters_and_digits_only() -> None:
-    # B1: with a hyphen, review-spec-fidelity-opus-pando26-3 read as
+    # B1: with a hyphen between all parts, review-spec-fidelity-opus-pando26-3 read as
     # pass `spec` and tier `fidelity-opus`, and the opus Routine took it.
-    name = "review-spec-fidelity-opus-pando26-3"
+    name = "review_spec-fidelity_opus_pando26_3"
     order = {**VALID, "id": name, "pass": "spec", "model_tier": "fidelity-opus"}
     assert any(v.startswith("model_tier:") for v in check(order, name))
 
@@ -172,10 +172,10 @@ def test_the_model_tier_is_model_tier_not_tier() -> None:
 @pytest.mark.parametrize(
     "name",
     [
-        "review-spec-fidelity-opus-pando26-1",
-        "review-spec-fidelity-opus-pando26-4",
-        "review-spec-fidelity-opus-pando26-4b",
-        "review-spec-fidelity-opus-pando26-12c",
+        "review_spec-fidelity_opus_pando26_1",
+        "review_spec-fidelity_opus_pando26_4",
+        "review_spec-fidelity_opus_pando26_4b",
+        "review_spec-fidelity_opus_pando26_12c",
     ],
 )
 def test_a_review_name_ends_in_its_step_and_a_repeat_letter(name: str) -> None:
@@ -186,33 +186,34 @@ def test_a_review_name_ends_in_its_step_and_a_repeat_letter(name: str) -> None:
     ("name", "change", "part"),
     [
         # the role part
-        ("implement-opus-pando26-1", {}, "role"),
+        ("implement_opus_pando26_1", {}, "role"),
         ("probe-4", {}, "role"),
         # the pass, the tier and the subject
-        ("review-prose-opus-pando26-1", {}, "pass"),
-        ("review-spec-fidelity-sonnet-pando26-1", {}, "model_tier"),
-        ("review-spec-fidelity-opus-pando27-1", {}, "subject"),
-        ("review-spec-fidelity-opus-sk26-1", {}, "subject"),
-        ("review-spec-fidelity-opus-pr26-1", {}, "subject"),
+        ("review_prose_opus_pando26_1", {}, "pass"),
+        ("review_spec-fidelity_sonnet_pando26_1", {}, "model_tier"),
+        ("review_spec-fidelity_opus_pando27_1", {}, "subject"),
+        ("review_spec-fidelity_opus_sk26_1", {}, "subject"),
+        ("review_spec-fidelity_opus_pr26_1", {}, "subject"),
         # a pass that is a hyphen-prefix of the name's pass part (F1)
-        ("review-spec-fidelity-opus-pando26-1", {"pass": "spec"}, "pass"),
-        # the step: absent, from 0, the old round suffix, an `a`, a tail
-        ("review-spec-fidelity-opus-pando26", {}, "step"),
-        ("review-spec-fidelity-opus-pando26-0", {}, "step"),
-        ("review-spec-fidelity-opus-pando26-r2", {}, "step"),
-        ("review-spec-fidelity-opus-pando26-1a", {}, "step"),
-        ("review-spec-fidelity-opus-pando26-1-x", {}, "step"),
+        ("review_spec-fidelity_opus_pando26_1", {"pass": "spec"}, "pass"),
+        # the step: absent, from 0, the old round suffix, an `a`, a tail part, a tail
+        ("review_spec-fidelity_opus_pando26", {}, "step"),
+        ("review_spec-fidelity_opus_pando26_0", {}, "step"),
+        ("review_spec-fidelity_opus_pando26_r2", {}, "step"),
+        ("review_spec-fidelity_opus_pando26_1a", {}, "step"),
+        ("review_spec-fidelity_opus_pando26_1_x", {}, "step"),
+        ("review_spec-fidelity_opus_pando26_1-x", {}, "step"),
         # an implementer name against a reviewer's fields and back
         *(
             (name, {"role": "implementer"}, part)
             for name, part in [
-                ("review-build-opus-pando57-1", "role"),
+                ("review_build_opus_pando57_1", "role"),
                 # the name of an implementer order carries its pass (decision 109)
-                ("implement-opus-pando57-1", "pass"),
-                ("implement-fix-opus-pando57-1", "pass"),
-                ("implement-build-sonnet-pando57-1", "model_tier"),
-                ("implement-build-opus-pando27-1", "subject"),
-                ("implement-build-opus-pando57", "step"),
+                ("implement_opus_pando57_1", "pass"),
+                ("implement_fix_opus_pando57_1", "pass"),
+                ("implement_build_sonnet_pando57_1", "model_tier"),
+                ("implement_build_opus_pando27_1", "subject"),
+                ("implement_build_opus_pando57", "step"),
             ]
         ),
     ],
@@ -231,20 +232,45 @@ def test_a_name_off_its_pattern_fails_and_says_which_part(
     assert f"the {part} part" in violations[0], violations
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "pandoscope/pandoscope#59, part D case 1: a pass that holds a tier word "
-        "waits on the principal's decision; no list of tiers exists to check against"
-    ),
-)
-def test_a_pass_that_holds_a_tier_word_fails() -> None:
-    # The name also reads as the pass `prose` on the tier `opus`,
-    # and the filter of the Opus Routine matches it.
-    name = "review-prose-opus-sonnet-pando58-1"
+def test_a_pass_that_holds_a_tier_word_is_told_from_a_tier() -> None:
+    # Part D case 1, ruled by decision 155 (question 34): an underscore
+    # separates the parts, so the pass `prose-opus` on the tier `sonnet`
+    # reads one way only, with no list of tiers to check against.
+    name = "review_prose-opus_sonnet_pando58_1"
     order = {**VALID, "id": name, "pass": "prose-opus", "model_tier": "sonnet"}
     order["subject"] = "pandoscope/pandoscope#58"
-    assert check(order, name)
+    assert check(order, name) == []
+    misread = {**order, "pass": "prose", "model_tier": "opus"}
+    violations = check(misread, name)
+    assert len(violations) == 1, violations
+    assert "the pass part must be 'prose'" in violations[0], violations
+
+
+@pytest.mark.parametrize(
+    ("name", "change"),
+    [
+        ("review-spec-fidelity-opus-pando26-1", {}),
+        ("implement-build-opus-pando57-1", IMPLEMENTER),
+    ],
+)
+def test_a_name_with_a_hyphen_between_its_parts_fails(
+    name: str, change: Mapping[str, object]
+) -> None:
+    # Decision 155, question 34: an underscore separates the parts of a name,
+    # and a hyphen stands only inside a part.
+    order = {**VALID, **change, "id": name}
+    violations = check(order, name)
+    assert len(violations) == 1, violations
+    assert violations[0].startswith("id:"), violations
+    assert "the role part" in violations[0], violations
+
+
+def test_a_hyphen_inside_a_part_is_part_of_it() -> None:
+    # The pass `spec-fidelity` keeps its hyphen; only the underscore separates.
+    name = "review_spec_fidelity_opus_pando26_1"
+    violations = check({**VALID, "id": name}, name)
+    assert len(violations) == 1, violations
+    assert "the pass part must be 'spec-fidelity'" in violations[0], violations
 
 
 @pytest.mark.parametrize("role", ["reviewer", "implementer"])
@@ -253,21 +279,21 @@ def test_an_extra_part_after_the_tier_blames_the_part_it_stands_in(role: str) ->
     # and the tier in the name agrees with the order.
     pass_ = "spec-fidelity" if role == "reviewer" else "build"
     word = "review" if role == "reviewer" else "implement"
-    name = f"{word}-{pass_}-opus-r2-pando58-4"
+    name = f"{word}_{pass_}_opus_r2_pando58_4"
     order = {**VALID, "id": name, "role": role, "pass": pass_}
     order["subject"] = "pandoscope/pandoscope#58"
     violations = check(order, name)
     assert len(violations) == 1, violations
     assert "the subject part" in violations[0], violations
-    assert "'r2-pando58-4'" in violations[0], violations
+    assert "'r2_pando58_4'" in violations[0], violations
 
 
 @pytest.mark.parametrize(
     ("name", "role", "owner"),
     [
-        ("implement-opus-pando57-1", "reviewer", "implementer"),
-        ("implement-build-opus-pando57-1", "reviewer", "implementer"),
-        ("review-spec-fidelity-opus-pando57-1", "implementer", "reviewer"),
+        ("implement_opus_pando57_1", "reviewer", "implementer"),
+        ("implement_build_opus_pando57_1", "reviewer", "implementer"),
+        ("review_spec-fidelity_opus_pando57_1", "implementer", "reviewer"),
     ],
 )
 def test_a_name_that_begins_with_a_roles_word_needs_that_role(

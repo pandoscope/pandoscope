@@ -8,7 +8,7 @@ from pandoscope.reinset.receive import OrderError, find_order
 
 from .conftest import fire, write_waybill_order
 
-NAME = "review-spec-fidelity-opus-pando26-1"
+NAME = "review_spec-fidelity_opus_pando26_1"
 WAYBILL_FIRE = fire(NAME)
 ORDER = f"""\
 id: {NAME}
