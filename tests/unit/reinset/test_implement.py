@@ -238,6 +238,10 @@ EVERY_PASS_RULES = (
     "Open a ticket for it with a failing example",
     "If the defect keeps you from finishing your task, stop",
     "or carries a `DECISION:FALLBACK` marker",
+    # Finding 2 of review-principal-pando64-9: "How does a criterion need a session?"
+    "A criterion needs a session when no test can show the criterion holding",
+    "what a Routine, a hook or the model does in a running session",
+    "Such a criterion is met only when",
     # Finding 1 of review-principal-pando64-9: "What does 'showed it' mean here?"
     "is met only when a session has run and its transcript shows the criterion holding",
     'List it in the PR body as "needs a run"',
@@ -255,7 +259,11 @@ EVERY_PASS_RULES = (
     "Your last reply lists",
 )
 # Rules that a finding retired; no pass states them.
-RETIRED_RULES = ("Defect in existing code", "a session that showed it")
+RETIRED_RULES = (
+    "Defect in existing code",
+    "a session that showed it",
+    "A criterion that needs a session",
+)
 BUILD_RULES = ("Stub, red, green",)
 FIX_RULES = (
     "commit per finding",
