@@ -38,15 +38,15 @@ def implementer_task(session_root: Path, order: Order) -> str:
     The pass build makes a first build on an issue:
     the file gets the tickets, the order's base or the default branch,
     and a new branch ``claude/<code><n>-implement-<step>``.
-    Raises ImplementError when the pass has no pass file,
-    when the subject's clone is missing
-    or belongs to another repository,
-    when a ref cannot be read,
-    when the pass is build and the subject a pull request
-    or the pass fix and the subject an issue, naming both,
-    when the composer does not know which subject the pass works on,
-    when no branch or more than one points at a pull request's head,
-    and when a fix round finds no disposition folder.
+    Raises ImplementError in any of the following cases:
+    - when the pass has no pass file,
+    - when the subject's clone is missing or belongs to another repository,
+    - when a ref cannot be read,
+    - when the pass is build and the subject a pull request,
+      or the pass fix and the subject an issue, naming both,
+    - when the composer does not know which subject the pass works on,
+    - when no branch or more than one points at a pull request's head,
+    - when a fix round finds no disposition folder.
     """
     path = PASS_DIR / f"{order.pass_}.md.j2"
     if not path.is_file():

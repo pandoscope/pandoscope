@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import inspect
 import re
 from pathlib import Path
 
@@ -150,6 +151,19 @@ def test_the_readme_says_a_new_pass_needs_its_file_and_its_line_in_the_table() -
     )
     assert "pass file" in sentence, sentence
     assert "pandoscope/pandoscope#66" in sentence, sentence
+
+
+def test_the_docstring_lists_each_case_that_raises() -> None:
+    # Finding 4 of review-principal-pando64-9: the cases that raise
+    # ImplementError stand as a list, one item per case.
+    doc = inspect.getdoc(implementer_task) or ""
+    intro = "Raises ImplementError in any of the following cases:"
+    assert intro in doc, doc
+    lines = doc.split(intro, 1)[1].strip().splitlines()
+    items = [line for line in lines if not line.startswith("  ")]
+    assert all(item.startswith("- when ") for item in items), items
+    assert len(items) == 7, items
+    assert items[-1] == "- when a fix round finds no disposition folder.", items
 
 
 def test_a_first_build_takes_the_orders_base(session_root: Path) -> None:
