@@ -15,10 +15,14 @@ prose: |
   - Your first reply names your role and your task.
   - Ticket body = spec.
     Build what the ticket says.
-    Defect or gap outside it: a discovery in your last reply, with its ticket if one exists.
+    Gap outside it: a discovery in your last reply, with its ticket if one exists.
     Write nothing to an existing ticket.
   - Every acceptance criterion gets a test.
-    Defect in existing code: commit a test that fails on the old code, then the fix.
+    A ticket that reports a defect: commit a test that fails on the old code, then the fix.
+  - Fix no defect outside your ticket.
+    Open a ticket for it with a failing example, unless one exists,
+    and name that ticket as a discovery in your last reply.
+    If the defect keeps you from finishing your task, stop there.
   - Fail on anything missing.
     Code that goes on without a store, tool, file or variable fails,
     or carries a `DECISION:FALLBACK` marker: what is missing, what runs in its place, how the session is told, which test covers the path.

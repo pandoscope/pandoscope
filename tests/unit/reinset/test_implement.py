@@ -231,7 +231,12 @@ EVERY_PASS_RULES = (
     "Your first reply names your role and your task",
     "Build what the ticket says",
     "Every acceptance criterion gets a test",
-    "fails on the old code",
+    # Finding 0 of review-principal-pando64-9: the worker fixed a defect it met
+    # outside its ticket; it opens a ticket with a failing example instead.
+    "A ticket that reports a defect: commit a test that fails on the old code",
+    "Fix no defect outside your ticket",
+    "Open a ticket for it with a failing example",
+    "If the defect keeps you from finishing your task, stop",
     "or carries a `DECISION:FALLBACK` marker",
     'List it in the PR body as "needs a run"',
     "The PR body names every ticket",
@@ -247,6 +252,8 @@ EVERY_PASS_RULES = (
     "goes to the principal in your last reply",
     "Your last reply lists",
 )
+# Rules that a finding retired; no pass states them.
+RETIRED_RULES = ("Defect in existing code",)
 BUILD_RULES = ("Stub, red, green",)
 FIX_RULES = (
     "commit per finding",
@@ -283,7 +290,7 @@ def test_the_composed_instructions_state_each_rule_of_their_pass_once(
     assert "## Task" in text
     for rule in EVERY_PASS_RULES + own:
         assert text.count(rule) == 1, rule
-    for rule in other:
+    for rule in other + RETIRED_RULES:
         assert rule not in text, rule
 
 
