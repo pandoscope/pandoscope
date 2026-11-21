@@ -238,6 +238,8 @@ EVERY_PASS_RULES = (
     "Open a ticket for it with a failing example",
     "If the defect keeps you from finishing your task, stop",
     "or carries a `DECISION:FALLBACK` marker",
+    # Finding 1 of review-principal-pando64-9: "What does 'showed it' mean here?"
+    "is met only when a session has run and its transcript shows the criterion holding",
     'List it in the PR body as "needs a run"',
     "The PR body names every ticket",
     # pandoscope#60: the build task named the tickets in the body a second time.
@@ -253,7 +255,7 @@ EVERY_PASS_RULES = (
     "Your last reply lists",
 )
 # Rules that a finding retired; no pass states them.
-RETIRED_RULES = ("Defect in existing code",)
+RETIRED_RULES = ("Defect in existing code", "a session that showed it")
 BUILD_RULES = ("Stub, red, green",)
 FIX_RULES = (
     "commit per finding",
