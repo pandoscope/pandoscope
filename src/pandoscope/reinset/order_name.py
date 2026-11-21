@@ -49,6 +49,7 @@ def name_violations(
     shortcode, whatever the role,
     a role part violation when the name begins with the word of another role,
     whatever the order's role,
+    a separator violation when a hyphen follows the role's word,
     and otherwise one violation that names the first part of the name that is off.
     Returns an empty list when the name fits.
     """
@@ -84,6 +85,14 @@ def name_violations(
         # The name from this part on; an extra part, as the old `_r2`
         # (part D case 2), shows in the part it stands in.
         rest = SEPARATOR.join(parts[at:])
+        if part == "role" and parts[0].startswith(f"{text}-"):
+            # The old form with a hyphen between all parts: the role word
+            # is right and the separator is off.
+            return [
+                f"id: {name!r} is off the pattern {pattern} of a {data['role']} "
+                f"order: an underscore separates the parts of the name, "
+                f"and a hyphen follows the role part {text!r}"
+            ]
         if part == "step":
             if len(parts) == len(tokens) and STEP.fullmatch(rest):
                 return []

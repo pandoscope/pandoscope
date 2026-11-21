@@ -257,12 +257,15 @@ def test_a_name_with_a_hyphen_between_its_parts_fails(
     name: str, change: Mapping[str, object]
 ) -> None:
     # Decision 155, question 34: an underscore separates the parts of a name,
-    # and a hyphen stands only inside a part.
+    # and a hyphen stands only inside a part. Finding 2 of
+    # review-spec-fidelity-mythos-pando64-8: the message blamed the role part,
+    # the one word that is right, and not the separator.
     order = {**VALID, **change, "id": name}
     violations = check(order, name)
     assert len(violations) == 1, violations
     assert violations[0].startswith("id:"), violations
-    assert "the role part" in violations[0], violations
+    assert "an underscore separates the parts" in violations[0], violations
+    assert "the role part must be" not in violations[0], violations
 
 
 def test_a_hyphen_inside_a_part_is_part_of_it() -> None:
