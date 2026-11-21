@@ -7,10 +7,18 @@ from pathlib import Path
 
 import jinja2
 
+from pandoscope.reinset.order_name import SEPARATOR
 from pandoscope.reinset.receive import WAYBILL, Order
 from pandoscope.reinset.review import ReviewError, _check_origin, _default_branch, _git
 
-TASK = Path(__file__).parent / "tasks" / "implementer.md.j2"
+# DECISION: an implementer's pass files live beside the composer for now,
+# and move into skills with pandoscope/skills#285 (decision 137).
+PASS_DIR = Path(__file__).parent / "tasks" / "implementer"
+# A role's passes are its pass files (decision 137).
+# DECISION: the composer states which subject each pass works on,
+# here and nowhere else: a first build an issue, a fix round a pull request.
+# git tells the two apart; the order check knows only the number.
+WORKS_ON_A_PULL_REQUEST = {"build": False, "fix": True}
 DISPOSITIONS = Path(WAYBILL) / "dispositions"
 
 
@@ -20,21 +28,30 @@ class ImplementError(Exception):
 
 def implementer_task(session_root: Path, order: Order) -> str:
     """
-    Return the implementer's task, rendered from ``tasks/implementer.md.j2``.
+    Return the implementer's task: the pass file ``<pass>.md.j2``, rendered.
 
-    The order's subject is an issue or a pull request of ``order.repo``.
-    A pull request makes a fix round:
-    the task names the pull request's branch
+    The order's pass names the file under ``PASS_DIR`` (decision 137),
+    and its subject must fit the pass.
+    The pass fix makes a fix round on a pull request of ``order.repo``:
+    the file gets the pull request's branch
     and the waybill's disposition files under the session root.
-    An issue makes a first build:
-    the task names the tickets, the order's base or the default branch,
+    The pass build makes a first build on an issue:
+    the file gets the tickets, the order's base or the default branch,
     and a new branch ``claude/<code><n>-implement-<step>``.
-    Raises ImplementError when the subject's clone is missing
-    or belongs to another repository,
-    when a ref cannot be read,
-    when no branch or more than one points at a pull request's head,
-    and when a fix round finds no disposition folder.
+    Raises ImplementError in any of the following cases:
+    - when the pass has no pass file,
+    - when the subject's clone is missing or belongs to another repository,
+    - when a ref cannot be read,
+    - when the pass is build and the subject a pull request,
+      or the pass fix and the subject an issue, naming both,
+    - when the composer does not know which subject the pass works on,
+    - when no branch or more than one points at a pull request's head,
+    - when a fix round finds no disposition folder.
     """
+    path = PASS_DIR / f"{order.pass_}.md.j2"
+    if not path.is_file():
+        msg = f"no implementer pass file at {path}"
+        raise ImplementError(msg)
     clone = session_root / order.repo.rsplit("/", 1)[-1]
     if not (clone / ".git").exists():
         msg = f"no clone of the subject's repository {order.repo} at {clone}"
@@ -42,12 +59,12 @@ def implementer_task(session_root: Path, order: Order) -> str:
     try:
         _check_origin(clone, order.repo)
         head = _pull_head(clone, order.number)
+        _check_pass(order, head)
         values = {
             "id": order.data["id"],
             "model_tier": order.model_tier,
             "subject": order.subject,
             "clone": str(clone),
-            "fix_round": head is not None,
         }
         if head is None:
             values |= _first_build(clone, order)
@@ -62,7 +79,7 @@ def implementer_task(session_root: Path, order: Order) -> str:
         keep_trailing_newline=True,
         trim_blocks=True,
     )
-    return env.from_string(TASK.read_text()).render(values)
+    return env.from_string(path.read_text()).render(values)
 
 
 def _pull_head(clone: Path, number: int) -> str | None:
@@ -74,10 +91,35 @@ def _pull_head(clone: Path, number: int) -> str | None:
     return listed.split()[0] if listed else None
 
 
+def _check_pass(order: Order, head: str | None) -> None:
+    """Raise ImplementError when the order's pass and its subject disagree."""
+    # The order check knows only the subject's number;
+    # git tells the composer what the number is (decision 109).
+    on_pull_request = WORKS_ON_A_PULL_REQUEST.get(order.pass_)
+    if on_pull_request is None:
+        msg = (
+            f"the pass file of {order.pass_!r} exists, and the composer does not "
+            f"know which subject it works on: {sorted(WORKS_ON_A_PULL_REQUEST)}"
+        )
+        raise ImplementError(msg)
+    if not on_pull_request and head is not None:
+        msg = (
+            f"the order's pass {order.pass_!r} builds the ticket of an issue, "
+            f"and its subject {order.subject} is a pull request"
+        )
+        raise ImplementError(msg)
+    if on_pull_request and head is None:
+        msg = (
+            f"the order's pass {order.pass_!r} fixes the findings on a pull request, "
+            f"and its subject {order.subject} is an issue"
+        )
+        raise ImplementError(msg)
+
+
 def _first_build(clone: Path, order: Order) -> dict[str, str]:
     # The step is the last part of the name: a repeat run (`1b`)
     # gets a branch of its own.
-    step = str(order.data["id"]).rsplit("-", 1)[-1]
+    step = str(order.data["id"]).rsplit(SEPARATOR, 1)[-1]
     tickets = [order.subject, *(t for t in order.tickets if t != order.subject)]
     return {
         "base": order.base or _default_branch(clone),

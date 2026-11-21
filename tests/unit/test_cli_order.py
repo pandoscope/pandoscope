@@ -9,11 +9,11 @@ from pandoscope.cli import main
 
 SHORTCODES = {
     "_comment": "the waybill's own comment key",
-    "PANDO": "pandoscope/pandoscope",
-    "skills": "pandoscope/skills",
+    "pando": "pandoscope/pandoscope",
+    "sk": "pandoscope/skills",
 }
 GOOD = """\
-id: review-spec-fidelity-opus-pando26-1
+id: review_spec-fidelity_opus_pando26_1
 role: reviewer
 pass: spec-fidelity
 model_tier: opus
@@ -22,13 +22,15 @@ tickets:
   - pandoscope/skills#195
 """
 # The four review orders open in pandoscope/waybill on 2026-11-18
-# (waybill#68 to #71), with the two changes a placer now makes:
-# `pull_request` is `subject`, and the name ends in the step number.
+# (waybill#68 to #71), with the changes a placer now makes:
+# `pull_request` is `subject`, the name ends in the step number,
+# the name writes the waybill's shortcode `sk`,
+# and an underscore separates its parts (decision 155).
 IN_USE = {
-    "review-spec-fidelity-opus-skills274-4": "opus",
-    "review-spec-fidelity-sonnet-skills274-4": "sonnet",
-    "review-spec-fidelity-opus-skills274-4b": "opus",
-    "review-spec-fidelity-opus-skills274-6": "opus",
+    "review_spec-fidelity_opus_sk274_4": "opus",
+    "review_spec-fidelity_sonnet_sk274_4": "sonnet",
+    "review_spec-fidelity_opus_sk274_4b": "opus",
+    "review_spec-fidelity_opus_sk274_6": "opus",
 }
 IN_USE_ORDER = """\
 id: {name}
@@ -54,7 +56,7 @@ def waybill(tmp_path: Path) -> Path:
 def test_order_check_passes_a_valid_order(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    order = waybill(tmp_path) / "review-spec-fidelity-opus-pando26-1.yml"
+    order = waybill(tmp_path) / "review_spec-fidelity_opus_pando26_1.yml"
     order.write_text(GOOD)
     assert main(["order", "check", str(order)]) == 0
     assert "ok" in capsys.readouterr().out
@@ -75,9 +77,10 @@ def test_the_review_orders_in_use_pass_in_the_new_form(
 def test_an_implementer_order_passes(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    order = waybill(tmp_path) / "implement-opus-pando57-1.yml"
+    order = waybill(tmp_path) / "implement_build_opus_pando57_1.yml"
     order.write_text(
-        "id: implement-opus-pando57-1\nrole: implementer\nmodel_tier: opus\n"
+        "id: implement_build_opus_pando57_1\nrole: implementer\npass: build\n"
+        "model_tier: opus\n"
         "subject: pandoscope/pandoscope#57\ntickets: []\n"
     )
     assert main(["order", "check", str(order)]) == 0, capsys.readouterr().out
@@ -86,7 +89,7 @@ def test_an_implementer_order_passes(
 def test_order_check_names_every_violation_and_fails(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    order = waybill(tmp_path) / "review-spec-fidelity-opus-pando26-1.yml"
+    order = waybill(tmp_path) / "review_spec-fidelity_opus_pando26_1.yml"
     order.write_text(
         GOOD.replace("model_tier: opus", "model_tier: Opus").replace(
             "id: review", "id: x-review"
@@ -102,7 +105,7 @@ def test_order_check_names_every_violation_and_fails(
 def test_order_check_without_the_shortcodes_file_fails(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    order = waybill(tmp_path) / "review-spec-fidelity-opus-pando26-1.yml"
+    order = waybill(tmp_path) / "review_spec-fidelity_opus_pando26_1.yml"
     order.write_text(GOOD)
     (tmp_path / "shortcodes.json").unlink()
     assert main(["order", "check", str(order)]) == 1
@@ -111,17 +114,19 @@ def test_order_check_without_the_shortcodes_file_fails(
     assert "ok" not in out
 
 
-def test_order_check_tells_a_role_without_a_name_pattern(
+def test_order_check_fails_an_order_of_a_role_that_is_no_worker(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    # DECISION:FALLBACK in order_name.py: the person placing it is told here.
-    order = waybill(tmp_path) / "probe-opus-4.yml"
+    # Decision 135: a probe is a subagent or a session, never an order.
+    order = waybill(tmp_path) / "probe_look_opus_pando57_1.yml"
     order.write_text(
-        "id: probe-opus-4\nrole: probe\nmodel_tier: opus\n"
-        "subject: pandoscope/pandoscope#57\ntickets: []\n"
+        "id: probe_look_opus_pando57_1\nrole: probe\npass: look\n"
+        "model_tier: opus\nsubject: pandoscope/pandoscope#57\ntickets: []\n"
     )
-    assert main(["order", "check", str(order)]) == 0
-    assert "no name pattern" in capsys.readouterr().out
+    assert main(["order", "check", str(order)]) == 1
+    out = capsys.readouterr().out
+    assert "role:" in out
+    assert "'probe'" in out
 
 
 def test_order_check_run_inside_orders_finds_the_shortcodes(
@@ -129,16 +134,16 @@ def test_order_check_run_inside_orders_finds_the_shortcodes(
 ) -> None:
     # A bare file name has `.` for its parent (F4).
     orders = waybill(tmp_path)
-    (orders / "review-spec-fidelity-opus-pando26-1.yml").write_text(GOOD)
+    (orders / "review_spec-fidelity_opus_pando26_1.yml").write_text(GOOD)
     monkeypatch.chdir(orders)
-    assert main(["order", "check", "review-spec-fidelity-opus-pando26-1.yml"]) == 0
+    assert main(["order", "check", "review_spec-fidelity_opus_pando26_1.yml"]) == 0
     assert "ok" in capsys.readouterr().out
 
 
 def test_order_check_with_a_second_shortcodes_file_fails(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    order = waybill(tmp_path) / "review-spec-fidelity-opus-pando26-1.yml"
+    order = waybill(tmp_path) / "review_spec-fidelity_opus_pando26_1.yml"
     order.write_text(GOOD)
     (tmp_path / "repo-codes.json").write_text("{}")
     assert main(["order", "check", str(order)]) == 1

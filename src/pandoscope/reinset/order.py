@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import re
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
@@ -19,80 +18,67 @@ ROLES: tuple[str, ...] = tuple(
 
 
 SHORTCODES = "shortcodes.json"
+SHORTCODES_SCHEMA_PATH = Path(__file__).parent / "schemas" / SHORTCODES
 
 
 class ShortcodeError(Exception):
     """The waybill's shortcodes file is missing or not a map of repository to code."""
 
 
-_SHORTCODE = re.compile(r"^[A-Za-z][A-Za-z0-9]*$")
-_REPO = re.compile(r"^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$")
-
-
-def name_code(shortcode: str) -> str:
-    """Return the form of ``shortcode`` that an order's name uses: its lowercase."""
-    # DECISION: one spelling per shortcode, and the name takes its
-    # lowercase form, derived here and nowhere else (pandoscope#61).
-    return shortcode.lower()
-
-
 def load_shortcodes(path: Path) -> dict[str, str]:
     """
-    Return the map of repository to name code from the waybill's ``shortcodes.json``.
+    Return the map of repository to shortcode from the waybill's ``shortcodes.json``.
 
-    The file maps each shortcode to its repository, in the format the
-    thread ledger reads: a flat object, or ``{forge, patterns, repos}``
-    with the map under ``repos``. Top-level keys that start with ``_``,
-    such as ``_comment``, are not shortcodes. The returned code is the
-    shortcode's ``name_code``.
+    The file's shape is the schema's (``schemas/shortcodes.json``):
+    the map itself, or the map under ``repos``,
+    and keys that start with ``_``, such as ``_comment``, are not shortcodes.
+    Each shortcode is returned as written.
     Raises ShortcodeError when the file is missing or is not JSON,
-    when the map is not an object,
-    when a shortcode is not letters and digits or a repository is not ``owner/repo``,
-    when two shortcodes differ only in case,
-    and when two shortcodes name one repository.
+    when a key is written twice in one object of the file,
+    when the file breaks the schema, naming each place it does,
+    and when two shortcodes name one repository, naming both.
     """
+
+    def unique(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+        # A JSON parser keeps the last of two equal keys without a word.
+        keys = [key for key, _ in pairs]
+        twice = sorted({key for key in keys if keys.count(key) > 1})
+        if twice:
+            msg = f"the shortcodes file {path} writes a key twice: " + ", ".join(
+                repr(key) for key in twice
+            )
+            raise ShortcodeError(msg)
+        return dict(pairs)
+
     try:
-        data = json.loads(path.read_text())
+        data = json.loads(path.read_text(), object_pairs_hook=unique)
     except (OSError, json.JSONDecodeError) as error:
         msg = f"cannot read the shortcodes file {path}: {error}"
         raise ShortcodeError(msg) from error
-    if not isinstance(data, dict):
-        msg = f"the shortcodes file {path} is not an object: {data!r}"
+    schema = json.loads(SHORTCODES_SCHEMA_PATH.read_text())
+    validator = jsonschema.Draft202012Validator(schema)
+    broken = [
+        f"{'/'.join(str(part) for part in error.path) or 'the file'}: {error.message}"
+        for error in sorted(validator.iter_errors(data), key=lambda e: list(e.path))
+    ]
+    if broken:
+        msg = (
+            f"the shortcodes file {path} breaks the schema {SHORTCODES_SCHEMA_PATH}: "
+            + "; ".join(broken)
+        )
         raise ShortcodeError(msg)
     repos = data["repos"] if "repos" in data else data
-    if not isinstance(repos, dict):
-        msg = f"the shortcodes file {path} holds no map under repos: {repos!r}"
-        raise ShortcodeError(msg)
     codes: dict[str, str] = {}
-    spelled: dict[str, str] = {}
     for short, repo in repos.items():
         if short.startswith("_"):
             continue
-        if (
-            not _SHORTCODE.match(short)
-            or not isinstance(repo, str)
-            or not _REPO.match(repo)
-        ):
-            msg = (
-                f"the shortcodes file {path} maps {short!r} to {repo!r}; "
-                "a shortcode is letters and digits, a repository is owner/repo"
-            )
-            raise ShortcodeError(msg)
-        code = name_code(short)
-        if code in spelled:
-            msg = (
-                f"the shortcodes file {path} spells one shortcode twice: "
-                f"{spelled[code]!r} and {short!r}"
-            )
-            raise ShortcodeError(msg)
         if repo in codes:
             msg = (
                 f"the shortcodes file {path} gives {repo} two shortcodes: "
-                f"{spelled[codes[repo]]!r} and {short!r}"
+                f"{codes[repo]!r} and {short!r}"
             )
             raise ShortcodeError(msg)
-        spelled[code] = short
-        codes[repo] = code
+        codes[repo] = short
     return codes
 
 
@@ -106,28 +92,36 @@ def find_shortcodes(waybill: Path) -> Path:
     Return the waybill's one shortcodes file, ``<waybill>/shortcodes.json``.
 
     Raises ShortcodeError when that file is missing,
-    and when the waybill holds a second map anywhere outside ``.git``:
-    another ``shortcodes.json`` or a ``repo-codes.json``.
-    The error names every file it found.
+    and when the waybill holds a second map (see ``guard_one_map``).
     """
     source = waybill / SHORTCODES
-    found = sorted(
-        path
+    if not source.is_file():
+        msg = f"the waybill has no shortcodes file at {source}"
+        raise ShortcodeError(msg)
+    guard_one_map(waybill, source)
+    return source
+
+
+def guard_one_map(waybill: Path, source: Path) -> None:
+    """
+    Raise ShortcodeError when ``waybill`` holds a shortcode map other than ``source``.
+
+    A map is a ``shortcodes.json`` or a ``repo-codes.json`` anywhere outside ``.git``.
+    The error names every such file it found.
+    """
+    second = sorted(
+        str(path.relative_to(waybill))
         for name in MAP_NAMES
         for path in waybill.rglob(name)
         if ".git" not in path.relative_to(waybill).parts
+        and path.resolve() != source.resolve()
     )
-    if source not in found:
-        msg = f"the waybill has no shortcodes file at {source}"
-        raise ShortcodeError(msg)
-    second = [str(path.relative_to(waybill)) for path in found if path != source]
     if second:
         msg = (
             f"the waybill {waybill} holds a second shortcode map beside "
-            f"{SHORTCODES}: {', '.join(second)}; one map is the source (pandoscope#61)"
+            f"{source.name}: {', '.join(second)}; one map is the source (pandoscope#61)"
         )
         raise ShortcodeError(msg)
-    return source
 
 
 def validate_order(data: Any, name: str, shortcodes: Mapping[str, str]) -> list[str]:
@@ -157,35 +151,11 @@ def validate_order(data: Any, name: str, shortcodes: Mapping[str, str]) -> list[
 
 
 def _field_of(error: jsonschema.ValidationError) -> str:
-    # A required-key, unknown-key or forbidden-key error has no path.
-    # A forbidden key is one the `not` rule requires and the order holds.
-    # The other two name their key in the message,
+    # A required-key or unknown-key error has no path.
+    # Both name their key in the message,
     # so every violation still names its field.
-    if error.validator == "not":
-        forbidden = [
-            k
-            for k in _required_keys(error.validator_value)
-            if isinstance(error.instance, dict) and k in error.instance
-        ]
-        if forbidden:
-            return ",".join(forbidden)
     if error.validator in ("required", "additionalProperties"):
         quoted = [part for part in error.message.split("'") if part and " " not in part]
         if quoted:
             return str(quoted[0])
     return "order"
-
-
-def _required_keys(rule: Any) -> list[str]:
-    """Every key that a ``required`` keyword anywhere inside ``rule`` lists."""
-    if isinstance(rule, dict):
-        keys = list(rule.get("required", []))
-        for value in rule.values():
-            keys += [k for k in _required_keys(value) if k not in keys]
-        return keys
-    if isinstance(rule, list):
-        keys = []
-        for value in rule:
-            keys += [k for k in _required_keys(value) if k not in keys]
-        return keys
-    return []

@@ -18,10 +18,6 @@ DECLARATION = (
     "a branch order/<name>. Declare the role in orders/<name>.yml. The "
     "Routine then fires the session from that order."
 )
-DECLARED_GENERAL = (
-    "Role: general, declared by the waybill order. The session is "
-    "configured; nothing is installed beyond this render."
-)
 
 
 class UnmanagedTargetError(Exception):
@@ -30,7 +26,7 @@ class UnmanagedTargetError(Exception):
 
 def render(
     answers: dict[str, Any],
-    profile: Profile,
+    profile: Profile | None,
     errors: list[str],
     task: str | None = None,
 ) -> str:
@@ -39,20 +35,15 @@ def render(
 
     The text names the role and the winning profile layer. It lists
     the profile's skills. It prints every composer error. It ends with
-    the session's task when the composer composed one. For ``general``
-    the text carries the UNCONFIGURED notice or the one-line general
-    declaration, nothing else.
+    the session's task when the composer composed one. Without a
+    profile, the session has no role: the text carries the UNCONFIGURED
+    notice and the way to declare a role, nothing else (D15).
     """
     lines: list[str] = [f"COMPOSER ERROR: {error}" for error in errors]
     if lines:
         lines.append("")
-    if profile.role == "general":
-        # D15 either way: nothing installed. An order that declares
-        # general configures the session. No order is the loud state.
-        if answers.get("order") is not None:
-            lines += ["# Role: general", "", DECLARED_GENERAL, ""]
-        else:
-            lines += ["# UNCONFIGURED", "", UNCONFIGURED, "", DECLARATION, ""]
+    if profile is None:
+        lines += ["# UNCONFIGURED", "", UNCONFIGURED, "", DECLARATION, ""]
         return "\n".join(lines)
     lines += [
         f"# Role: {profile.role}",

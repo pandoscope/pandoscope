@@ -20,7 +20,7 @@ from .conftest import (
 )
 
 
-def test_no_order_writes_answers_and_renders_general(
+def test_no_order_writes_answers_and_renders_unconfigured(
     session_root: Path, home: Path, path_dirs: list[Path]
 ) -> None:
     env = {**ENV_RUN5_UI, "REINSET_ORG_SALT": ORG_SALT}
@@ -29,7 +29,7 @@ def test_no_order_writes_answers_and_renders_general(
     on_disk = yaml.safe_load(result.answers_path.read_text())
     assert on_disk == result.answers
     assert on_disk["order"] is None
-    assert on_disk["resolved"]["role"] == "general"
+    assert on_disk["resolved"]["role"] is None
     assert on_disk["resolved"]["principal"] == on_disk["detected"]["identity"]
     assert on_disk["errors"] == []
     assert on_disk["detected"]["identity"] == principal_id(
@@ -66,8 +66,8 @@ Base {{ base }}, head {{ head }}.
 """
 
 
-REVIEW_NAME = "review-spec-fidelity-sonnet-aet262-1"
-IMPLEMENT_NAME = "implement-opus-aet261-1"
+REVIEW_NAME = "review_spec-fidelity_sonnet_aet262_1"
+IMPLEMENT_NAME = "implement_build_opus_aet261_1"
 WAYBILL_FIRE = fire(REVIEW_NAME)
 IMPLEMENT_FIRE = fire(IMPLEMENT_NAME)
 
@@ -123,7 +123,7 @@ def test_a_broken_order_is_a_composer_error(
     result = compose(env, session_root, home, path_dirs)
     assert len(result.errors) == 1
     assert "mapping" in result.errors[0]
-    assert result.answers["resolved"]["role"] == "general"
+    assert result.answers["resolved"]["role"] is None
     assert "COMPOSER ERROR" in result.render_text
 
 
@@ -140,14 +140,14 @@ def test_an_order_without_the_pass_file_is_a_composer_error(
     result = compose(env, session_root, home, path_dirs)
     assert len(result.errors) == 1
     assert "spec-fidelity.md" in result.errors[0]
-    assert result.answers["resolved"]["role"] == "general"
+    assert result.answers["resolved"]["role"] is None
     assert "COMPOSER ERROR" in result.render_text
 
 
 # Ruling 2026-09-23 (skills#195): the order is the only receiver. No
 # environment variable and no prompt line composes a role.
 ORDER_IMPLEMENTER = (
-    f"id: {IMPLEMENT_NAME}\nrole: implementer\nmodel_tier: opus\n"
+    f"id: {IMPLEMENT_NAME}\nrole: implementer\npass: build\nmodel_tier: opus\n"
     "subject: pandoscope/aet#261\ntickets: [pandoscope/skills#195]\n"
 )
 
@@ -157,7 +157,7 @@ def test_reinset_ref_is_not_a_channel(
 ) -> None:
     env = {**ENV_RUN7_FIRED, "REINSET_REF": "session-memory@0123abc:intents/x.yml"}
     result = compose(env, session_root, home, path_dirs)
-    assert result.answers["resolved"]["role"] == "general"
+    assert result.answers["resolved"]["role"] is None
     assert result.errors == []
     assert "UNCONFIGURED" in result.render_text
     for gone in ("reference", "passed", "mismatches"):
@@ -197,19 +197,25 @@ def test_the_order_carries_its_tickets_into_the_answers(
     assert result.answers["resolved"]["role"] == "implementer"
 
 
-def test_an_order_declaring_general_renders_declared_general(
-    session_root: Path, home: Path, path_dirs: list[Path]
+@pytest.mark.parametrize("role", ["general", "orchestrator", "probe"])
+def test_an_order_of_a_role_that_is_no_worker_is_a_composer_error(
+    session_root: Path, home: Path, path_dirs: list[Path], role: str
 ) -> None:
+    # Decisions 135 and 143: an order names a worker role only.
+    name = f"{role}_build_opus_aet261_1"
     write_pass_and_order(
         session_root,
-        ORDER_IMPLEMENTER.replace("implementer", "general"),
-        IMPLEMENT_NAME,
+        ORDER_IMPLEMENTER.replace("role: implementer", f"role: {role}").replace(
+            IMPLEMENT_NAME, name
+        ),
+        name,
     )
-    env = {**ENV_RUN7_FIRED, **IMPLEMENT_FIRE}
+    env = {**ENV_RUN7_FIRED, **fire(name)}
     result = compose(env, session_root, home, path_dirs)
-    assert result.answers["resolved"]["role"] == "general"
-    assert "UNCONFIGURED" not in result.render_text
-    assert "Role: general" in result.render_text
+    assert len(result.errors) == 1, result.errors
+    assert f"role: {role!r}" in result.errors[0]
+    assert "UNCONFIGURED" in result.render_text
+    assert f"Role: {role}" not in result.render_text
 
 
 def _skill(session_root: Path, name: str) -> None:
@@ -219,7 +225,7 @@ def _skill(session_root: Path, name: str) -> None:
 
 
 IMPLEMENTER_ORDER = (
-    f"id: {IMPLEMENT_NAME}\nrole: implementer\nmodel_tier: opus\n"
+    f"id: {IMPLEMENT_NAME}\nrole: implementer\npass: build\nmodel_tier: opus\n"
     "subject: pandoscope/aet#261\ntickets: []\n"
 )
 
@@ -264,7 +270,7 @@ def test_a_session_without_an_order_prunes_what_a_role_left(
     write_pass_and_order(session_root, IMPLEMENTER_ORDER, IMPLEMENT_NAME)
     compose({**ENV_RUN7_FIRED, **IMPLEMENT_FIRE}, session_root, home, path_dirs)
     assert (home / ".claude" / "skills" / "handing-off").is_dir()
-    # A fresh SessionStart with no order composes general
+    # A fresh SessionStart with no order composes no role
     # and prunes what an earlier role left (D15).
     compose(ENV_RUN5_UI, session_root, home, path_dirs)
     assert not (home / ".claude" / "skills" / "handing-off").exists()

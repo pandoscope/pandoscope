@@ -17,9 +17,11 @@ def test_every_role_ships_a_profile(role: str, session_root: Path) -> None:
     assert isinstance(profile.data["skills"], list)
 
 
-def test_general_installs_nothing(session_root: Path) -> None:
-    # D15: nothing beyond what gets the session to CONFIGURED.
-    assert load_profile("general", session_root).data["skills"] == []
+def test_no_profile_is_named_general(session_root: Path) -> None:
+    # Decision 143, answer 4: the role general goes, profile included.
+    assert not (SHIPPED / "general.yml").exists()
+    with pytest.raises(FileNotFoundError, match="general"):
+        load_profile("general", session_root)
 
 
 def test_orchestrator_and_implementer_carry_skills(session_root: Path) -> None:

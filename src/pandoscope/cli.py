@@ -13,10 +13,10 @@ from pandoscope.reinset.compose import Composition, compose
 from pandoscope.reinset.order import (
     ShortcodeError,
     find_shortcodes,
+    guard_one_map,
     load_shortcodes,
     validate_order,
 )
-from pandoscope.reinset.order_name import name_pattern
 from pandoscope.stamp import TEMPLATE_URL, parse_data, stamp
 
 
@@ -73,6 +73,16 @@ def build_parser() -> argparse.ArgumentParser:
         "check", help="validate order files against the order schema"
     )
     check_parser.add_argument("files", nargs="+", help="orders/<name>.yml files")
+    shortcodes_parser = subparsers.add_parser(
+        "shortcodes", help="the waybill's shortcode map (pandoscope#59)"
+    )
+    shortcodes_sub = shortcodes_parser.add_subparsers(
+        dest="shortcodes_command", required=True
+    )
+    shortcodes_check = shortcodes_sub.add_parser(
+        "check", help="check a shortcodes.json alone, without an order"
+    )
+    shortcodes_check.add_argument("file", help="the waybill's shortcodes.json")
     return parser
 
 
@@ -94,6 +104,30 @@ def main(argv: list[str] | None = None) -> int:
         print(run_compose(args.session_root).render_text, end="")
     if args.command == "order":
         return run_order_check(args.files)
+    if args.command == "shortcodes":
+        return run_shortcodes_check(args.file)
+    return 0
+
+
+def run_shortcodes_check(file: str) -> int:
+    """
+    Check the waybill's shortcode map alone. Print what fails. Return 1 when it fails.
+
+    ``file`` is the map under any name: ``<waybill>/shortcodes.json``,
+    or a candidate that is to replace it.
+    Runs the loader first: the schema and the loader's two rules.
+    Then the guard against a second map in the file's folder,
+    with ``file`` as the one source.
+    Prints ``<file>: ok`` and returns 0 when the map passes.
+    """
+    path = Path(file)
+    try:
+        load_shortcodes(path)
+        guard_one_map(path.resolve().parent, path)
+    except ShortcodeError as error:
+        print(f"{path}: {error}")
+        return 1
+    print(f"{path}: ok")
     return 0
 
 
@@ -103,8 +137,6 @@ def run_order_check(files: list[str]) -> int:
 
     Each file is ``<waybill>/orders/<name>.yml``; the subject's shortcode
     comes from ``<waybill>/shortcodes.json``, and a file without it fails.
-    An order whose role has no name pattern passes with a line that says
-    its name went unchecked.
     """
     failed = 0
     for name in files:
@@ -121,11 +153,6 @@ def run_order_check(files: list[str]) -> int:
             failed += 1
             for violation in violations:
                 print(f"{path}: {violation}")
-        elif name_pattern(data["role"]) is None:
-            print(
-                f"{path}: ok, but the role {data['role']!r} has no name pattern, "
-                "so only its tier and the file name are checked"
-            )
         else:
             print(f"{path}: ok")
     return 1 if failed else 0

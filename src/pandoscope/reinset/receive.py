@@ -36,8 +36,8 @@ class Order:
     The order is the only receiver (ruling 2026-09-23, skills#195).
     It names the role, the model tier, the tickets
     and its subject: the issue or the pull request under work,
-    split here into ``repo``, the repository's shortcode ``code`` and ``number``.
-    For a reviewer it also names the pass.
+    split here into ``repo``, the repository's shortcode ``code`` and ``number``,
+    and its pass.
     It may name a base.
     The Routine prompt carries no data.
     """
@@ -50,7 +50,7 @@ class Order:
     code: str
     number: int
     base: str | None
-    pass_: str | None
+    pass_: str
     model_tier: str | None
     tickets: list[str]
 
@@ -102,7 +102,7 @@ def find_order(env: Mapping[str, str], session_root: Path) -> Order | None:
         shortcodes[repo],
         int(match.group("n")),
         data.get("base"),
-        data.get("pass"),
+        data["pass"],
         data.get("model_tier"),
         list(data["tickets"]),
     )

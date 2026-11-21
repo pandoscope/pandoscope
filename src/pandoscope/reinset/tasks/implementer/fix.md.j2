@@ -1,5 +1,4 @@
 Order {{ id }}, on the model tier {{ model_tier }}.
-{% if fix_round %}
 This order is a fix round on the pull request {{ subject }}.
 Its tickets: {{ tickets }}.
 
@@ -11,13 +10,10 @@ Its tickets: {{ tickets }}.
   Fix or decline each entry.
 - Set each entry's `status` as `{{ dispositions }}/README.md` says,
   and push that change straight to `main` of the waybill repository.
-{% else %}
-This order builds {{ subject }}.
-The tickets: {{ tickets }}.
-Each ticket's body is the specification.
 
-- Create the branch `{{ branch }}` from `origin/{{ base }}` in the clone `{{ clone }}`,
-  and work on it.
-- Open one pull request from it, ready for review,
-  and name every ticket in its body.
-{% endif %}
+### Rules of the fix pass
+
+- One commit per finding, with its failing test and its fix, the finding named in the message.
+  No failing test possible: decline the finding, with that as the reason.
+- Your last reply also lists one line per finding:
+  fixed, with its commit and test, or declined, with the reason.

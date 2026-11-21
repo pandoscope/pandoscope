@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from pandoscope.reinset.hooks import render_hooks
 from pandoscope.reinset.profiles import Profile
 
@@ -86,11 +88,15 @@ def test_an_unknown_event_is_an_error(home: Path) -> None:
     assert "OnCoffee" in errors[0]
 
 
-def test_a_profile_without_hooks_renders_an_empty_file(home: Path) -> None:
-    # For general, and for any role with skills but no hooks,
+@pytest.mark.parametrize("hooks", [[], None])
+def test_a_profile_without_hooks_renders_an_empty_file(
+    home: Path, hooks: list[dict[str, str]] | None
+) -> None:
+    # For a session without a role, and for a role with skills but no hooks,
     # the dispatcher finds a file with nothing to run.
     target = home / ".claude" / "reinset" / "hooks.json"
-    rendered, errors = render_hooks(profile([]), home, target)
+    given = None if hooks is None else profile(hooks)
+    rendered, errors = render_hooks(given, home, target)
     assert (rendered, errors) == ({}, [])
     assert json.loads(target.read_text()) == {}
 
