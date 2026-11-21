@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import Mapping
 from pathlib import Path
 
@@ -15,6 +16,9 @@ from pandoscope.reinset.order import (
     load_shortcodes,
     validate_order,
 )
+from pandoscope.reinset.order_name import PATTERNS, ROLE_OF_WORD
+
+README = Path(__file__).parents[3] / "README.md"
 
 SHORTCODES = {"pandoscope/pandoscope": "pando", "pandoscope/skills": "sk"}
 NAME = "review_spec-fidelity_opus_pando26_1"
@@ -535,3 +539,31 @@ def test_a_second_shortcodes_file_in_the_waybill_is_an_error(
 def test_a_waybill_without_its_shortcodes_file_is_an_error(tmp_path: Path) -> None:
     with pytest.raises(ShortcodeError, match=r"shortcodes\.json"):
         find_shortcodes(tmp_path)
+
+
+def test_the_readme_points_to_the_name_patterns_and_the_shortcode_schema() -> None:
+    # Findings 5 and 6 of review-principal-pando64-9: the README restated the
+    # name patterns and the shortcode shape, which can drift from their source.
+    readme = README.read_text()
+    for pattern in PATTERNS.values():
+        assert pattern not in readme, pattern
+    assert "`PATTERNS` in `src/pandoscope/reinset/order_name.py`" in readme
+    assert "two to five" not in readme
+    assert "`src/pandoscope/reinset/schemas/shortcodes.json`" in readme
+    # The examples that stand in place of the patterns fit them.
+    examples = re.findall(r"`((?:review|implement)_[a-z0-9_-]+)`", readme)
+    assert {name.split("_")[0] for name in examples} == set(ROLE_OF_WORD), examples
+    repo_of = {code: repo for repo, code in SHORTCODES.items()}
+    for name in examples:
+        word, pass_, tier, subject, _ = name.split("_")
+        found = re.fullmatch(r"([a-z]+)([0-9]+)", subject)
+        assert found is not None, name
+        order = {
+            "id": name,
+            "role": ROLE_OF_WORD[word],
+            "pass": pass_,
+            "model_tier": tier,
+            "subject": f"{repo_of[found[1]]}#{found[2]}",
+            "tickets": [],
+        }
+        assert check(order, name) == [], name

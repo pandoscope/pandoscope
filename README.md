@@ -130,23 +130,21 @@ It requires `model_tier` on every order, in lowercase letters and digits only.
 It requires `pass` on every order, in lowercase.
 The pass names its role's pass file,
 and the composer fails a pass without one.
-An order that fits the schema must also fit its role's name pattern
-(`src/pandoscope/reinset/order_name.py`):
-`review_<pass>_<model_tier>_<code><n>_<step>` for a reviewer
-and `implement_<pass>_<model_tier>_<code><n>_<step>` for an implementer,
-as in `review_spec-fidelity_opus_pando58_1`.
+An order that fits the schema must also fit its role's name pattern,
+which the table `PATTERNS` in `src/pandoscope/reinset/order_name.py` states,
+as `review_spec-fidelity_opus_pando58_1` for a reviewer
+and `implement_build_opus_pando57_1` for an implementer.
 An underscore separates the parts, and a hyphen stands only inside a part,
 so the pass `prose-opus` on the tier `sonnet` reads one way only.
-`<code><n>` is the subject, with its repository's shortcode as written.
+The subject's part, as `pando58`, is its repository's shortcode as written, then its number.
 The shortcodes have one source, the waybill's `shortcodes.json`.
 It maps each shortcode to its repository, in the format the thread ledger reads.
 The schema `src/pandoscope/reinset/schemas/shortcodes.json` states its shape:
-a shortcode is two to five lowercase letters,
-a repository is `owner/repo` in lowercase,
-and the map stands alone or under `repos` beside the forge and its link patterns.
-A key that starts with `_`, such as `_comment`, is a comment.
-Two shortcodes for one repository are an error, and so is a key written twice.
-The step counts from 1, and a repeat run of a step takes a letter from `b`.
+how a shortcode and a repository are written,
+where the map stands, and which keys are comments.
+The loader in `src/pandoscope/reinset/order.py` adds the two rules that a schema cannot state:
+two shortcodes for one repository are an error, and so is a key written twice.
+The last part is the step: it counts from 1, and a repeat run of a step takes a letter from `b`.
 A name that disagrees with a field fails, and the error names the part.
 A name that begins with `review` or `implement` needs the role of that pattern.
 When the order does not validate against the schema,
