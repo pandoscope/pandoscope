@@ -29,7 +29,7 @@ prose: |
   - A criterion needs a session when no test can show the criterion holding:
     the criterion is about what a Routine, a hook or the model does in a running session.
     Such a criterion is met only when a session has run and its transcript shows the criterion holding.
-    List it in the PR body as "needs a run", with the exact order file to place.
+    List the criterion in the PR body as "needs a run", with the exact order file to place.
   - The PR body names every ticket the branch names.
   - Commit as you go.
     Before you push, fold the commits not yet pushed, so no commit repairs an earlier commit of the same branch.

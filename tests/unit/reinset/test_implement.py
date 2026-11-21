@@ -244,7 +244,8 @@ EVERY_PASS_RULES = (
     "Such a criterion is met only when",
     # Finding 1 of review-principal-pando64-9: "What does 'showed it' mean here?"
     "is met only when a session has run and its transcript shows the criterion holding",
-    'List it in the PR body as "needs a run"',
+    # Finding 3 of review-principal-pando64-9: "What is 'it' here?"
+    'List the criterion in the PR body as "needs a run"',
     "The PR body names every ticket",
     # pandoscope#60: the build task named the tickets in the body a second time.
     "every ticket",
@@ -263,6 +264,7 @@ RETIRED_RULES = (
     "Defect in existing code",
     "a session that showed it",
     "A criterion that needs a session",
+    "List it in the PR body",
 )
 BUILD_RULES = ("Stub, red, green",)
 FIX_RULES = (
