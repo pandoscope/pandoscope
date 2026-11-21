@@ -287,6 +287,17 @@ def test_the_composed_instructions_state_each_rule_of_their_pass_once(
         assert rule not in text, rule
 
 
+@pytest.mark.parametrize("pass_", ["build", "fix"])
+def test_the_composed_instructions_say_once_that_the_ticket_body_is_the_spec(
+    session_root: Path, home: Path, path_dirs: list[Path], pass_: str
+) -> None:
+    # Finding 0 of review-spec-fidelity-mythos-pando64-8: a first build read
+    # "Ticket body = spec." and "Each ticket's body is the specification."
+    text = composed(session_root, home, path_dirs, pass_)
+    said = re.findall(r"\bspec(?:ification)?\b", text, flags=re.IGNORECASE)
+    assert len(said) == 1, said
+
+
 def sentences(text: str) -> set[str]:
     """The lines of a text that carry words, without list markers."""
     lines = (line.strip().removeprefix("- ").strip() for line in text.splitlines())
