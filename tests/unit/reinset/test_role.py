@@ -16,7 +16,8 @@ from pandoscope.reinset.role import (
 
 
 def test_the_worker_roles_are_the_order_roles_without_orchestrator() -> None:
-    assert WORKER_ROLES == ("implementer", "reviewer", "probe")
+    # Decisions 135 and 143: a probe is never an order, so no environment sets it.
+    assert WORKER_ROLES == ("implementer", "reviewer")
     assert DECLARABLE == ("orchestrator", "implementer", "probe")
 
 

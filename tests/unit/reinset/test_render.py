@@ -51,6 +51,8 @@ def test_no_role_render_opens_with_its_line_and_asks_for_the_fixed_reply() -> No
     lines = text.splitlines()
     assert lines[0] == NO_ROLE_HEADING
     assert not any(line.startswith("# Role") for line in lines)
+    # Decision 143, answer 4: no role is named general.
+    assert "general" not in text
     assert "Every tool except the one that reads notifications is closed" in text
     reply = [line for line in lines if line.startswith("> ")]
     assert len(reply) == 1

@@ -81,7 +81,7 @@ def _copy(source: Path, target: Path, profile: Profile) -> None:
 
 
 def install_bundle(
-    profile: Profile,
+    profile: Profile | None,
     session_root: Path,
     home: Path,
     repos: list[dict[str, Any]],
@@ -91,6 +91,8 @@ def install_bundle(
     """
     Render the profile's skills into ``home/.claude/skills`` and return the report.
 
+    Without a profile, the session has no role and names no skill.
+
     A skill with no source is an error in the report, and the step skips it.
     So is a target directory without the marker.
     Nothing raises.
@@ -99,7 +101,27 @@ def install_bundle(
     """
     report = InstallReport()
     skills_dir = home / ".claude" / "skills"
-    wanted = [str(name) for name in profile.data.get("skills") or []]
+    wanted: list[str] = []
+    if profile is not None:
+        wanted = [str(name) for name in profile.data.get("skills") or []]
+        _install_skills(profile, wanted, session_root, repos, skills_dir, report)
+    if prune and skills_dir.is_dir():
+        for entry in sorted(skills_dir.iterdir()):
+            if entry.is_dir() and _managed(entry) and entry.name not in wanted:
+                shutil.rmtree(entry)
+                report.removed.append(entry.name)
+    return report
+
+
+def _install_skills(
+    profile: Profile,
+    wanted: list[str],
+    session_root: Path,
+    repos: list[dict[str, Any]],
+    skills_dir: Path,
+    report: InstallReport,
+) -> None:
+    """Copy each skill in ``wanted`` into ``skills_dir``; add to ``report``."""
     for name in wanted:
         source = find_skill(name, session_root, repos)
         if source is None:
@@ -115,12 +137,6 @@ def install_bundle(
             continue
         _copy(source, target, profile)
         report.installed.append(name)
-    if prune and skills_dir.is_dir():
-        for entry in sorted(skills_dir.iterdir()):
-            if entry.is_dir() and _managed(entry) and entry.name not in wanted:
-                shutil.rmtree(entry)
-                report.removed.append(entry.name)
-    return report
 
 
 def remove_bundle(home: Path) -> list[str]:

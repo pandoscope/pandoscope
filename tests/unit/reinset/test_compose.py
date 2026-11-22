@@ -11,7 +11,14 @@ from pandoscope.reinset.principal import principal_id
 from pandoscope.reinset.render import MARKER, NO_ROLE_HEADING, UnmanagedTargetError
 from pandoscope.reinset.role import WORKER_CLOSED_TOOLS, RoleRefused
 
-from .conftest import ENV_RUN5_UI, ENV_RUN7_FIRED, ORG_SALT, pr_clone
+from .conftest import (
+    ENV_RUN5_UI,
+    ENV_RUN7_FIRED,
+    ORG_SALT,
+    fire,
+    pr_clone,
+    write_waybill_order,
+)
 
 
 def test_no_source_writes_answers_and_renders_no_role(
@@ -62,27 +69,25 @@ Base {{ base }}, head {{ head }}.
 """
 
 
-WAYBILL_FIRE = {
-    "CCR_TRIGGER_SOURCE": "github",
-    "CCR_TRIGGER_EVENT": "pull_request.opened",
-    "CCR_TRIGGER_REPO": "pandoscope/waybill",
-    "CCR_TRIGGER_PR_NUMBER": "5",
-    "CCR_TRIGGER_HEAD_REF": "order/probe-4",
-    "CCR_TRIGGER_BASE_REF": "main",
-    "CCR_TRIGGER_HEAD_SHA": "3cb001e",
-}
+REVIEW_NAME = "review_spec-fidelity_sonnet_aet262_1"
+IMPLEMENT_NAME = "implement_build_opus_aet261_1"
+WAYBILL_FIRE = fire(REVIEW_NAME)
+IMPLEMENT_FIRE = fire(IMPLEMENT_NAME)
 
 
-def write_pass_and_order(session_root: Path, order: str | None) -> None:
+def write_pass_and_order(
+    session_root: Path, order: str | None, name: str = REVIEW_NAME
+) -> None:
     target = session_root / "skills" / "original" / "thread-ledger" / "review"
     target.mkdir(parents=True)
     (target / "spec-fidelity.md").write_text(REVIEW_PROMPT_FILE)
     # The reviewer profile names thread-ledger; the bundle installs it.
     (target.parent / "SKILL.md").write_text("---\nname: thread-ledger\n---\n")
     if order is not None:
-        orders = session_root / "waybill" / "orders"
-        orders.mkdir(parents=True)
-        (orders / "probe-4.yml").write_text(order)
+        write_waybill_order(session_root, name, order)
+        # An implementer order's subject must have a clone (pandoscope#57).
+        if not (session_root / "aet").exists():
+            pr_clone(session_root, "aet", 262)
 
 
 def test_a_waybill_order_composes_the_reviewer(
@@ -91,18 +96,19 @@ def test_a_waybill_order_composes_the_reviewer(
     head = pr_clone(session_root, "aet", 262)
     write_pass_and_order(
         session_root,
-        "id: probe-4\nrole: reviewer\npass: spec-fidelity\nmodel_tier: sonnet\n"
-        "pull_request: pandoscope/aet#262\nbase: feature\ntickets: []\n",
+        f"id: {REVIEW_NAME}\nrole: reviewer\npass: spec-fidelity\n"
+        "model_tier: sonnet\nsubject: pandoscope/aet#262\nbase: feature\n"
+        "tickets: []\n",
     )
     env = {**ENV_RUN7_FIRED, **WAYBILL_FIRE}
     result = compose(env, session_root, home, path_dirs)
     assert result.answers["resolved"]["role"] == "reviewer"
     assert result.answers["order"] == {
-        "path": "waybill/orders/probe-4.yml",
+        "path": f"waybill/orders/{REVIEW_NAME}.yml",
         "role": "reviewer",
         "pass": "spec-fidelity",
         "model_tier": "sonnet",
-        "pull_request": 262,
+        "subject": "pandoscope/aet#262",
         "tickets": [],
     }
     assert result.errors == []
@@ -111,22 +117,6 @@ def test_a_waybill_order_composes_the_reviewer(
     assert f"Base feature, head {head}." in result.render_text
     assert result.answers["resolved"]["role_source"] == "order"
     assert result.render_text.startswith("# Role: reviewer")
-
-
-def test_an_order_for_another_role_composes_that_role_without_a_task(
-    session_root: Path, home: Path, path_dirs: list[Path]
-) -> None:
-    write_pass_and_order(
-        session_root,
-        "id: probe-4\nrole: implementer\n"
-        "pull_request: pandoscope/aet#262\ntickets: []\n",
-    )
-    _bundles(session_root)
-    env = {**ENV_RUN7_FIRED, **WAYBILL_FIRE}
-    result = compose(env, session_root, home, path_dirs)
-    assert result.answers["resolved"]["role"] == "implementer"
-    assert result.answers["order"]["pass"] is None
-    assert "# Task" not in result.render_text
 
 
 def test_a_broken_order_is_a_composer_error(
@@ -145,11 +135,11 @@ def test_a_broken_order_is_a_composer_error(
 def test_an_order_without_the_pass_file_is_a_composer_error(
     session_root: Path, home: Path, path_dirs: list[Path]
 ) -> None:
-    orders = session_root / "waybill" / "orders"
-    orders.mkdir(parents=True)
-    (orders / "probe-4.yml").write_text(
-        "id: probe-4\nrole: reviewer\npass: spec-fidelity\nmodel_tier: sonnet\n"
-        "pull_request: pandoscope/aet#262\ntickets: []\n"
+    write_waybill_order(
+        session_root,
+        REVIEW_NAME,
+        f"id: {REVIEW_NAME}\nrole: reviewer\npass: spec-fidelity\n"
+        "model_tier: sonnet\nsubject: pandoscope/aet#262\ntickets: []\n",
     )
     env = {**ENV_RUN7_FIRED, **WAYBILL_FIRE}
     result = compose(env, session_root, home, path_dirs)
@@ -162,8 +152,8 @@ def test_an_order_without_the_pass_file_is_a_composer_error(
 # Ruling 2026-09-23 (skills#195), narrowed by meta#194: an order, REINSET_ROLE
 # and a role line are the only sources. No other variable composes a role.
 ORDER_IMPLEMENTER = (
-    "id: probe-4\nrole: implementer\n"
-    "pull_request: pandoscope/aet#262\ntickets: [pandoscope/skills#195]\n"
+    f"id: {IMPLEMENT_NAME}\nrole: implementer\npass: build\nmodel_tier: opus\n"
+    "subject: pandoscope/aet#261\ntickets: [pandoscope/skills#195]\n"
 )
 
 
@@ -205,29 +195,39 @@ def test_a_fired_session_without_an_order_has_no_role(
 def test_the_order_carries_its_tickets_into_the_answers(
     session_root: Path, home: Path, path_dirs: list[Path]
 ) -> None:
-    write_pass_and_order(session_root, ORDER_IMPLEMENTER)
+    write_pass_and_order(session_root, ORDER_IMPLEMENTER, IMPLEMENT_NAME)
     _bundles(session_root)
-    env = {**ENV_RUN7_FIRED, **WAYBILL_FIRE}
+    env = {**ENV_RUN7_FIRED, **IMPLEMENT_FIRE}
     result = compose(env, session_root, home, path_dirs)
     assert result.answers["order"]["tickets"] == ["pandoscope/skills#195"]
     assert result.answers["resolved"]["role"] == "implementer"
 
 
-@pytest.mark.parametrize("role", ["orchestrator", "general"])
-def test_an_order_naming_a_role_that_is_not_a_worker_role_sets_none(
+@pytest.mark.parametrize("role", ["general", "orchestrator", "probe"])
+def test_an_order_of_a_role_that_is_no_worker_sets_no_role(
     session_root: Path, home: Path, path_dirs: list[Path], role: str
 ) -> None:
-    # meta#194: an order sets a worker role only; no role is general.
-    write_pass_and_order(session_root, ORDER_IMPLEMENTER.replace("implementer", role))
-    env = {**ENV_RUN7_FIRED, **WAYBILL_FIRE}
+    # meta#194, decisions 135 and 143: an order names a worker role only;
+    # no role is general, and a probe is never an order.
+    name = f"{role}_build_opus_aet261_1"
+    write_pass_and_order(
+        session_root,
+        ORDER_IMPLEMENTER.replace("role: implementer", f"role: {role}").replace(
+            IMPLEMENT_NAME, name
+        ),
+        name,
+    )
+    env = {**ENV_RUN7_FIRED, **fire(name)}
     result = compose(env, session_root, home, path_dirs)
     assert result.role is None
-    assert len(result.errors) == 1
-    assert f"role: '{role}' is not one of" in result.errors[0]
+    assert len(result.errors) == 1, result.errors
+    assert f"role: {role!r}" in result.errors[0]
+    assert result.render_text.startswith(NO_ROLE_HEADING)
+    assert f"Role: {role}" not in result.render_text
     reply = next(
         line for line in result.render_text.splitlines() if line.startswith("> ")
     )
-    assert f"role: '{role}' is not one of" in reply
+    assert f"role: {role!r}" in reply
 
 
 def _skill(session_root: Path, name: str, *scripts: str) -> None:
@@ -246,7 +246,8 @@ def _bundles(session_root: Path) -> None:
 
 
 IMPLEMENTER_ORDER = (
-    "id: probe-4\nrole: implementer\npull_request: pandoscope/aet#262\ntickets: []\n"
+    f"id: {IMPLEMENT_NAME}\nrole: implementer\npass: build\nmodel_tier: opus\n"
+    "subject: pandoscope/aet#261\ntickets: []\n"
 )
 
 
@@ -260,8 +261,8 @@ def test_role_install_follows_the_profile(
         (session_root / "skills" / "original" / "handing-off" / script).write_text(
             "#!/bin/bash\n"
         )
-    write_pass_and_order(session_root, IMPLEMENTER_ORDER)
-    env = {**ENV_RUN7_FIRED, **WAYBILL_FIRE}
+    write_pass_and_order(session_root, IMPLEMENTER_ORDER, IMPLEMENT_NAME)
+    env = {**ENV_RUN7_FIRED, **IMPLEMENT_FIRE}
     result = compose(env, session_root, home, path_dirs)
     assert result.errors == []
     assert result.answers["installed"] == ["thread-ledger", "handing-off"]
@@ -273,8 +274,8 @@ def test_role_install_follows_the_profile(
 def test_missing_bundle_skill_is_a_composer_error(
     session_root: Path, home: Path, path_dirs: list[Path]
 ) -> None:
-    write_pass_and_order(session_root, IMPLEMENTER_ORDER)
-    env = {**ENV_RUN7_FIRED, **WAYBILL_FIRE}
+    write_pass_and_order(session_root, IMPLEMENTER_ORDER, IMPLEMENT_NAME)
+    env = {**ENV_RUN7_FIRED, **IMPLEMENT_FIRE}
     result = compose(env, session_root, home, path_dirs)
     # meta#195: a composer error leaves the session without a role.
     assert result.answers["resolved"]["role"] is None
@@ -289,8 +290,8 @@ def test_a_session_without_an_order_prunes_what_a_role_left(
     session_root: Path, home: Path, path_dirs: list[Path]
 ) -> None:
     _bundles(session_root)
-    write_pass_and_order(session_root, IMPLEMENTER_ORDER)
-    compose({**ENV_RUN7_FIRED, **WAYBILL_FIRE}, session_root, home, path_dirs)
+    write_pass_and_order(session_root, IMPLEMENTER_ORDER, IMPLEMENT_NAME)
+    compose({**ENV_RUN7_FIRED, **IMPLEMENT_FIRE}, session_root, home, path_dirs)
     assert (home / ".claude" / "skills" / "handing-off").is_dir()
     # A fresh SessionStart with no source composes no role
     # and prunes what an earlier role left (meta#195).
@@ -308,9 +309,9 @@ def test_role_hooks_render_beside_the_answers(
         (session_root / "skills" / "original" / "handing-off" / script).write_text(
             "#!/bin/bash\n"
         )
-    write_pass_and_order(session_root, IMPLEMENTER_ORDER)
+    write_pass_and_order(session_root, IMPLEMENTER_ORDER, IMPLEMENT_NAME)
     hooks_path = home / "elsewhere" / "hooks.json"
-    env = {**ENV_RUN7_FIRED, **WAYBILL_FIRE, "REINSET_HOOKS": str(hooks_path)}
+    env = {**ENV_RUN7_FIRED, **IMPLEMENT_FIRE, "REINSET_HOOKS": str(hooks_path)}
     result = compose(env, session_root, home, path_dirs)
     assert result.errors == []
     assert result.hooks_path == hooks_path
@@ -341,8 +342,8 @@ def test_another_harness_installs_no_claude_code_bundle(
     # Any other harness gets no bundle and an error that names the harness.
     for name in ("thread-ledger", "handing-off"):
         _skill(session_root, name)
-    write_pass_and_order(session_root, IMPLEMENTER_ORDER)
-    env = {"CLAUDE_CODE_SESSION_ID": "sess-other-0001", **WAYBILL_FIRE}
+    write_pass_and_order(session_root, IMPLEMENTER_ORDER, IMPLEMENT_NAME)
+    env = {"CLAUDE_CODE_SESSION_ID": "sess-other-0001", **IMPLEMENT_FIRE}
     result = compose(env, session_root, home, path_dirs)
     assert result.answers["resolved"]["harness"] != "claude-code"
     assert not (home / ".claude" / "skills" / "handing-off").exists()

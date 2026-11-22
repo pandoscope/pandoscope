@@ -11,6 +11,7 @@ import yaml
 
 from pandoscope.reinset.detect import detect
 from pandoscope.reinset.hooks import render_hooks
+from pandoscope.reinset.implement import ImplementError, implementer_task
 from pandoscope.reinset.install import install_bundle, remove_bundle
 from pandoscope.reinset.principal import UNKNOWN
 from pandoscope.reinset.profiles import Profile, load_profile
@@ -83,7 +84,8 @@ def compose(
     it installs no skill, removes what an earlier role installed,
     deletes the hooks file and renders the no-role reply.
     A composer error leaves the session without a role.
-    The errors are an order off the schema, a review error from hydrating the task,
+    The errors are an order off the schema, a review or implementer error
+    from composing the task,
     an environment that names a role it may not set,
     a bundle skill or hook with no source, and a harness with no skill format.
     The composer renders its errors and never raises them,
@@ -107,7 +109,9 @@ def compose(
             order = find_order(env, session_root)
             if order is not None and order.role == "reviewer":
                 task = hydrate(session_root, order)
-        except (OrderError, ReviewError) as error:
+            if order is not None and order.role == "implementer":
+                task = implementer_task(session_root, order)
+        except (OrderError, ReviewError, ImplementError) as error:
             errors.append(str(error))
             order = None
         if order is not None:
@@ -234,6 +238,6 @@ def _order_answers(order: Order | None, session_root: Path) -> dict[str, Any] | 
         "role": order.role,
         "pass": order.pass_,
         "model_tier": order.model_tier,
-        "pull_request": order.pull_request,
+        "subject": order.subject,
         "tickets": order.tickets,
     }

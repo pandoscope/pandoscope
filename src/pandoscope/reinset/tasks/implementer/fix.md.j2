@@ -1,0 +1,19 @@
+Order {{ id }}, on the model tier {{ model_tier }}.
+This order is a fix round on the pull request {{ subject }}.
+Its tickets: {{ tickets }}.
+
+- Work on the pull request's branch `{{ branch }}` in the clone `{{ clone }}`,
+  and push your commits to it.
+  Open no other pull request.
+- Your work list is every entry with `status: open` whose `owner` lists {{ subject }},
+  in the disposition files under `{{ dispositions }}`.
+  Fix or decline each entry.
+- Set each entry's `status` as `{{ dispositions }}/README.md` says,
+  and push that change straight to `main` of the waybill repository.
+
+### Rules of the fix pass
+
+- One commit per finding, with its failing test and its fix, the finding named in the message.
+  No failing test possible: decline the finding, with that as the reason.
+- Your last reply also lists one line per finding:
+  fixed, with its commit and test, or declined, with the reason.

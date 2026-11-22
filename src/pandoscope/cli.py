@@ -10,7 +10,13 @@ import yaml
 
 from pandoscope import __version__
 from pandoscope.reinset.compose import Composition, compose, declare
-from pandoscope.reinset.order import validate_order
+from pandoscope.reinset.order import (
+    ShortcodeError,
+    find_shortcodes,
+    guard_one_map,
+    load_shortcodes,
+    validate_order,
+)
 from pandoscope.reinset.role import RoleRefused
 from pandoscope.stamp import TEMPLATE_URL, parse_data, stamp
 
@@ -82,6 +88,16 @@ def build_parser() -> argparse.ArgumentParser:
         "check", help="validate order files against the order schema"
     )
     check_parser.add_argument("files", nargs="+", help="orders/<name>.yml files")
+    shortcodes_parser = subparsers.add_parser(
+        "shortcodes", help="the waybill's shortcode map (pandoscope#59)"
+    )
+    shortcodes_sub = shortcodes_parser.add_subparsers(
+        dest="shortcodes_command", required=True
+    )
+    shortcodes_check = shortcodes_sub.add_parser(
+        "check", help="check a shortcodes.json alone, without an order"
+    )
+    shortcodes_check.add_argument("file", help="the waybill's shortcodes.json")
     return parser
 
 
@@ -111,21 +127,51 @@ def main(argv: list[str] | None = None) -> int:
         print(composition.render_text, end="")
     if args.command == "order":
         return run_order_check(args.files)
+    if args.command == "shortcodes":
+        return run_shortcodes_check(args.file)
+    return 0
+
+
+def run_shortcodes_check(file: str) -> int:
+    """
+    Check the waybill's shortcode map alone. Print what fails. Return 1 when it fails.
+
+    ``file`` is the map under any name: ``<waybill>/shortcodes.json``,
+    or a candidate that is to replace it.
+    Runs the loader first: the schema and the loader's two rules.
+    Then the guard against a second map in the file's folder,
+    with ``file`` as the one source.
+    Prints ``<file>: ok`` and returns 0 when the map passes.
+    """
+    path = Path(file)
+    try:
+        load_shortcodes(path)
+        guard_one_map(path.resolve().parent, path)
+    except ShortcodeError as error:
+        print(f"{path}: {error}")
+        return 1
+    print(f"{path}: ok")
     return 0
 
 
 def run_order_check(files: list[str]) -> int:
-    """Validate each order file. Print every violation. Return 1 when any file fails."""
+    """
+    Validate each order file. Print every violation. Return 1 when any file fails.
+
+    Each file is ``<waybill>/orders/<name>.yml``; the subject's shortcode
+    comes from ``<waybill>/shortcodes.json``, and a file without it fails.
+    """
     failed = 0
     for name in files:
         path = Path(name)
         try:
             data = yaml.safe_load(path.read_text())
-        except (OSError, yaml.YAMLError) as error:
-            print(f"{path}: cannot read as YAML: {error}")
+            shortcodes = load_shortcodes(find_shortcodes(path.resolve().parent.parent))
+        except (OSError, yaml.YAMLError, ShortcodeError) as error:
+            print(f"{path}: cannot check: {error}")
             failed += 1
             continue
-        violations = validate_order(data, path.stem)
+        violations = validate_order(data, path.stem, shortcodes)
         if violations:
             failed += 1
             for violation in violations:

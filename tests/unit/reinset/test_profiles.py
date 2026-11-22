@@ -18,7 +18,7 @@ def test_every_role_ships_a_profile(role: str, session_root: Path) -> None:
 
 
 def test_no_profile_is_named_general(session_root: Path) -> None:
-    # meta#195: there is no default role.
+    # meta#195 and decision 143, answer 4: there is no default role.
     assert not (SHIPPED / "general.yml").exists()
     with pytest.raises(FileNotFoundError, match="general"):
         load_profile("general", session_root)

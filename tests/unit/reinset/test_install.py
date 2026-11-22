@@ -181,6 +181,18 @@ def test_remove_bundle_without_a_skills_directory_removes_nothing(home: Path) ->
     assert remove_bundle(home) == []
 
 
+def test_no_profile_with_prune_leaves_no_managed_skill(
+    session_root: Path, home: Path
+) -> None:
+    # D15: the unconfigured state has no role and installs nothing.
+    make_skill(session_root / "skills" / "original" / "handing-off", "handing-off")
+    repos = repos_in(session_root)
+    install_bundle(profile("handing-off"), session_root, home, repos, prune=True)
+    report = install_bundle(None, session_root, home, repos, prune=True)
+    assert report.removed == ["handing-off"]
+    assert not (home / ".claude" / "skills" / "handing-off").exists()
+
+
 def test_the_skills_clone_is_found_by_slug_whatever_its_kind(
     session_root: Path,
 ) -> None:

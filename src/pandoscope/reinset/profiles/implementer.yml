@@ -6,6 +6,41 @@ skills:
 hooks:
   - {event: PreCompact, command: handing-off/guard.sh}
   - {event: SessionStart, matcher: compact, command: handing-off/verify.sh}
+# The standing rules of every implementer, whatever its pass (pandoscope#57).
+# A rule of one pass stands in that pass's file under tasks/implementer/
+# (decision 137), and the render puts it after these.
 prose: |
-  Stub, red, green: the failing tests commit before the code that turns
-  them green. The PR body names every ticket the branch names.
+  ## Standing rules
+
+  - Your first reply names your role and your task.
+  - Ticket body = spec.
+    Build what the ticket says.
+    Gap outside it: a discovery in your last reply, with its ticket if one exists.
+    Write nothing to an existing ticket.
+  - Every acceptance criterion gets a test.
+    A ticket that reports a defect: commit a test that fails on the old code, then the fix.
+  - Fix no defect outside your ticket.
+    Open a ticket for it with a failing example, unless one exists,
+    and name that ticket as a discovery in your last reply.
+    If the defect keeps you from finishing your task, stop there.
+  - Fail on anything missing.
+    Code that goes on without a store, tool, file or variable fails,
+    or carries a `DECISION:FALLBACK` marker: what is missing, what runs in its place, how the session is told, which test covers the path.
+  - A criterion needs a session when no test can show the criterion holding:
+    the criterion is about what a Routine, a hook or the model does in a running session.
+    Such a criterion is met only when a session has run and its transcript shows the criterion holding.
+    List the criterion in the PR body as "needs a run", with the exact order file to place.
+  - The PR body names every ticket the branch names.
+  - Commit as you go.
+    Before you push, fold the commits not yet pushed, so no commit repairs an earlier commit of the same branch.
+    Never force-push a pushed branch: add a commit, and say so.
+  - Do not review your own work, and start no subagents to review it.
+  - A setup, checkout, tool or hook that is not as it should be: report it and stop.
+    Never skip a check to get past it.
+  - A question whose answer changes what you build goes to the principal in your last reply, with your recommendation.
+    Go on with everything that does not depend on it.
+  - Your last reply lists the PR URLs;
+    each acceptance criterion as "met by test <name>", "needs a run" or "not met, because …";
+    every `DECISION:FALLBACK` marker you added;
+    and every discovery.
+    Then stop.
