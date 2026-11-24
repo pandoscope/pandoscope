@@ -92,7 +92,7 @@ def test_an_unknown_event_is_an_error(home: Path) -> None:
 def test_a_profile_without_hooks_renders_an_empty_file(
     home: Path, hooks: list[dict[str, str]] | None
 ) -> None:
-    # For a session without a role, and for a role with skills but no hooks,
+    # For a role with skills but no hooks, and for no profile at all,
     # the dispatcher finds a file with nothing to run.
     target = home / ".claude" / "reinset" / "hooks.json"
     given = None if hooks is None else profile(hooks)

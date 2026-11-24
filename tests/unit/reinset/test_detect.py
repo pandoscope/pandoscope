@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from pandoscope.reinset.detect import detect
+from pandoscope.reinset.install import MARKER_FILE
 from pandoscope.reinset.principal import principal_id
 
 from .conftest import ENV_RUN5_UI, ENV_RUN7_FIRED, ORG_SALT
@@ -82,6 +83,18 @@ def test_tools_are_probed_binaries_and_skill_dirs(
     )
     detected = detect(ENV_RUN7_FIRED, session_root, home, path_dirs)
     assert detected["tools"] == ["node", "uv", "grilling", "thread-ledger"]
+
+
+def test_a_skill_the_composer_installed_is_not_a_detected_tool(
+    session_root: Path, home: Path, path_dirs: list[Path]
+) -> None:
+    # meta#194: a composition must not depend on the role composed before it.
+    managed = home / ".claude" / "skills" / "handing-off"
+    managed.mkdir(parents=True)
+    (managed / MARKER_FILE).write_text("managedBy: pandoscope compose\n")
+    (home / ".claude" / "skills" / "grilling").mkdir()
+    detected = detect(ENV_RUN7_FIRED, session_root, home, path_dirs)
+    assert detected["tools"] == ["node", "uv", "grilling"]
 
 
 def test_repos_come_from_each_clones_copier_answers(

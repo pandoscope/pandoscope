@@ -294,6 +294,14 @@ def composed(session_root: Path, home: Path, path_dirs: list[Path], pass_: str) 
     dispositions(session_root)
     name, text = {"build": (BUILD, BUILD_ORDER), "fix": (FIX, FIX_ORDER)}[pass_]
     write_waybill_order(session_root, name, text)
+    # meta#195: a bundle skill without a source leaves the session without a role.
+    bundle = {"thread-ledger": (), "handing-off": ("guard.sh", "verify.sh")}
+    for skill, scripts in bundle.items():
+        source = session_root / "skills" / "original" / skill
+        source.mkdir(parents=True, exist_ok=True)
+        (source / "SKILL.md").write_text(f"---\nname: {skill}\n---\n")
+        for script in scripts:
+            (source / script).write_text("#!/bin/bash\n")
     result = compose({**ENV_RUN7_FIRED, **fire(name)}, session_root, home, path_dirs)
     assert not [e for e in result.errors if "aet" in e], result.errors
     return result.render_text
