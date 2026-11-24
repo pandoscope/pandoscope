@@ -87,8 +87,8 @@ Until pandoscope/pandoscope#66 replaces it, the table `WORKS_ON_A_PULL_REQUEST` 
 so a new pass needs its pass file and its line in that table.
 The implementer profile carries the rules that hold for every pass,
 and a rule of one pass stands in that pass's file alone.
-Without an order the session has no role:
-the composer installs nothing and renders the loud UNCONFIGURED state.
+Without an order, an environment role or a role line the session has no role:
+the composer installs nothing, deletes the hooks file and renders the `# No role` reply.
 The Routine's saved prompt is one orientation sentence.
 Every Routine saves the same sentence. It tells
 the model that the hooks composed its role and task into `CLAUDE.md`.
