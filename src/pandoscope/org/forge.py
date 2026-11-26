@@ -142,3 +142,28 @@ def ensure_board(org: str, run: Run, *, dry_run: bool) -> tuple[str | None, str]
         None,
     )
     return created.strip(), "created"
+
+
+def repo_present(owner: str, name: str, run: Run) -> bool:
+    """
+    Return whether ``owner/name`` exists on the forge; ``owner`` is an org or a user.
+
+    Raises what ``run`` raises for any answer but "not found",
+    so a missing permission is never read as an absent repo.
+    """
+    try:
+        run(["gh", "api", f"repos/{owner}/{name}", "--jq", ".name"], None)
+    except RuntimeError as error:
+        if "HTTP 404" in str(error):
+            return False
+        raise
+    return True
+
+
+def branches(owner: str, name: str, run: Run) -> list[str]:
+    """Return the names of ``owner/name``'s branches; an empty repo has none."""
+    out = run(
+        ["gh", "api", f"repos/{owner}/{name}/branches", "--paginate", "--jq", ".[].name"],
+        None,
+    )
+    return [line for line in out.splitlines() if line]

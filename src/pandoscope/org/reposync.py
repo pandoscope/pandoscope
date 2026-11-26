@@ -12,9 +12,10 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from pandoscope.org import forge
 from pandoscope.org.forge import Run
 from pandoscope.org.plan import Repo
-from pandoscope.org.seed import Stamp
+from pandoscope.org.seed import Stamp, stamp_first_commit
 
 
 @dataclass(frozen=True)
@@ -44,5 +45,48 @@ def repo_sync(
 
     Each step checks state first and acts only when the state differs.
     ``dry_run`` reports every change and makes none.
+    Raises what ``run`` and ``stamp`` raise; a failed step stops the run.
     """
-    raise NotImplementedError
+    present = forge.repo_present(owner, repo.name, run)
+    if present:
+        exists = StepReport("exists", "exists")
+    elif dry_run:
+        exists = StepReport("exists", "would create")
+    else:
+        forge.create_repo(owner, repo, run)
+        exists = StepReport("exists", "created")
+    return [exists, _first_commit(owner, repo, workdir, run, stamp, template_ref, present=present, dry_run=dry_run)]
+
+
+def _first_commit(
+    owner: str,
+    repo: Repo,
+    workdir: Path,
+    run: Run,
+    stamp: Stamp,
+    template_ref: str,
+    *,
+    present: bool,
+    dry_run: bool,
+) -> StepReport:
+    """
+    Make the stamp main's first commit, unless main has commits already.
+
+    A repository with commits but no main is the principal's to sort out:
+    stamping it would put an unrelated history beside its own.
+    """
+    if not repo.stamped:
+        return StepReport("first commit", "not stamped", ["a plain entry carries no stamp"])
+    names = forge.branches(owner, repo.name, run) if present else []
+    if "main" in names:
+        return StepReport("first commit", "present")
+    if names:
+        return StepReport(
+            "first commit",
+            "MANUAL",
+            [f"{owner}/{repo.name} has commits on {', '.join(names)} but no main; not stamped"],
+        )
+    if dry_run:
+        return StepReport("first commit", "would stamp", [f"at {template_ref}"])
+    stamp_first_commit(owner, repo, workdir, run, stamp, template_ref)
+    return StepReport("first commit", "stamped", [f"at {template_ref}"])

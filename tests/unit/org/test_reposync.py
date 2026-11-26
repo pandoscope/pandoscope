@@ -38,6 +38,7 @@ class FakeStamp:
         vcs_ref: str | None = None,
     ) -> None:
         self.calls.append((directory, dict(data or {}), vcs_ref))
+        Path(directory).mkdir(parents=True, exist_ok=True)  # as copier does
         (Path(directory) / ANSWERS_FILE).write_text("_commit: v5.0.2-3-gabc1234\n")
 
 
@@ -48,7 +49,6 @@ def sync(fake: FakeRun, stamp: FakeStamp, tmp_path: Path, repo: Repo = APP, *, d
     return {report.step: report for report in reports}
 
 
-@pytest.mark.xfail(strict=True)
 def test_an_absent_repo_is_created_and_stamped_as_main_s_first_commit(tmp_path: Path) -> None:
     fake, stamp = FakeRun(errors={VIEW: NOT_FOUND}), FakeStamp()
     reports = sync(fake, stamp, tmp_path)
@@ -64,7 +64,6 @@ def test_an_absent_repo_is_created_and_stamped_as_main_s_first_commit(tmp_path: 
     assert push == ("git", *HELPER, "push", "https://github.com/o/app.git", "main")
 
 
-@pytest.mark.xfail(strict=True)
 def test_the_stamp_commit_names_the_template_commit_and_every_input(tmp_path: Path) -> None:
     fake, stamp = FakeRun(errors={VIEW: NOT_FOUND}), FakeStamp()
     sync(fake, stamp, tmp_path)
@@ -76,7 +75,6 @@ def test_the_stamp_commit_names_the_template_commit_and_every_input(tmp_path: Pa
     assert "agentic_project_name: App" in message
 
 
-@pytest.mark.xfail(strict=True)
 def test_a_second_run_changes_nothing(tmp_path: Path) -> None:
     fake = FakeRun({VIEW: "app\n", BRANCHES: "main\n"})
     stamp = FakeStamp()
@@ -88,7 +86,6 @@ def test_a_second_run_changes_nothing(tmp_path: Path) -> None:
     assert all(cmd[:3] in {VIEW, BRANCHES} for cmd in fake.commands())
 
 
-@pytest.mark.xfail(strict=True)
 def test_an_existing_empty_repo_gets_its_stamp(tmp_path: Path) -> None:
     fake, stamp = FakeRun({VIEW: "app\n", BRANCHES: ""}), FakeStamp()
     reports = sync(fake, stamp, tmp_path)
@@ -98,7 +95,6 @@ def test_an_existing_empty_repo_gets_its_stamp(tmp_path: Path) -> None:
     assert not any(cmd[:3] == ("gh", "repo", "create") for cmd in fake.commands())
 
 
-@pytest.mark.xfail(strict=True)
 def test_a_repo_with_commits_but_no_main_is_reported_never_stamped(tmp_path: Path) -> None:
     fake, stamp = FakeRun({VIEW: "app\n", BRANCHES: "master\n"}), FakeStamp()
     reports = sync(fake, stamp, tmp_path)
@@ -108,18 +104,16 @@ def test_a_repo_with_commits_but_no_main_is_reported_never_stamped(tmp_path: Pat
     assert stamp.calls == []
 
 
-@pytest.mark.xfail(strict=True)
 def test_dry_run_reports_every_change_and_makes_none(tmp_path: Path) -> None:
     fake, stamp = FakeRun(errors={VIEW: NOT_FOUND}), FakeStamp()
     reports = sync(fake, stamp, tmp_path, dry_run=True)
 
     assert reports["exists"].state == "would create"
     assert reports["first commit"].state == "would stamp"
-    assert fake.commands() == [VIEW]
+    assert [cmd[:3] for cmd in fake.commands()] == [VIEW]
     assert stamp.calls == []
 
 
-@pytest.mark.xfail(strict=True)
 def test_a_plain_entry_is_created_with_a_readme_and_never_stamped(tmp_path: Path) -> None:
     view = ("gh", "api", "repos/o/notes")
     fake, stamp = FakeRun(errors={view: NOT_FOUND.replace("app", "notes")}), FakeStamp()
@@ -132,7 +126,6 @@ def test_a_plain_entry_is_created_with_a_readme_and_never_stamped(tmp_path: Path
     assert stamp.calls == []
 
 
-@pytest.mark.xfail(strict=True)
 def test_a_forge_error_other_than_not_found_stops_the_run(tmp_path: Path) -> None:
     fake = FakeRun(errors={VIEW: "command failed (exit 1)\nstderr: HTTP 403"})
     with pytest.raises(RuntimeError, match="403"):
