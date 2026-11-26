@@ -9,6 +9,7 @@ no other code performs these steps (#71).
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -35,6 +36,7 @@ def repo_sync(
     run: Run,
     stamp: Stamp,
     template_ref: str,
+    reconcile: Callable[[Repo], StepReport] | None = None,
     dry_run: bool = False,
 ) -> list[StepReport]:
     """
@@ -42,6 +44,8 @@ def repo_sync(
 
     ``owner`` is an org or a user account.
     ``template_ref`` is any ref the template's git resolves: a tag, a branch or a commit.
+    ``reconcile`` runs the reconcile step and reports it;
+    None leaves the step out, for a caller that reconciles the org as a whole.
 
     Each step checks state first and acts only when the state differs.
     ``dry_run`` reports every change and makes none.
@@ -55,7 +59,15 @@ def repo_sync(
     else:
         forge.create_repo(owner, repo, run)
         exists = StepReport("exists", "created")
-    return [exists, _first_commit(owner, repo, workdir, run, stamp, template_ref, present=present, dry_run=dry_run)]
+    reports = [
+        exists,
+        _first_commit(
+            owner, repo, workdir, run, stamp, template_ref, present=present, dry_run=dry_run
+        ),
+    ]
+    if reconcile is not None:
+        reports.append(reconcile(repo))
+    return reports
 
 
 def _first_commit(

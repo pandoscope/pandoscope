@@ -9,7 +9,7 @@ from pathlib import Path
 import yaml
 
 from pandoscope import __version__
-from pandoscope.org.command import run_org_init, run_org_plan
+from pandoscope.org.command import run_org_init, run_org_plan, run_repo_sync
 from pandoscope.reinset.compose import Composition, compose
 from pandoscope.reinset.order import validate_order
 from pandoscope.stamp import TEMPLATE_REF, TEMPLATE_URL, parse_data, stamp
@@ -69,7 +69,35 @@ def build_parser() -> argparse.ArgumentParser:
     )
     check_parser.add_argument("files", nargs="+", help="orders/<name>.yml files")
     add_org_parser(subparsers)
+    add_repo_parser(subparsers)
     return parser
+
+
+def add_repo_parser(
+    subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
+) -> None:
+    """Add ``repo sync``: bring one repository to its repo-mode file."""
+    repo_parser = subparsers.add_parser("repo", help="one repository and its settings")
+    repo_sub = repo_parser.add_subparsers(dest="repo_command", required=True)
+    sync_parser = repo_sub.add_parser(
+        "sync",
+        help="create the repo, stamp its first commit, reconcile it, check it",
+    )
+    sync_parser.add_argument("file", help="the repo-mode file (pandoscope.yml)")
+    sync_parser.add_argument(
+        "--dry-run", action="store_true", help="report every change and make none"
+    )
+    sync_parser.add_argument(
+        "--workdir",
+        default=None,
+        help="where to prepare the stamp (default: a temporary directory)",
+    )
+    sync_parser.add_argument(
+        "--template-ref",
+        default=TEMPLATE_REF,
+        help="the template ref to stamp at: a tag, branch or commit "
+        f"(default: {TEMPLATE_REF})",
+    )
 
 
 def add_org_parser(
@@ -183,6 +211,8 @@ def main(argv: list[str] | None = None) -> int:
         print(run_compose(args.session_root).render_text, end="")
     if args.command == "order":
         return run_order_check(args.files)
+    if args.command == "repo":
+        return run_repo_sync(args)
     if args.command == "org" and args.org_command == "plan":
         return run_org_plan(args)
     if args.command == "org" and not args.plan:

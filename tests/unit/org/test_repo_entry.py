@@ -24,7 +24,6 @@ def entry_file(tmp_path: Path, text: str) -> Path:
     return path
 
 
-@pytest.mark.xfail(strict=True)
 def test_a_repo_mode_file_names_its_owner_and_one_stamped_repo(tmp_path: Path) -> None:
     owner, repo = read_entry(entry_file(tmp_path, ENTRY))
 
@@ -37,7 +36,6 @@ def test_a_repo_mode_file_names_its_owner_and_one_stamped_repo(tmp_path: Path) -
     assert repo.answers["agentic_project_kind"] == "code"
 
 
-@pytest.mark.xfail(strict=True)
 def test_the_entry_is_the_same_as_in_an_org_file(tmp_path: Path) -> None:
     """An org that adopts the project moves the entry over unchanged."""
     org_file = tmp_path / "org.yml"
@@ -49,7 +47,6 @@ def test_the_entry_is_the_same_as_in_an_org_file(tmp_path: Path) -> None:
     assert read_plan(org_file, "someone") == [repo]
 
 
-@pytest.mark.xfail(strict=True)
 @pytest.mark.parametrize(
     ("text", "named"),
     [

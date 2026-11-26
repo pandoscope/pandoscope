@@ -19,7 +19,6 @@ def stamp_answers(directory: str, data: object = None, **_: object) -> None:
     (Path(directory) / ANSWERS_FILE).write_text("_commit: v5.0.2\n")
 
 
-@pytest.mark.xfail(strict=True)
 def test_dry_run_reports_every_step_and_changes_nothing(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -38,7 +37,6 @@ def test_dry_run_reports_every_step_and_changes_nothing(
     assert not any(cmd[:3] == ("gh", "repo", "create") for cmd in fake.commands())
 
 
-@pytest.mark.xfail(strict=True)
 def test_repo_sync_creates_and_stamps_the_repo_of_the_file(tmp_path: Path) -> None:
     path = tmp_path / "pandoscope.yml"
     path.write_text(ENTRY)

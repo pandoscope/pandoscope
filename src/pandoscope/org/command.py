@@ -10,7 +10,7 @@ from pandoscope.org import forge, reconcile
 from pandoscope.org.confs import Credentials
 from pandoscope.org.init import init_org
 from pandoscope.org.plan import Repo, default_plan
-from pandoscope.org.planfile import read_plan, render_plan
+from pandoscope.org.planfile import read_entry, read_plan, render_plan
 from pandoscope.org.reposync import StepReport, repo_sync
 from pandoscope.org.seed import Stamp
 from pandoscope.stamp import stamp
@@ -94,8 +94,27 @@ def run_repo_sync(
     Run ``repo sync`` for parsed ``args`` and print one line per step.
 
     Returns 0 when no step reports MISSING or MANUAL, else 1.
+    Raises ValueError for an invalid repo-mode file, and what any step raises.
     """
-    raise NotImplementedError
+    owner, repo = read_entry(Path(args.file))
+
+    def no_meta(_: Repo) -> StepReport:
+        return StepReport("reconcile", "skipped", ["no meta checkout"])
+
+    with tempfile.TemporaryDirectory(prefix="pandoscope-repo-") as scratch:
+        reports = repo_sync(
+            owner,
+            repo,
+            Path(args.workdir or scratch),
+            run=run,
+            stamp=stamp_with,
+            template_ref=args.template_ref,
+            reconcile=no_meta,
+            dry_run=args.dry_run,
+        )
+    for report in reports:
+        print(f"{owner}/{repo.name}: {_step(report)}")
+    return 1 if any(report.state in ("MISSING", "MANUAL") for report in reports) else 0
 
 
 def run_org_plan(args: argparse.Namespace) -> int:
