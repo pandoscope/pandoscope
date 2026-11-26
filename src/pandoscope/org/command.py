@@ -84,6 +84,20 @@ def run_org_init(
     return 1 if any(outcome.code == 1 for outcome in result.outcomes) else 0
 
 
+def run_repo_sync(
+    args: argparse.Namespace,
+    *,
+    run: forge.Run = forge.run,
+    stamp_with: Stamp = stamp,
+) -> int:
+    """
+    Run ``repo sync`` for parsed ``args`` and print one line per step.
+
+    Returns 0 when no step reports MISSING or MANUAL, else 1.
+    """
+    raise NotImplementedError
+
+
 def run_org_plan(args: argparse.Namespace) -> int:
     """Print the default repo plan for parsed ``args`` as a plan file; return 0."""
     plan = default_plan(

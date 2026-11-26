@@ -89,6 +89,18 @@ def read_plan(path: Path, org: str) -> list[Repo]:
     return [_repo(org, entry, gate) for entry in data["repos"]]
 
 
+def read_entry(path: Path) -> tuple[str, Repo]:
+    """
+    Return the owner and the repo that the repo-mode file at ``path`` declares.
+
+    A repo-mode file is how one repository is managed without an org file:
+    ``owner`` (an org or a user account), ``approvers``,
+    and one entry under ``repo`` in the same fields an org file's entries have.
+    Raises ValueError naming the offending value.
+    """
+    raise NotImplementedError
+
+
 def _repo(org: str, entry: dict[str, Any], gate: dict[str, str]) -> Repo:
     name = entry["name"]
     kind = entry["kind"]
