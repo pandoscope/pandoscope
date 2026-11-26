@@ -27,16 +27,20 @@ class StepReport:
 
 
 def repo_sync(
-    org: str,
+    owner: str,
     repo: Repo,
     workdir: Path,
     *,
     run: Run,
     stamp: Stamp,
+    template_ref: str,
     dry_run: bool = False,
 ) -> list[StepReport]:
     """
-    Bring ``org/repo`` to ``repo``, one step at a time; return one report per step.
+    Bring ``owner/repo`` to ``repo``, one step at a time; return one report per step.
+
+    ``owner`` is an org or a user account.
+    ``template_ref`` is any ref the template's git resolves: a tag, a branch or a commit.
 
     Each step checks state first and acts only when the state differs.
     ``dry_run`` reports every change and makes none.
