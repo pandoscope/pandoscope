@@ -130,3 +130,11 @@ def test_a_forge_error_other_than_not_found_stops_the_run(tmp_path: Path) -> Non
     fake = FakeRun(errors={VIEW: "command failed (exit 1)\nstderr: HTTP 403"})
     with pytest.raises(RuntimeError, match="403"):
         sync(fake, FakeStamp(), tmp_path)
+
+
+@pytest.mark.xfail(strict=True)
+def test_a_lookup_that_names_no_repo_is_refused(tmp_path: Path) -> None:
+    """Only the repo's own name proves it exists; anything else is a failure, not a guess."""
+    fake = FakeRun({VIEW: ""})
+    with pytest.raises(ValueError, match="o/app"):
+        sync(fake, FakeStamp(), tmp_path)

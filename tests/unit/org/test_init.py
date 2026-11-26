@@ -2,9 +2,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from pandoscope.org.init import init_org
 from pandoscope.org.plan import Repo
 from pandoscope.org.reconcile import Outcome
+from pandoscope.org.reposync import StepReport
 
 from .fakes import FakeRun
 
@@ -89,3 +92,35 @@ def test_dry_run_creates_and_stamps_nothing_but_still_reconciles(
     assert [cmd for cmd in fake.commands() if cmd[:3] == ("gh", "repo", "create")] == []
     assert recorder.events == ["reconcile ['meta', 'waybill']"]
     assert result.repos == {"meta": ["would create"], "waybill": ["exists"]}
+
+
+class SyncRecorder:
+    """Stands in for repo sync: records each call, reports one step per repo."""
+
+    def __init__(self, events: list[str]) -> None:
+        self.events = events
+
+    def __call__(self, repo: Repo) -> list[StepReport]:
+        self.events.append(f"sync {repo.name}")
+        return [StepReport("exists", "created")]
+
+
+@pytest.mark.xfail(strict=True)
+def test_init_runs_repo_sync_for_every_entry_before_the_reconcile(
+    tmp_path: Path,
+) -> None:
+    events: list[str] = []
+    recorder = Recorder()
+    recorder.events = events
+    result = init_org(
+        "o",
+        PLAN,
+        sync_repo=SyncRecorder(events),
+        reconcile=recorder.reconcile,
+    )
+    assert events == ["sync meta", "sync waybill", "reconcile ['meta', 'waybill']"]
+    assert result.repos == {
+        "meta": [StepReport("exists", "created")],
+        "waybill": [StepReport("exists", "created")],
+    }
+    assert result.outcomes == [Outcome("settings", 0, [])]
