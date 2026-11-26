@@ -1,4 +1,4 @@
-"""Stamp a freshly created repo and push the stamp as its first commit on main."""
+"""Stamp a repo whose main has no commit, and push the stamp as main's first commit."""
 
 from __future__ import annotations
 
@@ -29,29 +29,6 @@ class Stamp(Protocol):
         vcs_ref: str | None = None,
     ) -> None:
         """Render the scaffold into ``directory``."""
-
-
-def stamp_repo(org: str, repo: Repo, workdir: Path, run: Run, stamp: Stamp) -> bool:
-    """
-    Clone ``org/repo`` into ``workdir``, stamp it, and push main.
-
-    ``init_org`` calls it before the reconcile, for the reason its docstring gives.
-    Returns True when the repo was stamped,
-    False when it is unstamped by plan or already carries a stamp.
-    Raises what ``run`` and ``stamp`` raise.
-    """
-    if not repo.stamped:
-        return False
-    checkout = workdir / repo.name
-    run(["gh", "repo", "clone", f"{org}/{repo.name}", str(checkout)], None)
-    if (checkout / ANSWERS_FILE).exists():
-        return False
-    run(["git", "checkout", "-B", "main"], checkout)
-    stamp(str(checkout), repo.answers, defaults=True)
-    run(["git", "add", "-A"], checkout)
-    run(["git", "commit", "-m", STAMP_MESSAGE], checkout)
-    run(["git", "push", "-u", "origin", "main"], checkout)
-    return True
 
 
 def stamp_first_commit(

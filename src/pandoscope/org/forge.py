@@ -149,14 +149,18 @@ def repo_present(owner: str, name: str, run: Run) -> bool:
     Return whether ``owner/name`` exists on the forge; ``owner`` is an org or a user.
 
     Raises what ``run`` raises for any answer but "not found",
-    so a missing permission is never read as an absent repo.
+    so a missing permission is never read as an absent repo,
+    and ValueError when the lookup answers with anything but the repo's name.
     """
     try:
-        run(["gh", "api", f"repos/{owner}/{name}", "--jq", ".name"], None)
+        out = run(["gh", "api", f"repos/{owner}/{name}", "--jq", ".name"], None)
     except RuntimeError as error:
         if "HTTP 404" in str(error):
             return False
         raise
+    if out.strip().lower() != name.lower():
+        msg = f"looking up {owner}/{name} answered {out.strip()!r}, not the repo's name"
+        raise ValueError(msg)
     return True
 
 

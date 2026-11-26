@@ -1,62 +1,43 @@
-"""Org init: create the planned repos, stamp them, then reconcile the org."""
+"""Org init: bring every planned repo to its entry with repo sync, then reconcile the org."""
 
 from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
-from pathlib import Path
 
-from pandoscope.org.forge import Run, create_repo, existing_repos
 from pandoscope.org.plan import Repo
 from pandoscope.org.reconcile import Outcome
-from pandoscope.org.seed import Stamp
+from pandoscope.org.reposync import StepReport
 
-StampRepo = Callable[[str, Repo, Path, Run, Stamp], bool]
+SyncRepo = Callable[[Repo], list[StepReport]]
 Reconcile = Callable[[str, list[Repo]], list[Outcome]]
 
 
 @dataclass(frozen=True)
 class InitResult:
-    """Per repo, what happened to it; per reconciler, what it reported."""
+    """Per repo, what repo sync reported; per reconciler, what it reported."""
 
-    repos: dict[str, list[str]]
+    repos: dict[str, list[StepReport]]
     outcomes: list[Outcome]
 
 
 def init_org(
     org: str,
     plan: list[Repo],
-    workdir: Path,
     *,
-    run: Run,
-    stamp: Stamp,
-    stamp_repo: StampRepo,
+    sync_repo: SyncRepo,
     reconcile: Reconcile,
-    dry_run: bool = False,
 ) -> InitResult:
     """
-    Bring ``org`` to ``plan``: create, stamp, reconcile, in that order.
+    Bring ``org`` to ``plan``: repo sync for every entry, then the org's reconcile.
 
-    Every repo is stamped before the reconcile,
+    Every repo is synced before the reconcile,
     because the reconcile protects main and the stamp is a direct push to it.
-    Safe to re-run: existing repos and existing stamps are left alone.
-    ``dry_run`` creates and stamps nothing;
-    ``reconcile`` gets the same flag through its own binding.
+    ``sync_repo`` and ``reconcile`` carry ``--dry-run`` through their own bindings.
     Returns what happened to each repo and what each reconciler reported.
     Raises what any step raises; a failed step stops the run.
     """
-    present = existing_repos(org, run)
-    report: dict[str, list[str]] = {}
-    for repo in plan:
-        if repo.name in present:
-            report[repo.name] = ["exists"]
-        elif dry_run:
-            report[repo.name] = ["would create"]
-        else:
-            create_repo(org, repo, run)
-            report[repo.name] = ["created"]
-    if not dry_run:
-        for repo in plan:
-            if stamp_repo(org, repo, workdir, run, stamp):
-                report[repo.name].append("stamped")
+    # DECISION:SCOPE — no per-repo step is implemented here (#71):
+    # creating and stamping a repo is repo sync's, and org init only calls it.
+    report = {repo.name: sync_repo(repo) for repo in plan}
     return InitResult(report, reconcile(org, plan))

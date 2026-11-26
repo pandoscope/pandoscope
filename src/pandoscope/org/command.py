@@ -11,7 +11,8 @@ from pandoscope.org.confs import Credentials
 from pandoscope.org.init import init_org
 from pandoscope.org.plan import Repo, default_plan
 from pandoscope.org.planfile import read_plan, render_plan
-from pandoscope.org.seed import Stamp, stamp_repo
+from pandoscope.org.reposync import StepReport, repo_sync
+from pandoscope.org.seed import Stamp
 from pandoscope.stamp import stamp
 
 
@@ -58,18 +59,24 @@ def run_org_init(
         )
 
     with tempfile.TemporaryDirectory(prefix="pandoscope-org-") as scratch:
+        workdir = Path(args.workdir or scratch)
+
+        def bound_sync(repo: Repo) -> list[StepReport]:
+            return repo_sync(
+                args.org,
+                repo,
+                workdir,
+                run=run,
+                stamp=stamp_with,
+                template_ref=args.template_ref,
+                dry_run=args.dry_run,
+            )
+
         result = init_org(
-            args.org,
-            plan,
-            Path(args.workdir or scratch),
-            run=run,
-            stamp=stamp_with,
-            stamp_repo=stamp_repo,
-            reconcile=bound_reconcile,
-            dry_run=args.dry_run,
+            args.org, plan, sync_repo=bound_sync, reconcile=bound_reconcile
         )
-    for name, events in result.repos.items():
-        print(f"{args.org}/{name}: {', '.join(events)}")
+    for name, reports in result.repos.items():
+        print(f"{args.org}/{name}: {'; '.join(_step(report) for report in reports)}")
     for outcome in result.outcomes:
         print(f"{outcome.name}: {_verdict(outcome)}")
         for line in outcome.lines:
@@ -128,6 +135,11 @@ def _board(args: argparse.Namespace, run: forge.Run) -> str | None:
     else:
         print(f"board: {event}")
     return url
+
+
+def _step(report: StepReport) -> str:
+    detail = f" ({', '.join(report.lines)})" if report.lines else ""
+    return f"{report.step} {report.state}{detail}"
 
 
 def _verdict(outcome: reconcile.Outcome) -> str:

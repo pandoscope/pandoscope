@@ -12,7 +12,7 @@ from pandoscope import __version__
 from pandoscope.org.command import run_org_init, run_org_plan
 from pandoscope.reinset.compose import Composition, compose
 from pandoscope.reinset.order import validate_order
-from pandoscope.stamp import TEMPLATE_URL, parse_data, stamp
+from pandoscope.stamp import TEMPLATE_REF, TEMPLATE_URL, parse_data, stamp
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -139,6 +139,12 @@ def add_org_parser(
         "--plan",
         default=None,
         help="the org's repo plan file (org.yml in its meta repo)",
+    )
+    init_parser.add_argument(
+        "--template-ref",
+        default=TEMPLATE_REF,
+        help="the template ref to stamp at: a tag, branch or commit "
+        f"(default: {TEMPLATE_REF})",
     )
     plan_parser = org_sub.add_parser(
         "plan",

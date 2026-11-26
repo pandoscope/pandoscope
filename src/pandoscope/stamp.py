@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 TEMPLATE_URL = "https://github.com/pandoscope/agentic-engineering-template"
+# The template ref a repo sync stamps at unless told otherwise: any ref git resolves.
+TEMPLATE_REF = "v5.0.2"
 
 
 def parse_data(pairs: list[str]) -> dict[str, str]:
