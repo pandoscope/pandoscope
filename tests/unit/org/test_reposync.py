@@ -7,7 +7,8 @@ from pathlib import Path
 import pytest
 
 from pandoscope.org.plan import Repo
-from pandoscope.org.reposync import StepReport, repo_sync
+from pandoscope.org.reconcile import Outcome
+from pandoscope.org.reposync import StepReport, reconcile_report, repo_sync
 from pandoscope.org.seed import ANSWERS_FILE
 from pandoscope.stamp import TEMPLATE_URL
 
@@ -137,3 +138,82 @@ def test_a_lookup_that_names_no_repo_is_refused(tmp_path: Path) -> None:
     fake = FakeRun({VIEW: ""})
     with pytest.raises(ValueError, match="o/app"):
         sync(fake, FakeStamp(), tmp_path)
+
+
+SKIPPED = StepReport("reconcile", "skipped", ["no meta checkout"])
+
+
+@pytest.mark.xfail(strict=True)
+def test_a_fixed_reconcile_report_is_reported_as_it_is(tmp_path: Path) -> None:
+    fake = FakeRun(errors={VIEW: NOT_FOUND})
+    reports = repo_sync(
+        "o", APP, tmp_path, run=fake, stamp=FakeStamp(), template_ref="v5.0.2",
+        reconcile=SKIPPED, dry_run=True,
+    )
+    assert reports[-1] == SKIPPED
+
+
+def test_the_reconcile_runs_after_the_first_commit(tmp_path: Path) -> None:
+    """The rulesets protect main, and the stamp is a direct push to it."""
+    events: list[str] = []
+    fake, stamp = FakeRun(errors={VIEW: NOT_FOUND}), FakeStamp()
+
+    def reconcile(repo: Repo) -> StepReport:
+        events.append(f"reconcile after {len(stamp.calls)} stamp")
+        return StepReport("reconcile", "converged")
+
+    repo_sync("o", APP, tmp_path, run=fake, stamp=stamp, template_ref="v5.0.2", reconcile=reconcile)
+    assert events == ["reconcile after 1 stamp"]
+
+
+@pytest.mark.xfail(strict=True)
+def test_a_dry_run_does_not_reconcile_a_repo_that_does_not_exist_yet(tmp_path: Path) -> None:
+    """Its reconcilers would find nothing and read that as converged."""
+    ran: list[str] = []
+
+    def reconcile(repo: Repo) -> StepReport:
+        ran.append(repo.name)
+        return StepReport("reconcile", "converged")
+
+    reports = repo_sync(
+        "o", APP, tmp_path, run=FakeRun(errors={VIEW: NOT_FOUND}), stamp=FakeStamp(),
+        template_ref="v5.0.2", reconcile=reconcile, dry_run=True,
+    )
+    assert ran == []
+    assert reports[-1] == StepReport("reconcile", "would reconcile", ["the repo does not exist yet"])
+
+
+@pytest.mark.xfail(strict=True)
+@pytest.mark.parametrize(
+    ("outcomes", "state", "lines"),
+    [
+        (
+            [Outcome("settings", 0, []), Outcome("rulesets", 0, ["FIXED  app  protect-main"])],
+            "converged",
+            ["rulesets: FIXED  app  protect-main"],
+        ),
+        (
+            [Outcome("settings", 1, ["MANUAL  install the app"]), Outcome("rulesets", 0, [])],
+            "MANUAL",
+            ["settings: MANUAL  install the app"],
+        ),
+        (
+            [
+                Outcome("settings", 1, ["MANUAL  install the app"]),
+                Outcome("rulesets", 1, ["DRIFT  app  protect-main (would fix)"]),
+            ],
+            "DRIFT",
+            ["settings: MANUAL  install the app", "rulesets: DRIFT  app  protect-main (would fix)"],
+        ),
+        ([Outcome("settings", 1, [])], "DRIFT", ["settings: exit 1 with no DRIFT or MANUAL line"]),
+        (
+            [Outcome("credentials", None, ["skipped: create the app"]), Outcome("settings", 0, [])],
+            "converged",
+            ["credentials: skipped: create the app"],
+        ),
+    ],
+)
+def test_the_reconcile_step_follows_the_reconcilers_exits(
+    outcomes: list[Outcome], state: str, lines: list[str]
+) -> None:
+    assert reconcile_report(outcomes) == StepReport("reconcile", state, lines)
