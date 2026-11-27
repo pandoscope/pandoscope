@@ -121,7 +121,6 @@ def with_meta(tmp_path: Path, *extra: str) -> list[str]:
     return ["repo", "sync", str(path), "--meta", str(meta), "--secrets", str(secrets), *extra]
 
 
-@pytest.mark.xfail(strict=True)
 def test_with_meta_every_reconciler_runs_for_this_repo_only(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -142,7 +141,6 @@ def test_with_meta_every_reconciler_runs_for_this_repo_only(
     assert code == 0
 
 
-@pytest.mark.xfail(strict=True)
 def test_dry_run_passes_dry_run_to_every_reconciler(tmp_path: Path) -> None:
     fake_exec = FakeExec()
     args = build_parser().parse_args(with_meta(tmp_path, "--dry-run"))
@@ -151,7 +149,6 @@ def test_dry_run_passes_dry_run_to_every_reconciler(tmp_path: Path) -> None:
     assert all(cmd[-1] == "--dry-run" for cmd, _ in fake_exec.calls)
 
 
-@pytest.mark.xfail(strict=True)
 def test_a_dry_run_for_a_repo_that_does_not_exist_runs_no_reconciler(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -164,7 +161,6 @@ def test_a_dry_run_for_a_repo_that_does_not_exist_runs_no_reconciler(
     )
 
 
-@pytest.mark.xfail(strict=True)
 def test_drift_fails_the_run_and_prints_its_lines(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -174,18 +170,17 @@ def test_drift_fails_the_run_and_prints_its_lines(
     code = run_repo_sync(args, run=existing_repo(), exec_=fake_exec, stamp_with=stamp_answers)
 
     out = capsys.readouterr().out
-    assert "someone/lean: reconcile DRIFT\n  rulesets: DRIFT   lean  protect-main (would fix)" in out
+    assert "someone/lean: reconcile DRIFT\n" in out
+    assert "\n  rulesets: DRIFT   lean  protect-main (would fix)\n" in out
     assert code == 1
 
 
-@pytest.mark.xfail(strict=True)
 def test_a_manual_reconciler_line_does_not_fail_the_run(tmp_path: Path) -> None:
     fake_exec = FakeExec({"sync-gh-repo-settings.sh": 1}, "MANUAL  plan lacks a setting\n")
     args = build_parser().parse_args(with_meta(tmp_path))
     assert run_repo_sync(args, run=existing_repo(), exec_=fake_exec, stamp_with=stamp_answers) == 0
 
 
-@pytest.mark.xfail(strict=True)
 def test_a_meta_without_sync_repos_is_refused_before_any_forge_call(tmp_path: Path) -> None:
     argv = with_meta(tmp_path)
     (tmp_path / "meta" / "scripts" / "lib" / "scope.sh").write_text("scope_valid() { :; }\n")
@@ -196,7 +191,6 @@ def test_a_meta_without_sync_repos_is_refused_before_any_forge_call(tmp_path: Pa
     assert fake_exec.calls == []
 
 
-@pytest.mark.xfail(strict=True)
 def test_a_missing_secrets_dir_is_refused_before_any_forge_call(tmp_path: Path) -> None:
     """org init seeds a dir it finds missing; repo sync making it would skip that seed."""
     path = tmp_path / "pandoscope.yml"
@@ -210,7 +204,6 @@ def test_a_missing_secrets_dir_is_refused_before_any_forge_call(tmp_path: Path) 
     assert not (meta / ".secrets").exists()
 
 
-@pytest.mark.xfail(strict=True)
 def test_secrets_default_to_the_owners_dir_in_meta(tmp_path: Path) -> None:
     path = tmp_path / "pandoscope.yml"
     path.write_text(ENTRY)
@@ -223,7 +216,6 @@ def test_secrets_default_to_the_owners_dir_in_meta(tmp_path: Path) -> None:
     assert creds_env["SYNC_CREDENTIALS_SECRETS_DIR"] == str(meta / ".secrets" / "orgs" / "someone")
 
 
-@pytest.mark.xfail(strict=True)
 def test_the_board_url_goes_into_the_credentials(tmp_path: Path) -> None:
     board = "https://github.com/orgs/someone/projects/3"
     fake_exec = FakeExec()

@@ -143,7 +143,6 @@ def test_a_lookup_that_names_no_repo_is_refused(tmp_path: Path) -> None:
 SKIPPED = StepReport("reconcile", "skipped", ["no meta checkout"])
 
 
-@pytest.mark.xfail(strict=True)
 def test_a_fixed_reconcile_report_is_reported_as_it_is(tmp_path: Path) -> None:
     fake = FakeRun(errors={VIEW: NOT_FOUND})
     reports = repo_sync(
@@ -166,7 +165,6 @@ def test_the_reconcile_runs_after_the_first_commit(tmp_path: Path) -> None:
     assert events == ["reconcile after 1 stamp"]
 
 
-@pytest.mark.xfail(strict=True)
 def test_a_dry_run_does_not_reconcile_a_repo_that_does_not_exist_yet(tmp_path: Path) -> None:
     """Its reconcilers would find nothing and read that as converged."""
     ran: list[str] = []
@@ -183,7 +181,6 @@ def test_a_dry_run_does_not_reconcile_a_repo_that_does_not_exist_yet(tmp_path: P
     assert reports[-1] == StepReport("reconcile", "would reconcile", ["the repo does not exist yet"])
 
 
-@pytest.mark.xfail(strict=True)
 @pytest.mark.parametrize(
     ("outcomes", "state", "lines"),
     [

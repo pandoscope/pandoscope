@@ -50,7 +50,7 @@ def repo_sync(
     a StepReport is reported as it is, for a step that cannot run (no meta checkout);
     None leaves the step out, for a caller that reconciles the org as a whole.
     ``check`` runs the check step last; None leaves it out.
-    The check is skipped under ``dry_run`` for a repo that does not exist yet.
+    Under ``dry_run``, a repo that does not exist yet is neither reconciled nor checked.
 
     Each step checks state first and acts only when the state differs.
     ``dry_run`` reports every change and makes none.
@@ -71,9 +71,15 @@ def repo_sync(
         ),
     ]
     if isinstance(reconcile, StepReport):
-        raise NotImplementedError
-    if reconcile is not None:
-        reports.append(reconcile(repo))
+        reports.append(reconcile)
+    elif reconcile is not None:
+        if present or not dry_run:
+            reports.append(reconcile(repo))
+        else:
+            # Its reconcilers would find no repo and read that as converged.
+            reports.append(
+                StepReport("reconcile", "would reconcile", ["the repo does not exist yet"])
+            )
     if check is not None:
         if present or not dry_run:
             reports.append(check(repo))
@@ -91,7 +97,23 @@ def reconcile_report(outcomes: list[Outcome]) -> StepReport:
     else DRIFT.
     Each line names its reconciler.
     """
-    raise NotImplementedError
+    lines: list[str] = []
+    for outcome in outcomes:
+        if outcome.code == 1 and not outcome.lines:
+            lines.append(f"{outcome.name}: exit 1 with no DRIFT or MANUAL line")
+        lines += [f"{outcome.name}: {line}" for line in outcome.lines]
+    unconverged = [outcome for outcome in outcomes if outcome.code == 1]
+    if not unconverged:
+        return StepReport("reconcile", "converged", lines)
+    if all(_manual_only(outcome) for outcome in unconverged):
+        return StepReport("reconcile", "MANUAL", lines)
+    return StepReport("reconcile", "DRIFT", lines)
+
+
+def _manual_only(outcome: Outcome) -> bool:
+    """Whether what keeps ``outcome`` from converging is only someone else's to do."""
+    reported = [line.split()[0] for line in outcome.lines]
+    return "MANUAL" in reported and "DRIFT" not in reported
 
 
 def _first_commit(

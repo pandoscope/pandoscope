@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import tempfile
+from collections.abc import Callable
 from pathlib import Path
 
 from pandoscope.org import forge, reconcile
@@ -12,9 +13,12 @@ from pandoscope.org.init import init_org
 from pandoscope.org.plan import Repo, default_plan
 from pandoscope.org.checks import check_repo
 from pandoscope.org.planfile import read_agent, read_entry, read_plan, render_plan
-from pandoscope.org.reposync import StepReport, repo_sync
+from pandoscope.org.reposync import StepReport, reconcile_report, repo_sync
 from pandoscope.org.seed import Stamp
 from pandoscope.stamp import stamp
+
+# The states of a reconcile or check step that ran, as opposed to one skipped.
+RAN = ("OK", "MISSING", "MANUAL", "converged", "DRIFT")
 
 
 def run_org_init(
@@ -38,21 +42,13 @@ def run_org_init(
     or when neither a plan file nor every plan flag is given,
     and what any step raises.
     """
-    meta = Path(args.meta)
-    if not (meta / "scripts" / "sync-gh-repo-settings.sh").exists():
-        msg = f"--meta {meta} has no scripts/sync-gh-repo-settings.sh"
-        raise ValueError(msg)
+    meta = _meta(args)
     release_bot = _release_bot(args)
     # Every check of the arguments runs before _board, which can create a board.
     plan = _plan(args)
     board_url = _board(args, run)
-    creds = None
-    if release_bot:
-        app, client_id = release_bot
-        creds = Credentials(app_slug=app, client_id=client_id, board_url=board_url)
-    secrets = (
-        Path(args.secrets) if args.secrets else meta / ".secrets" / "orgs" / args.org
-    )
+    creds = _credentials(release_bot, board_url)
+    secrets = _secrets(args, meta, args.org)
 
     def bound_reconcile(org: str, plan: list[Repo]) -> list[reconcile.Outcome]:
         return reconcile.reconcile(
@@ -95,13 +91,15 @@ def run_repo_sync(
     """
     Run ``repo sync`` for parsed ``args`` and print one line per step.
 
-    Returns 1 when a step reports MISSING, else 0: a MANUAL line names
+    With ``--meta``, the reconcile step runs meta's reconcilers
+    narrowed to this repo; without it, the step is skipped.
+    Returns 1 when a step reports MISSING or DRIFT, else 0: a MANUAL line names
     what someone else must do and does not fail the run.
     Raises ValueError for an invalid repo-mode file or one that names no agent,
+    and, before any forge call, for a ``--meta`` that cannot narrow a run
+    or a secrets dir that does not exist;
     and what any step raises.
     """
-    if args.meta:
-        raise NotImplementedError
     path = Path(args.file)
     owner, repo = read_entry(path)
     agent = read_agent(path)
@@ -110,9 +108,7 @@ def run_repo_sync(
         msg = f"{path} names no agent; repo sync needs agent: <login>"
         raise ValueError(msg)
 
-    def no_meta(_: Repo) -> StepReport:
-        return StepReport("reconcile", "skipped", ["no meta checkout"])
-
+    step = _narrowed_reconcile(args, owner, repo, exec_)
     with tempfile.TemporaryDirectory(prefix="pandoscope-repo-") as scratch:
         reports = repo_sync(
             owner,
@@ -121,18 +117,52 @@ def run_repo_sync(
             run=run,
             stamp=stamp_with,
             template_ref=args.template_ref,
-            reconcile=no_meta,
+            reconcile=step,
             check=lambda entry: check_repo(owner, entry, agent, run),
             dry_run=args.dry_run,
         )
     for report in reports:
-        if report.step == "check" and report.state != "skipped":
-            print(f"{owner}/{repo.name}: check {report.state}")
+        if report.step in ("reconcile", "check") and report.state in RAN:
+            print(f"{owner}/{repo.name}: {report.step} {report.state}")
             for line in report.lines:
                 print(f"  {line}")
         else:
             print(f"{owner}/{repo.name}: {_step(report)}")
-    return 1 if any(report.state == "MISSING" for report in reports) else 0
+    return 1 if any(report.state in ("MISSING", "DRIFT") for report in reports) else 0
+
+
+def _narrowed_reconcile(
+    args: argparse.Namespace, owner: str, repo: Repo, exec_: reconcile.Exec
+) -> Callable[[Repo], StepReport] | StepReport:
+    """
+    Return repo sync's reconcile step for parsed ``args``: meta's reconcilers for ``repo`` only.
+
+    Without ``--meta`` it is a report that the step was skipped.
+    Raises ValueError, before anything runs, where ``reconcile.narrowing`` refuses.
+    """
+    if not args.meta:
+        return StepReport("reconcile", "skipped", ["no meta checkout"])
+    meta = _meta(args)
+    creds = _credentials(_release_bot(args), args.board_url)
+    secrets = _secrets(args, meta, owner)
+    # DECISION:SCOPE — the confs come from this one entry:
+    # a repo-mode file is the whole plan of what Pandoscope manages for its owner.
+    reconcile.narrowing(owner, [repo], meta, secrets, repo.name)
+
+    def step(entry: Repo) -> StepReport:
+        outcomes = reconcile.reconcile(
+            owner,
+            [entry],
+            meta,
+            secrets,
+            creds,
+            dry_run=args.dry_run,
+            exec_=exec_,
+            only=entry.name,
+        )
+        return reconcile_report(outcomes)
+
+    return step
 
 
 def run_org_plan(args: argparse.Namespace) -> int:
@@ -164,6 +194,30 @@ def _plan(args: argparse.Namespace) -> list[Repo]:
         description=args.description,
         approvers=args.approver,
     )
+
+
+def _meta(args: argparse.Namespace) -> Path:
+    """Return ``--meta``; raises ValueError when it holds no reconcilers."""
+    meta = Path(args.meta)
+    if not (meta / "scripts" / "sync-gh-repo-settings.sh").exists():
+        msg = f"--meta {meta} has no scripts/sync-gh-repo-settings.sh"
+        raise ValueError(msg)
+    return meta
+
+
+def _secrets(args: argparse.Namespace, meta: Path, owner: str) -> Path:
+    """Return ``--secrets``, by default the owner's dir in the meta checkout."""
+    return Path(args.secrets) if args.secrets else meta / ".secrets" / "orgs" / owner
+
+
+def _credentials(
+    release_bot: tuple[str, str] | None, board_url: str | None
+) -> Credentials | None:
+    """Return the credential facts, or None without a release-bot app."""
+    if release_bot is None:
+        return None
+    app, client_id = release_bot
+    return Credentials(app_slug=app, client_id=client_id, board_url=board_url)
 
 
 def _release_bot(args: argparse.Namespace) -> tuple[str, str] | None:
