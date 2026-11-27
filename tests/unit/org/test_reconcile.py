@@ -1,12 +1,13 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
 
 import pytest
 
 from pandoscope.org.confs import Credentials
 from pandoscope.org.plan import Repo
-from pandoscope.org.reconcile import Outcome, reconcile
+from pandoscope.org.reconcile import SCRIPTS, Outcome, reconcile, require_narrowing
 
 PLAN = [
     Repo("meta", "m", {"agentic_subtemplate": "template"}),
@@ -159,3 +160,112 @@ def test_settings_make_main_every_repos_default_branch(tmp_path: Path) -> None:
     settings = Path(fake.calls[0][1]["SYNC_SETTINGS_CONF"]).read_text()
     assert '"default_branch|main|only:meta,session-memory"' in settings
     assert '"has_wiki|false|all"' in settings
+
+
+SCOPE_SH = 'sync_repos_scope() { echo "${SYNC_REPOS:-all}"; }\n'
+
+
+def narrowing_meta(root: Path) -> Path:
+    """A fake meta whose reconcilers honour SYNC_REPOS (meta#212)."""
+    meta = fake_meta(root)
+    (meta / "scripts" / "lib").mkdir()
+    (meta / "scripts" / "lib" / "scope.sh").write_text(SCOPE_SH)
+    for script in SCRIPTS:
+        (meta / "scripts" / script).write_text(
+            '#!/usr/bin/env bash\nREPOS="$(sync_repos_filter <<<"$REPOS")"\n'
+        )
+    return meta
+
+
+@pytest.mark.xfail(strict=True)
+def test_a_narrowed_run_passes_sync_repos_to_every_script(tmp_path: Path) -> None:
+    meta, secrets = narrowing_meta(tmp_path), tmp_path / "secrets"
+    secrets.mkdir()
+    fake = FakeExec()
+    reconcile("o", PLAN, meta, secrets, CREDS, dry_run=True, exec_=fake, only="meta")
+    assert len(fake.calls) == 4
+    assert all(env["SYNC_REPOS"] == "only:meta" for _, env in fake.calls)
+
+
+def test_an_org_wide_run_sets_no_sync_repos(tmp_path: Path) -> None:
+    meta, secrets = narrowing_meta(tmp_path), tmp_path / "secrets"
+    secrets.mkdir()
+    fake = FakeExec()
+    reconcile("o", PLAN, meta, secrets, CREDS, dry_run=True, exec_=fake)
+    assert not any("SYNC_REPOS" in env for _, env in fake.calls)
+
+
+@pytest.mark.xfail(strict=True)
+def test_a_narrowed_run_never_seeds_the_credentials(tmp_path: Path) -> None:
+    meta, secrets = narrowing_meta(tmp_path), tmp_path / "secrets"
+    secrets.mkdir()
+    fake = FakeExec()
+    reconcile("o", PLAN, meta, secrets, CREDS, dry_run=False, exec_=fake, only="meta")
+    assert "sync-gh-actions-credentials.sh --seed" not in fake.scripts()
+
+
+@pytest.mark.xfail(strict=True)
+def test_a_narrowed_run_refuses_a_secrets_dir_org_init_has_not_made(
+    tmp_path: Path,
+) -> None:
+    """Making the dir here would read as seeded, so org init would never seed it."""
+    meta, secrets = narrowing_meta(tmp_path), tmp_path / "secrets"
+    fake = FakeExec()
+    with pytest.raises(ValueError, match="org init"):
+        reconcile("o", PLAN, meta, secrets, CREDS, dry_run=True, exec_=fake, only="meta")
+    assert fake.calls == []
+    assert not secrets.exists()
+
+
+@pytest.mark.xfail(strict=True)
+def test_a_narrowed_run_refuses_a_repo_the_plan_does_not_hold(tmp_path: Path) -> None:
+    meta, secrets = narrowing_meta(tmp_path), tmp_path / "secrets"
+    secrets.mkdir()
+    fake = FakeExec()
+    with pytest.raises(ValueError, match="'app'"):
+        reconcile("o", PLAN, meta, secrets, CREDS, dry_run=True, exec_=fake, only="app")
+    assert fake.calls == []
+
+
+@pytest.mark.xfail(strict=True)
+def test_a_narrowed_run_refuses_a_meta_without_sync_repos(tmp_path: Path) -> None:
+    """Such a meta would reconcile, and delete rulesets across, the whole org."""
+    meta, secrets = fake_meta(tmp_path), tmp_path / "secrets"
+    secrets.mkdir()
+    fake = FakeExec()
+    with pytest.raises(ValueError, match="SYNC_REPOS"):
+        reconcile("o", PLAN, meta, secrets, CREDS, dry_run=True, exec_=fake, only="meta")
+    assert fake.calls == []
+
+
+@pytest.mark.xfail(strict=True)
+def test_a_meta_with_sync_repos_support_passes_the_guard(tmp_path: Path) -> None:
+    require_narrowing(narrowing_meta(tmp_path))
+
+
+@pytest.mark.xfail(strict=True)
+@pytest.mark.parametrize(
+    ("break_it", "named"),
+    [
+        (lambda meta: (meta / "scripts" / "lib" / "scope.sh").unlink(), "scope.sh"),
+        (
+            lambda meta: (meta / "scripts" / "lib" / "scope.sh").write_text(
+                "scope_valid() { :; }\n"
+            ),
+            "sync_repos_scope",
+        ),
+        (
+            lambda meta: (meta / "scripts" / "sync-gh-repo-rulesets.sh").write_text(
+                "#!/usr/bin/env bash\n"
+            ),
+            "sync-gh-repo-rulesets.sh",
+        ),
+    ],
+)
+def test_the_guard_names_what_the_meta_checkout_lacks(
+    tmp_path: Path, break_it: Callable[[Path], object], named: str
+) -> None:
+    meta = narrowing_meta(tmp_path)
+    break_it(meta)
+    with pytest.raises(ValueError, match=named):
+        require_narrowing(meta)
