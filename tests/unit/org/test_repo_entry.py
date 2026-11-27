@@ -71,13 +71,11 @@ def test_an_invalid_repo_mode_file_is_refused_naming_the_value(
         read_entry(entry_file(tmp_path, text))
 
 
-@pytest.mark.xfail(strict=True)
 def test_a_file_names_the_agent_login_its_sessions_act_as(tmp_path: Path) -> None:
     assert read_agent(entry_file(tmp_path, ENTRY)) == "helper-bot"
     assert read_agent(entry_file(tmp_path, ENTRY.replace("agent: helper-bot\n", ""))) is None
 
 
-@pytest.mark.xfail(strict=True)
 def test_an_agent_that_is_no_login_is_refused(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="agent"):
         read_agent(entry_file(tmp_path, ENTRY.replace("helper-bot", '"x$(id)"')))

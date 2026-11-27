@@ -19,7 +19,6 @@ def stamp_answers(directory: str, data: object = None, **_: object) -> None:
     (Path(directory) / ANSWERS_FILE).write_text("_commit: v5.0.2\n")
 
 
-@pytest.mark.xfail(strict=True)
 def test_dry_run_reports_every_step_and_changes_nothing(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -42,7 +41,14 @@ def test_dry_run_reports_every_step_and_changes_nothing(
 def test_repo_sync_creates_and_stamps_the_repo_of_the_file(tmp_path: Path) -> None:
     path = tmp_path / "pandoscope.yml"
     path.write_text(ENTRY)
-    fake = FakeRun()
+    meta = ("gh", "api", "repos/someone/lean", "--jq", '"\\(.visibility) \\(.default_branch)"')
+    fake = FakeRun(
+        {
+            meta: "private main\n",
+            ("gh", "api", "repos/someone/lean/collaborators/helper-bot/permission"): "write\n",
+        },
+        errors={("gh", "api", "repos/someone/lean/rulesets"): "Upgrade to GitHub Pro (HTTP 403)"},
+    )
     args = build_parser().parse_args(
         ["repo", "sync", str(path), "--workdir", str(tmp_path / "w"), "--template-ref", "main"]
     )
@@ -55,7 +61,6 @@ def test_repo_sync_creates_and_stamps_the_repo_of_the_file(tmp_path: Path) -> No
     assert push[-2:] == ("https://github.com/someone/lean.git", "main")
 
 
-@pytest.mark.xfail(strict=True)
 def test_sync_refuses_a_file_without_an_agent(tmp_path: Path) -> None:
     """The wizard asks for the agent; sync needs the field filled in."""
     path = tmp_path / "pandoscope.yml"
@@ -65,7 +70,6 @@ def test_sync_refuses_a_file_without_an_agent(tmp_path: Path) -> None:
         run_repo_sync(args, run=FakeRun(), stamp_with=stamp_answers)
 
 
-@pytest.mark.xfail(strict=True)
 def test_a_missing_point_fails_the_run_and_a_manual_one_does_not(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:

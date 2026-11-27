@@ -10,7 +10,8 @@ from pandoscope.org import forge, reconcile
 from pandoscope.org.confs import Credentials
 from pandoscope.org.init import init_org
 from pandoscope.org.plan import Repo, default_plan
-from pandoscope.org.planfile import read_entry, read_plan, render_plan
+from pandoscope.org.checks import check_repo
+from pandoscope.org.planfile import read_agent, read_entry, read_plan, render_plan
 from pandoscope.org.reposync import StepReport, repo_sync
 from pandoscope.org.seed import Stamp
 from pandoscope.stamp import stamp
@@ -93,10 +94,18 @@ def run_repo_sync(
     """
     Run ``repo sync`` for parsed ``args`` and print one line per step.
 
-    Returns 0 when no step reports MISSING or MANUAL, else 1.
-    Raises ValueError for an invalid repo-mode file, and what any step raises.
+    Returns 1 when a step reports MISSING, else 0: a MANUAL line names
+    what someone else must do and does not fail the run.
+    Raises ValueError for an invalid repo-mode file or one that names no agent,
+    and what any step raises.
     """
-    owner, repo = read_entry(Path(args.file))
+    path = Path(args.file)
+    owner, repo = read_entry(path)
+    agent = read_agent(path)
+    if agent is None:
+        # The init wizard asks for the agent; sync needs the field filled in.
+        msg = f"{path} names no agent; repo sync needs agent: <login>"
+        raise ValueError(msg)
 
     def no_meta(_: Repo) -> StepReport:
         return StepReport("reconcile", "skipped", ["no meta checkout"])
@@ -110,11 +119,17 @@ def run_repo_sync(
             stamp=stamp_with,
             template_ref=args.template_ref,
             reconcile=no_meta,
+            check=lambda entry: check_repo(owner, entry, agent, run),
             dry_run=args.dry_run,
         )
     for report in reports:
-        print(f"{owner}/{repo.name}: {_step(report)}")
-    return 1 if any(report.state in ("MISSING", "MANUAL") for report in reports) else 0
+        if report.step == "check" and report.state != "skipped":
+            print(f"{owner}/{repo.name}: check {report.state}")
+            for line in report.lines:
+                print(f"  {line}")
+        else:
+            print(f"{owner}/{repo.name}: {_step(report)}")
+    return 1 if any(report.state == "MISSING" for report in reports) else 0
 
 
 def run_org_plan(args: argparse.Namespace) -> int:

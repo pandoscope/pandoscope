@@ -109,7 +109,14 @@ def read_agent(path: Path) -> str | None:
     Returns None when the file names none.
     Raises ValueError when ``agent`` is not a forge login.
     """
-    raise NotImplementedError
+    data = yaml.safe_load(path.read_text())
+    agent = data.get("agent") if isinstance(data, dict) else None
+    if agent is None:
+        return None
+    if not isinstance(agent, str) or not LOGIN.fullmatch(agent):
+        msg = f"{path} has agent={agent!r}; expected a forge login"
+        raise ValueError(msg)
+    return agent
 
 
 def _gate(path: Path, approvers: object) -> dict[str, str]:

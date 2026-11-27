@@ -37,6 +37,7 @@ def repo_sync(
     stamp: Stamp,
     template_ref: str,
     reconcile: Callable[[Repo], StepReport] | None = None,
+    check: Callable[[Repo], StepReport] | None = None,
     dry_run: bool = False,
 ) -> list[StepReport]:
     """
@@ -46,6 +47,8 @@ def repo_sync(
     ``template_ref`` is any ref the template's git resolves: a tag, a branch or a commit.
     ``reconcile`` runs the reconcile step and reports it;
     None leaves the step out, for a caller that reconciles the org as a whole.
+    ``check`` runs the check step last; None leaves it out.
+    The check is skipped under ``dry_run`` for a repo that does not exist yet.
 
     Each step checks state first and acts only when the state differs.
     ``dry_run`` reports every change and makes none.
@@ -67,6 +70,11 @@ def repo_sync(
     ]
     if reconcile is not None:
         reports.append(reconcile(repo))
+    if check is not None:
+        if present or not dry_run:
+            reports.append(check(repo))
+        else:
+            reports.append(StepReport("check", "skipped", ["the repo does not exist yet"]))
     return reports
 
 

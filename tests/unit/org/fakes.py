@@ -40,10 +40,11 @@ class FakeRun:
 
 
 def _repo_lookup(cmd: Sequence[str]) -> bool:
-    """Whether ``cmd`` is repo sync's lookup of one repo, ``gh api repos/<owner>/<name>``."""
+    """Whether ``cmd`` is repo sync's existence lookup, ``gh api repos/<owner>/<name> --jq .name``."""
     return (
         tuple(cmd[:2]) == ("gh", "api")
-        and len(cmd) > 2
+        and len(cmd) == 5
         and cmd[2].startswith("repos/")
         and cmd[2].count("/") == 2
+        and tuple(cmd[3:]) == ("--jq", ".name")
     )

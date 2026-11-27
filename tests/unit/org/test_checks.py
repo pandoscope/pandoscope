@@ -24,7 +24,6 @@ def converged(**over: str) -> dict[tuple[str, ...], str]:
     return answers
 
 
-@pytest.mark.xfail(strict=True)
 def test_a_converged_repo_reports_ok_on_every_point() -> None:
     report = check_repo("o", APP, "bot", FakeRun(converged()))
 
@@ -34,7 +33,6 @@ def test_a_converged_repo_reports_ok_on_every_point() -> None:
     assert len(report.lines) == 6
 
 
-@pytest.mark.xfail(strict=True)
 def test_every_gap_is_a_missing_line_that_names_it() -> None:
     fake = FakeRun(
         {META: "private master\n", RULESETS: "verified-signatures\n", AGENT: "read\n"}
@@ -51,7 +49,6 @@ def test_every_gap_is_a_missing_line_that_names_it() -> None:
     assert "bot" in text and "read" in text
 
 
-@pytest.mark.xfail(strict=True)
 def test_a_repo_that_takes_direct_pushes_needs_only_signed_commits() -> None:
     meta = ("gh", "api", "repos/o/ledger", "--jq", '"\\(.visibility) \\(.default_branch)"')
     rulesets = ("gh", "api", "repos/o/ledger/rulesets", "--jq", ".[].name")
@@ -61,7 +58,6 @@ def test_a_repo_that_takes_direct_pushes_needs_only_signed_commits() -> None:
     assert check_repo("o", STORE, "bot", fake).state == "OK"
 
 
-@pytest.mark.xfail(strict=True)
 def test_rulesets_the_plan_cannot_hold_are_manual_not_missing() -> None:
     private = Repo("app", "The app.", {"agentic_subtemplate": "template"})
     fake = FakeRun({META: "private main\n", AGENT: "write\n"}, errors={RULESETS: FREE_PLAN})
@@ -73,14 +69,12 @@ def test_rulesets_the_plan_cannot_hold_are_manual_not_missing() -> None:
     assert "plan" in manual[0]
 
 
-@pytest.mark.xfail(strict=True)
 def test_any_other_forge_error_stops_the_check() -> None:
     fake = FakeRun({META: "public main\n"}, errors={RULESETS: "gh: Bad credentials (HTTP 401)"})
     with pytest.raises(RuntimeError, match="401"):
         check_repo("o", APP, "bot", fake)
 
 
-@pytest.mark.xfail(strict=True)
 def test_without_an_agent_the_agent_line_is_missing() -> None:
     report = check_repo("o", APP, None, FakeRun(converged()))
 
