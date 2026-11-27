@@ -28,6 +28,12 @@ from pandoscope.org.plan import Repo
 
 Exec = Callable[[list[str], dict[str, str]], tuple[int, str]]
 REPORTED = ("DRIFT", "MANUAL", "FIXED")
+SCRIPTS = (
+    "sync-gh-repo-settings.sh",
+    "sync-gh-repo-rulesets.sh",
+    "sync-gh-actions-credentials.sh",
+    "sync-gh-repo-collaborators.sh",
+)
 
 
 @dataclass(frozen=True)
@@ -56,6 +62,15 @@ def run_script(cmd: list[str], env: dict[str, str]) -> tuple[int, str]:
     return done.returncode, done.stdout + done.stderr
 
 
+def require_narrowing(meta: Path) -> None:
+    """
+    Refuse a meta checkout whose reconcilers would ignore ``SYNC_REPOS``.
+
+    Raises ValueError naming each gap.
+    """
+    raise NotImplementedError
+
+
 def reconcile(
     org: str,
     plan: list[Repo],
@@ -65,6 +80,7 @@ def reconcile(
     *,
     dry_run: bool,
     exec_: Exec = run_script,
+    only: str | None = None,
 ) -> list[Outcome]:
     """
     Run meta's reconcilers against ``org`` in dependency order.
@@ -84,6 +100,8 @@ def reconcile(
     on an exit other than 0 or 1,
     and ValueError when a meta conf cannot be retargeted.
     """
+    if only is not None:
+        raise NotImplementedError
     scripts = meta / "scripts"
     confs = secrets / "confs"
     seed_credentials = not secrets.exists()
