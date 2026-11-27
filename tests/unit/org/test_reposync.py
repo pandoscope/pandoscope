@@ -8,7 +8,7 @@ import pytest
 
 from pandoscope.org.plan import Repo
 from pandoscope.org.reconcile import Outcome
-from pandoscope.org.reposync import StepReport, reconcile_report, repo_sync
+from pandoscope.org.reposync import StepReport, check_step, reconcile_report, repo_sync
 from pandoscope.org.seed import ANSWERS_FILE
 from pandoscope.stamp import TEMPLATE_URL
 
@@ -214,3 +214,18 @@ def test_the_reconcile_step_follows_the_reconcilers_exits(
     outcomes: list[Outcome], state: str, lines: list[str]
 ) -> None:
     assert reconcile_report(outcomes) == StepReport("reconcile", state, lines)
+
+
+@pytest.mark.xfail(strict=True)
+def test_the_check_step_skips_a_repo_a_dry_run_found_absent() -> None:
+    checked: list[str] = []
+
+    def check(repo: Repo) -> StepReport:
+        checked.append(repo.name)
+        return StepReport("check", "OK")
+
+    absent = check_step(APP, check, StepReport("exists", "would create"))
+    assert absent == StepReport("check", "skipped", ["the repo does not exist yet"])
+    assert checked == []
+    assert check_step(APP, check, StepReport("exists", "exists")) == StepReport("check", "OK")
+    assert checked == ["app"]

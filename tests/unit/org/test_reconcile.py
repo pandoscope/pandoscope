@@ -7,7 +7,13 @@ import pytest
 
 from pandoscope.org.confs import Credentials
 from pandoscope.org.plan import Repo
-from pandoscope.org.reconcile import SCRIPTS, Outcome, reconcile, require_narrowing
+from pandoscope.org.reconcile import (
+    SCRIPTS,
+    Outcome,
+    reconcile,
+    require_narrowing,
+    require_seeded,
+)
 
 PLAN = [
     Repo("meta", "m", {"agentic_subtemplate": "template"}),
@@ -262,3 +268,17 @@ def test_the_guard_names_what_the_meta_checkout_lacks(
     break_it(meta)
     with pytest.raises(ValueError, match=named):
         require_narrowing(meta)
+
+
+@pytest.mark.xfail(strict=True)
+def test_a_secrets_dir_org_init_has_not_made_is_refused_naming_org_init(
+    tmp_path: Path,
+) -> None:
+    with pytest.raises(ValueError, match="org init"):
+        require_seeded("o", tmp_path / "secrets")
+    assert not (tmp_path / "secrets").exists()
+
+
+@pytest.mark.xfail(strict=True)
+def test_a_secrets_dir_that_exists_passes(tmp_path: Path) -> None:
+    require_seeded("o", tmp_path)
