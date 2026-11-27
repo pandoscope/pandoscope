@@ -88,6 +88,15 @@ def repo_sync(
     return reports
 
 
+def check_step(repo: Repo, check: Callable[[Repo], StepReport], exists: StepReport) -> StepReport:
+    """
+    Run ``check`` for ``repo``, unless its ``exists`` step says a dry run found no repo.
+
+    Returns the check's report, or a skipped one.
+    """
+    raise NotImplementedError
+
+
 def reconcile_report(outcomes: list[Outcome]) -> StepReport:
     """
     Report what the reconcilers did as the "reconcile" step.

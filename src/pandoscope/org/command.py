@@ -81,6 +81,26 @@ def run_org_init(
     return 1 if any(outcome.code == 1 for outcome in result.outcomes) else 0
 
 
+def run_org_sync(
+    args: argparse.Namespace,
+    *,
+    run: forge.Run = forge.run,
+    exec_: reconcile.Exec = reconcile.run_script,
+    stamp_with: Stamp = stamp,
+) -> int:
+    """
+    Run ``org sync`` for parsed ``args`` and print what happened.
+
+    The org file is ``--plan``, by default ``org.yml`` in the meta checkout.
+    Returns 1 when any reconciler reported drift or a manual step,
+    or a check reported MISSING, else 0.
+    Raises ValueError for an invalid org file or one that names no agent,
+    for a ``--meta`` without reconcilers, or a secrets dir that does not exist,
+    all before any forge call; and what any step raises.
+    """
+    raise NotImplementedError
+
+
 def run_repo_sync(
     args: argparse.Namespace,
     *,

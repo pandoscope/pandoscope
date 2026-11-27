@@ -64,6 +64,15 @@ def run_script(cmd: list[str], env: dict[str, str]) -> tuple[int, str]:
     return done.returncode, done.stdout + done.stderr
 
 
+def require_seeded(org: str, secrets: Path) -> None:
+    """
+    Refuse a ``secrets`` directory that org init has not made.
+
+    Raises ValueError naming org init when ``secrets`` does not exist.
+    """
+    raise NotImplementedError
+
+
 def require_narrowing(meta: Path) -> None:
     """
     Refuse a meta checkout whose reconcilers would ignore ``SYNC_REPOS``.

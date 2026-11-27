@@ -72,6 +72,19 @@ def create_repo(org: str, repo: Repo, run: Run) -> None:
     run(cmd, None)
 
 
+def find_board(org: str, run: Run) -> tuple[str | None, str]:
+    """
+    Return the URL of ``org``'s project board and how it was found, creating none.
+
+    A recorded board is kept ("recorded");
+    without one, the org's only open project is adopted ("adopted");
+    with no open project there is no board (None, "none").
+    Raises ValueError listing the open projects when there are several,
+    and what ``run`` raises.
+    """
+    raise NotImplementedError
+
+
 def ensure_board(org: str, run: Run, *, dry_run: bool) -> tuple[str | None, str]:
     """
     Return the URL of ``org``'s project board and how it was found.

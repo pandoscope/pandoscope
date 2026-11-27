@@ -9,7 +9,12 @@ from pathlib import Path
 import yaml
 
 from pandoscope import __version__
-from pandoscope.org.command import run_org_init, run_org_plan, run_repo_sync
+from pandoscope.org.command import (
+    run_org_init,
+    run_org_plan,
+    run_org_sync,
+    run_repo_sync,
+)
 from pandoscope.reinset.compose import Composition, compose
 from pandoscope.reinset.order import validate_order
 from pandoscope.stamp import TEMPLATE_REF, TEMPLATE_URL, parse_data, stamp
@@ -188,6 +193,7 @@ def add_org_parser(
         help="the template ref to stamp at: a tag, branch or commit "
         f"(default: {TEMPLATE_REF})",
     )
+    add_org_sync_parser(org_sub)
     plan_parser = org_sub.add_parser(
         "plan",
         help="print the default repo plan as a file to edit and pass to --plan",
@@ -204,6 +210,45 @@ def add_org_parser(
         action="append",
         required=True,
         help="human login whose Approve satisfies the merge gate (repeatable)",
+    )
+
+
+def add_org_sync_parser(
+    org_sub: argparse._SubParsersAction[argparse.ArgumentParser],
+) -> None:
+    """Add ``org sync``: repo sync for every entry of the org file, then reconcile the org."""
+    sync_parser = org_sub.add_parser(
+        "sync",
+        help="repo sync for every entry of the org file, reconcile the org, check every repo",
+    )
+    sync_parser.add_argument("org", help="the GitHub organization")
+    sync_parser.add_argument(
+        "--meta",
+        required=True,
+        help="checkout of a meta repo carrying scripts/sync-gh-*.sh",
+    )
+    sync_parser.add_argument(
+        "--plan",
+        default=None,
+        help="the org file (default: <meta>/org.yml)",
+    )
+    add_reconcile_options(
+        sync_parser,
+        board_help="use this board instead of the org's recorded one",
+    )
+    sync_parser.add_argument(
+        "--dry-run", action="store_true", help="report every change and make none"
+    )
+    sync_parser.add_argument(
+        "--workdir",
+        default=None,
+        help="where to prepare the stamps (default: a temporary directory)",
+    )
+    sync_parser.add_argument(
+        "--template-ref",
+        default=TEMPLATE_REF,
+        help="the template ref to stamp new repos at: a tag, branch or commit "
+        f"(default: {TEMPLATE_REF})",
     )
 
 
@@ -229,6 +274,8 @@ def main(argv: list[str] | None = None) -> int:
         return run_repo_sync(args)
     if args.command == "org" and args.org_command == "plan":
         return run_org_plan(args)
+    if args.command == "org" and args.org_command == "sync":
+        return run_org_sync(args)
     if args.command == "org" and not args.plan:
         missing = [
             flag
