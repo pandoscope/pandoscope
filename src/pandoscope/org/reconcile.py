@@ -134,7 +134,7 @@ def reconcile(
     """
     scripts = meta / "scripts"
     confs = secrets / "confs"
-    narrowed = {} if only is None else _narrowing(org, plan, meta, secrets, only)
+    narrowed = {} if only is None else narrowing(org, plan, meta, secrets, only)
     seed_credentials = only is None and not secrets.exists()
     confs.mkdir(parents=True, exist_ok=True)
     direct = [repo.name for repo in plan if repo.direct_pushes]
@@ -224,10 +224,18 @@ def reconcile(
     return outcomes
 
 
-def _narrowing(
+def narrowing(
     org: str, plan: list[Repo], meta: Path, secrets: Path, only: str
 ) -> dict[str, str]:
-    """Return the environment that narrows a run to ``only``, after refusing what cannot be."""
+    """
+    Return the environment that narrows a run of ``org``'s reconcilers to ``only``.
+
+    It has no side effect,
+    so a caller runs it before its own to refuse a run that cannot be narrowed.
+    Raises ValueError when ``only`` is no repo of ``plan``,
+    when ``meta`` cannot narrow a run (``require_narrowing``),
+    or when ``secrets`` does not exist.
+    """
     names = [repo.name for repo in plan]
     if only not in names:
         msg = f"cannot narrow the reconcile of org={org!r} to repo={only!r}: the plan holds {names}"

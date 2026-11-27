@@ -89,6 +89,7 @@ def run_repo_sync(
     args: argparse.Namespace,
     *,
     run: forge.Run = forge.run,
+    exec_: reconcile.Exec = reconcile.run_script,
     stamp_with: Stamp = stamp,
 ) -> int:
     """
@@ -99,6 +100,8 @@ def run_repo_sync(
     Raises ValueError for an invalid repo-mode file or one that names no agent,
     and what any step raises.
     """
+    if args.meta:
+        raise NotImplementedError
     path = Path(args.file)
     owner, repo = read_entry(path)
     agent = read_agent(path)

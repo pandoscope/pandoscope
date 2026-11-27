@@ -16,6 +16,7 @@ from pathlib import Path
 from pandoscope.org import forge
 from pandoscope.org.forge import Run
 from pandoscope.org.plan import Repo
+from pandoscope.org.reconcile import Outcome
 from pandoscope.org.seed import Stamp, stamp_first_commit
 
 
@@ -36,7 +37,7 @@ def repo_sync(
     run: Run,
     stamp: Stamp,
     template_ref: str,
-    reconcile: Callable[[Repo], StepReport] | None = None,
+    reconcile: Callable[[Repo], StepReport] | StepReport | None = None,
     check: Callable[[Repo], StepReport] | None = None,
     dry_run: bool = False,
 ) -> list[StepReport]:
@@ -46,6 +47,7 @@ def repo_sync(
     ``owner`` is an org or a user account.
     ``template_ref`` is any ref the template's git resolves: a tag, a branch or a commit.
     ``reconcile`` runs the reconcile step and reports it;
+    a StepReport is reported as it is, for a step that cannot run (no meta checkout);
     None leaves the step out, for a caller that reconciles the org as a whole.
     ``check`` runs the check step last; None leaves it out.
     The check is skipped under ``dry_run`` for a repo that does not exist yet.
@@ -68,6 +70,8 @@ def repo_sync(
             owner, repo, workdir, run, stamp, template_ref, present=present, dry_run=dry_run
         ),
     ]
+    if isinstance(reconcile, StepReport):
+        raise NotImplementedError
     if reconcile is not None:
         reports.append(reconcile(repo))
     if check is not None:
@@ -76,6 +80,18 @@ def repo_sync(
         else:
             reports.append(StepReport("check", "skipped", ["the repo does not exist yet"]))
     return reports
+
+
+def reconcile_report(outcomes: list[Outcome]) -> StepReport:
+    """
+    Report what the reconcilers did as the "reconcile" step.
+
+    The state is "converged" when every reconciler that ran exited 0,
+    else MANUAL when every one that did not reported MANUAL lines only,
+    else DRIFT.
+    Each line names its reconciler.
+    """
+    raise NotImplementedError
 
 
 def _first_commit(

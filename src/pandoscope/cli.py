@@ -98,6 +98,36 @@ def add_repo_parser(
         help="the template ref to stamp at: a tag, branch or commit "
         f"(default: {TEMPLATE_REF})",
     )
+    sync_parser.add_argument(
+        "--meta",
+        default=None,
+        help="checkout of a meta repo carrying scripts/sync-gh-*.sh; "
+        "without it, the reconcile step is skipped",
+    )
+    add_reconcile_options(
+        sync_parser,
+        board_help="the org's project board, for the credentials (default: none)",
+    )
+
+
+def add_reconcile_options(parser: argparse.ArgumentParser, *, board_help: str) -> None:
+    """Add the options the reconcile step reads besides ``--meta``."""
+    parser.add_argument(
+        "--secrets",
+        default=None,
+        help="the org's secret material and reconciler state "
+        "(default: <meta>/.secrets/orgs/<org>)",
+    )
+    parser.add_argument(
+        "--release-bot-app",
+        default=None,
+        help="slug of the org's release-bot GitHub App; without it, "
+        "credentials are skipped",
+    )
+    parser.add_argument(
+        "--release-bot-client-id", default=None, help="client ID of that app"
+    )
+    parser.add_argument("--board-url", default=None, help=board_help)
 
 
 def add_org_parser(
@@ -133,25 +163,9 @@ def add_org_parser(
         required=True,
         help="checkout of a meta repo carrying scripts/sync-gh-*.sh",
     )
-    init_parser.add_argument(
-        "--secrets",
-        default=None,
-        help="the org's secret material and reconciler state "
-        "(default: <meta>/.secrets/orgs/<org>)",
-    )
-    init_parser.add_argument(
-        "--release-bot-app",
-        default=None,
-        help="slug of the org's release-bot GitHub App; without it, "
-        "credentials are skipped",
-    )
-    init_parser.add_argument(
-        "--release-bot-client-id", default=None, help="client ID of that app"
-    )
-    init_parser.add_argument(
-        "--board-url",
-        default=None,
-        help="use this board instead of the org's own (found or created)",
+    add_reconcile_options(
+        init_parser,
+        board_help="use this board instead of the org's own (found or created)",
     )
     init_parser.add_argument(
         "--dry-run",
