@@ -76,27 +76,13 @@ def find_board(org: str, run: Run) -> tuple[str | None, str]:
     """
     Return the URL of ``org``'s project board and how it was found, creating none.
 
+    The org variable PROJECT_BOARD_URL records the board the workflows file into.
     A recorded board is kept ("recorded");
     without one, the org's only open project is adopted ("adopted");
     with no open project there is no board (None, "none").
     Raises ValueError listing the open projects when there are several,
+    because choosing between them is the principal's call,
     and what ``run`` raises.
-    """
-    raise NotImplementedError
-
-
-def ensure_board(org: str, run: Run, *, dry_run: bool) -> tuple[str | None, str]:
-    """
-    Return the URL of ``org``'s project board and how it was found.
-
-    The org variable PROJECT_BOARD_URL records the board the workflows file into.
-    A recorded board is kept ("recorded").
-    Without one, the org's only open project is adopted ("adopted").
-    An org with no open project gets one titled after the org:
-    "created", or "would create" under ``dry_run``, with no URL yet.
-    Raises ValueError listing the open projects when there are several,
-    because choosing between them is the principal's call.
-    Raises what ``run`` raises.
     """
     recorded = run(
         [
@@ -136,6 +122,21 @@ def ensure_board(org: str, run: Run, *, dry_run: bool) -> tuple[str | None, str]
             f" pass --board-url with one of them:\n{listing}"
         )
         raise ValueError(msg)
+    return None, "none"
+
+
+def ensure_board(org: str, run: Run, *, dry_run: bool) -> tuple[str | None, str]:
+    """
+    Return the URL of ``org``'s project board and how it was found or made.
+
+    As ``find_board``, except that an org with no open project
+    gets one titled after the org:
+    "created", or "would create" under ``dry_run``, with no URL yet.
+    Raises what ``find_board`` raises.
+    """
+    url, event = find_board(org, run)
+    if url is not None:
+        return url, event
     if dry_run:
         return None, "would create"
     created = run(

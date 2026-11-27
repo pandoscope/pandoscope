@@ -81,10 +81,7 @@ def repo_sync(
                 StepReport("reconcile", "would reconcile", ["the repo does not exist yet"])
             )
     if check is not None:
-        if present or not dry_run:
-            reports.append(check(repo))
-        else:
-            reports.append(StepReport("check", "skipped", ["the repo does not exist yet"]))
+        reports.append(check_step(repo, check, exists))
     return reports
 
 
@@ -94,7 +91,9 @@ def check_step(repo: Repo, check: Callable[[Repo], StepReport], exists: StepRepo
 
     Returns the check's report, or a skipped one.
     """
-    raise NotImplementedError
+    if exists.state == "would create":
+        return StepReport("check", "skipped", ["the repo does not exist yet"])
+    return check(repo)
 
 
 def reconcile_report(outcomes: list[Outcome]) -> StepReport:

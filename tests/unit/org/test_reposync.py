@@ -216,7 +216,6 @@ def test_the_reconcile_step_follows_the_reconcilers_exits(
     assert reconcile_report(outcomes) == StepReport("reconcile", state, lines)
 
 
-@pytest.mark.xfail(strict=True)
 def test_the_check_step_skips_a_repo_a_dry_run_found_absent() -> None:
     checked: list[str] = []
 

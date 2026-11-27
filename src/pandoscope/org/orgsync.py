@@ -12,7 +12,7 @@ from dataclasses import dataclass, field
 
 from pandoscope.org.plan import Repo
 from pandoscope.org.reconcile import Outcome
-from pandoscope.org.reposync import StepReport
+from pandoscope.org.reposync import StepReport, check_step
 
 SyncRepo = Callable[[Repo], list[StepReport]]
 Reconcile = Callable[[str, list[Repo]], list[Outcome]]
@@ -46,4 +46,13 @@ def sync_org(
     ``sync_repo``, ``reconcile`` and ``check`` carry ``--dry-run`` through their own bindings.
     Raises what any step raises; a failed step stops the run.
     """
-    raise NotImplementedError
+    # DECISION:SCOPE — no per-repo step is implemented here (#71):
+    # creating and stamping a repo is repo sync's, checking it is the check's;
+    # the reconcile runs once for the org, so each reconciler runs once.
+    repos = {repo.name: sync_repo(repo) for repo in plan}
+    outcomes = reconcile(org, plan)
+    checks: dict[str, StepReport] = {}
+    if check is not None:
+        # repo sync reports its exists step first.
+        checks = {repo.name: check_step(repo, check, repos[repo.name][0]) for repo in plan}
+    return OrgResult(repos, outcomes, checks)

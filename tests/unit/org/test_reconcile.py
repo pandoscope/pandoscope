@@ -270,7 +270,6 @@ def test_the_guard_names_what_the_meta_checkout_lacks(
         require_narrowing(meta)
 
 
-@pytest.mark.xfail(strict=True)
 def test_a_secrets_dir_org_init_has_not_made_is_refused_naming_org_init(
     tmp_path: Path,
 ) -> None:
@@ -279,6 +278,5 @@ def test_a_secrets_dir_org_init_has_not_made_is_refused_naming_org_init(
     assert not (tmp_path / "secrets").exists()
 
 
-@pytest.mark.xfail(strict=True)
 def test_a_secrets_dir_that_exists_passes(tmp_path: Path) -> None:
     require_seeded("o", tmp_path)

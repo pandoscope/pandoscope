@@ -10,6 +10,7 @@ from pathlib import Path
 from pandoscope.org import forge, reconcile
 from pandoscope.org.confs import Credentials
 from pandoscope.org.init import init_org
+from pandoscope.org.orgsync import OrgResult, sync_org
 from pandoscope.org.plan import Repo, default_plan
 from pandoscope.org.checks import check_repo
 from pandoscope.org.planfile import read_agent, read_entry, read_plan, render_plan
@@ -72,13 +73,7 @@ def run_org_init(
         result = init_org(
             args.org, plan, sync_repo=bound_sync, reconcile=bound_reconcile
         )
-    for name, reports in result.repos.items():
-        print(f"{args.org}/{name}: {'; '.join(_step(report) for report in reports)}")
-    for outcome in result.outcomes:
-        print(f"{outcome.name}: {_verdict(outcome)}")
-        for line in outcome.lines:
-            print(f"  {line}")
-    return 1 if any(outcome.code == 1 for outcome in result.outcomes) else 0
+    return _print_org(args.org, result)
 
 
 def run_org_sync(
@@ -92,13 +87,85 @@ def run_org_sync(
     Run ``org sync`` for parsed ``args`` and print what happened.
 
     The org file is ``--plan``, by default ``org.yml`` in the meta checkout.
+    It is ``org init`` without what only a first setup does:
+    it keeps the org's board but creates none,
+    and it never seeds the secrets dir.
     Returns 1 when any reconciler reported drift or a manual step,
     or a check reported MISSING, else 0.
     Raises ValueError for an invalid org file or one that names no agent,
     for a ``--meta`` without reconcilers, or a secrets dir that does not exist,
     all before any forge call; and what any step raises.
     """
-    raise NotImplementedError
+    meta = _meta(args)
+    release_bot = _release_bot(args)
+    path = Path(args.plan) if args.plan else meta / "org.yml"
+    plan = read_plan(path, args.org)
+    agent = read_agent(path)
+    if agent is None:
+        msg = f"{path} names no agent; org sync needs agent: <login>"
+        raise ValueError(msg)
+    secrets = _secrets(args, meta, args.org)
+    reconcile.require_seeded(args.org, secrets)
+    board_url = args.board_url or _found_board(args.org, run)
+    creds = _credentials(release_bot, board_url)
+
+    def bound_reconcile(org: str, plan: list[Repo]) -> list[reconcile.Outcome]:
+        return reconcile.reconcile(
+            org, plan, meta, secrets, creds, dry_run=args.dry_run, exec_=exec_
+        )
+
+    with tempfile.TemporaryDirectory(prefix="pandoscope-org-") as scratch:
+        workdir = Path(args.workdir or scratch)
+
+        def bound_sync(repo: Repo) -> list[StepReport]:
+            return repo_sync(
+                args.org,
+                repo,
+                workdir,
+                run=run,
+                stamp=stamp_with,
+                template_ref=args.template_ref,
+                dry_run=args.dry_run,
+            )
+
+        result = sync_org(
+            args.org,
+            plan,
+            sync_repo=bound_sync,
+            reconcile=bound_reconcile,
+            check=lambda repo: check_repo(args.org, repo, agent, run),
+        )
+    return _print_org(args.org, result)
+
+
+def _found_board(org: str, run: forge.Run) -> str | None:
+    """Return the org's board as ``forge.find_board`` finds it, and print how."""
+    url, event = forge.find_board(org, run)
+    if url:
+        print(f"board: {event} {url}")
+    else:
+        print("board: none (org init creates one)")
+    return url
+
+
+def _print_org(org: str, result: OrgResult) -> int:
+    """
+    Print what an org run did: repo sync per repo, each reconciler, each check.
+
+    Returns 1 when any reconciler reported drift or a manual step,
+    or a check reported MISSING, else 0.
+    """
+    for name, reports in result.repos.items():
+        print(f"{org}/{name}: {'; '.join(_step(report) for report in reports)}")
+    for outcome in result.outcomes:
+        print(f"{outcome.name}: {_verdict(outcome)}")
+        for line in outcome.lines:
+            print(f"  {line}")
+    for name, report in result.checks.items():
+        _print_report(f"{org}/{name}", report)
+    drift = any(outcome.code == 1 for outcome in result.outcomes)
+    missing = any(report.state == "MISSING" for report in result.checks.values())
+    return 1 if drift or missing else 0
 
 
 def run_repo_sync(
@@ -142,12 +209,7 @@ def run_repo_sync(
             dry_run=args.dry_run,
         )
     for report in reports:
-        if report.step in ("reconcile", "check") and report.state in RAN:
-            print(f"{owner}/{repo.name}: {report.step} {report.state}")
-            for line in report.lines:
-                print(f"  {line}")
-        else:
-            print(f"{owner}/{repo.name}: {_step(report)}")
+        _print_report(f"{owner}/{repo.name}", report)
     return 1 if any(report.state in ("MISSING", "DRIFT") for report in reports) else 0
 
 
@@ -260,6 +322,16 @@ def _board(args: argparse.Namespace, run: forge.Run) -> str | None:
     else:
         print(f"board: {event}")
     return url
+
+
+def _print_report(full: str, report: StepReport) -> None:
+    """Print one step of ``full``'s repo: on one line, or a step that ran with its lines below."""
+    if report.step in ("reconcile", "check") and report.state in RAN:
+        print(f"{full}: {report.step} {report.state}")
+        for line in report.lines:
+            print(f"  {line}")
+    else:
+        print(f"{full}: {_step(report)}")
 
 
 def _step(report: StepReport) -> str:

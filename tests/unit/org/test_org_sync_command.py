@@ -56,7 +56,6 @@ def stamped_org() -> FakeRun:
     return FakeRun(answers, errors)
 
 
-@pytest.mark.xfail(strict=True)
 def test_a_dry_run_reports_every_repo_every_reconciler_and_changes_nothing(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -77,7 +76,6 @@ def test_a_dry_run_reports_every_repo_every_reconciler_and_changes_nothing(
     assert not any(cmd[:3] in {("gh", "repo", "create"), ("gh", "project", "create")} for cmd in fake.commands())
 
 
-@pytest.mark.xfail(strict=True)
 def test_the_reconcile_runs_once_for_the_whole_org(tmp_path: Path) -> None:
     fake_exec = FakeExec()
     run_org_sync(
@@ -96,7 +94,6 @@ def test_the_reconcile_runs_once_for_the_whole_org(tmp_path: Path) -> None:
     assert '"var|BOT_MERGE_ENABLED|only:meta,app|true"' in credentials_conf(fake_exec)
 
 
-@pytest.mark.xfail(strict=True)
 def test_every_repo_is_checked_after_the_reconcile(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -112,7 +109,6 @@ def test_every_repo_is_checked_after_the_reconcile(
     assert code == 0
 
 
-@pytest.mark.xfail(strict=True)
 def test_a_missing_check_point_fails_the_run(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -128,7 +124,6 @@ def test_a_missing_check_point_fails_the_run(
     assert code == 1
 
 
-@pytest.mark.xfail(strict=True)
 def test_sync_keeps_the_recorded_board_and_creates_none(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -154,7 +149,6 @@ def test_sync_keeps_the_recorded_board_and_creates_none(
     assert f'"var|PROJECT_BOARD_URL|all|{BOARD}"' in credentials_conf(fake_exec)
 
 
-@pytest.mark.xfail(strict=True)
 def test_the_org_file_must_name_the_agent(tmp_path: Path) -> None:
     meta = org_meta(tmp_path, ORG_FILE.replace("agent: helper-bot\n", ""))
     fake = FakeRun()
@@ -163,7 +157,6 @@ def test_the_org_file_must_name_the_agent(tmp_path: Path) -> None:
     assert fake.commands() == []
 
 
-@pytest.mark.xfail(strict=True)
 def test_a_secrets_dir_org_init_has_not_made_is_refused_before_any_forge_call(
     tmp_path: Path,
 ) -> None:
@@ -178,7 +171,6 @@ def test_a_secrets_dir_org_init_has_not_made_is_refused_before_any_forge_call(
     assert not (meta / ".secrets").exists()
 
 
-@pytest.mark.xfail(strict=True)
 def test_plan_names_an_org_file_outside_meta(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     meta = org_meta(tmp_path)
     plan = tmp_path / "elsewhere.yml"
@@ -192,7 +184,6 @@ def test_plan_names_an_org_file_outside_meta(tmp_path: Path, capsys: pytest.Capt
     assert "o/lib: exists would create" in capsys.readouterr().out
 
 
-@pytest.mark.xfail(strict=True)
 def test_the_cli_routes_org_sync(tmp_path: Path) -> None:
     """org sync takes no --project: the org file is its only plan."""
     meta = fake_meta(tmp_path)

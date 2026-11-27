@@ -68,9 +68,18 @@ def require_seeded(org: str, secrets: Path) -> None:
     """
     Refuse a ``secrets`` directory that org init has not made.
 
+    Org init seeds the directory it finds missing, laying out the placeholders
+    for the secret material; a run that made the directory instead
+    would leave it unseeded for good.
     Raises ValueError naming org init when ``secrets`` does not exist.
     """
-    raise NotImplementedError
+    if not secrets.exists():
+        msg = (
+            f"secrets dir {secrets} does not exist; only `pandoscope org init` makes it,"
+            f" because it seeds a dir it finds missing: run org init for org={org!r},"
+            " or pass the dir it made with --secrets"
+        )
+        raise ValueError(msg)
 
 
 def require_narrowing(meta: Path) -> None:
@@ -243,20 +252,14 @@ def narrowing(
     so a caller runs it before its own to refuse a run that cannot be narrowed.
     Raises ValueError when ``only`` is no repo of ``plan``,
     when ``meta`` cannot narrow a run (``require_narrowing``),
-    or when ``secrets`` does not exist.
+    or when ``secrets`` does not exist (``require_seeded``).
     """
     names = [repo.name for repo in plan]
     if only not in names:
         msg = f"cannot narrow the reconcile of org={org!r} to repo={only!r}: the plan holds {names}"
         raise ValueError(msg)
     require_narrowing(meta)
-    if not secrets.exists():
-        # DECISION:SCOPE — making the directory here would read as seeded,
-        # and org init would then never lay out the placeholders for the secrets.
-        msg = (
-            f"secrets dir {secrets} does not exist; a run narrowed to repo={only!r}"
-            f" never makes it: run `pandoscope org init` for org={org!r},"
-            " which seeds it, or pass the one it made with --secrets"
-        )
-        raise ValueError(msg)
+    # DECISION:SCOPE — a narrowed run never seeds (meta skips the seed under SYNC_REPOS),
+    # and making the directory here would read as seeded to org init.
+    require_seeded(org, secrets)
     return {"SYNC_REPOS": f"only:{only}"}

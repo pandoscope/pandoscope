@@ -115,26 +115,22 @@ def test_ensure_board_refuses_to_guess_between_open_projects() -> None:
     assert CREATE not in calls(fake)
 
 
-@pytest.mark.xfail(strict=True)
 def test_find_board_keeps_a_recorded_board() -> None:
     fake = FakeRun({VARIABLES: f"{BOARD}\n"})
     assert find_board("o", fake) == (BOARD, "recorded")
 
 
-@pytest.mark.xfail(strict=True)
 def test_find_board_adopts_the_orgs_only_open_project() -> None:
     fake = FakeRun({PROJECTS: f"{BOARD}\tRoadmap\n"})
     assert find_board("o", fake) == (BOARD, "adopted")
 
 
-@pytest.mark.xfail(strict=True)
 def test_find_board_creates_none_when_the_org_has_none() -> None:
     fake = FakeRun({CREATE: f"{BOARD}\n"})
     assert find_board("o", fake) == (None, "none")
     assert CREATE not in calls(fake)
 
 
-@pytest.mark.xfail(strict=True)
 def test_find_board_refuses_to_guess_between_open_projects() -> None:
     fake = FakeRun({PROJECTS: f"{BOARD}\tRoadmap\n{OTHER}\tBugs\n"})
     with pytest.raises(ValueError, match="--board-url"):

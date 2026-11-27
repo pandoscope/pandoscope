@@ -35,7 +35,6 @@ class Recorder:
         return StepReport("check", "OK", [f"OK {repo.name}"])
 
 
-@pytest.mark.xfail(strict=True)
 def test_sync_runs_repo_sync_per_entry_then_the_reconcile_then_the_checks() -> None:
     recorder = Recorder()
     result = sync_org(
@@ -58,7 +57,6 @@ def test_sync_runs_repo_sync_per_entry_then_the_reconcile_then_the_checks() -> N
     )
 
 
-@pytest.mark.xfail(strict=True)
 def test_a_dry_run_checks_no_repo_it_found_absent() -> None:
     recorder = Recorder(exists="would create")
     result = sync_org(
@@ -68,7 +66,6 @@ def test_a_dry_run_checks_no_repo_it_found_absent() -> None:
     assert result.checks["app"] == StepReport("check", "skipped", ["the repo does not exist yet"])
 
 
-@pytest.mark.xfail(strict=True)
 def test_without_a_check_there_are_no_checks() -> None:
     recorder = Recorder()
     result = sync_org("o", PLAN, sync_repo=recorder.sync, reconcile=recorder.reconcile)
