@@ -177,7 +177,6 @@ def narrowing_meta(root: Path) -> Path:
     return meta
 
 
-@pytest.mark.xfail(strict=True)
 def test_a_narrowed_run_passes_sync_repos_to_every_script(tmp_path: Path) -> None:
     meta, secrets = narrowing_meta(tmp_path), tmp_path / "secrets"
     secrets.mkdir()
@@ -195,7 +194,6 @@ def test_an_org_wide_run_sets_no_sync_repos(tmp_path: Path) -> None:
     assert not any("SYNC_REPOS" in env for _, env in fake.calls)
 
 
-@pytest.mark.xfail(strict=True)
 def test_a_narrowed_run_never_seeds_the_credentials(tmp_path: Path) -> None:
     meta, secrets = narrowing_meta(tmp_path), tmp_path / "secrets"
     secrets.mkdir()
@@ -204,7 +202,6 @@ def test_a_narrowed_run_never_seeds_the_credentials(tmp_path: Path) -> None:
     assert "sync-gh-actions-credentials.sh --seed" not in fake.scripts()
 
 
-@pytest.mark.xfail(strict=True)
 def test_a_narrowed_run_refuses_a_secrets_dir_org_init_has_not_made(
     tmp_path: Path,
 ) -> None:
@@ -217,7 +214,6 @@ def test_a_narrowed_run_refuses_a_secrets_dir_org_init_has_not_made(
     assert not secrets.exists()
 
 
-@pytest.mark.xfail(strict=True)
 def test_a_narrowed_run_refuses_a_repo_the_plan_does_not_hold(tmp_path: Path) -> None:
     meta, secrets = narrowing_meta(tmp_path), tmp_path / "secrets"
     secrets.mkdir()
@@ -227,7 +223,6 @@ def test_a_narrowed_run_refuses_a_repo_the_plan_does_not_hold(tmp_path: Path) ->
     assert fake.calls == []
 
 
-@pytest.mark.xfail(strict=True)
 def test_a_narrowed_run_refuses_a_meta_without_sync_repos(tmp_path: Path) -> None:
     """Such a meta would reconcile, and delete rulesets across, the whole org."""
     meta, secrets = fake_meta(tmp_path), tmp_path / "secrets"
@@ -238,12 +233,10 @@ def test_a_narrowed_run_refuses_a_meta_without_sync_repos(tmp_path: Path) -> Non
     assert fake.calls == []
 
 
-@pytest.mark.xfail(strict=True)
 def test_a_meta_with_sync_repos_support_passes_the_guard(tmp_path: Path) -> None:
     require_narrowing(narrowing_meta(tmp_path))
 
 
-@pytest.mark.xfail(strict=True)
 @pytest.mark.parametrize(
     ("break_it", "named"),
     [

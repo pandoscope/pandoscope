@@ -12,6 +12,7 @@ anything else is a usage or conf error.
 from __future__ import annotations
 
 import os
+import re
 import subprocess
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -34,6 +35,7 @@ SCRIPTS = (
     "sync-gh-actions-credentials.sh",
     "sync-gh-repo-collaborators.sh",
 )
+SCOPE_DEFINITION = re.compile(r"^sync_repos_scope\(\)", re.MULTILINE)
 
 
 @dataclass(frozen=True)
@@ -66,9 +68,31 @@ def require_narrowing(meta: Path) -> None:
     """
     Refuse a meta checkout whose reconcilers would ignore ``SYNC_REPOS``.
 
+    The checkout must define ``sync_repos_scope`` in ``scripts/lib/scope.sh``,
+    and every reconciler must filter its repos with ``sync_repos_filter``.
+    Mirrored pair: meta's ``scripts/lib/scope.sh`` is the authority on these names.
     Raises ValueError naming each gap.
     """
-    raise NotImplementedError
+    # DECISION:SEC — a reconciler that ignores SYNC_REPOS reconciles the whole org,
+    # and the rulesets sync deletes managed rulesets on every repo it reads as
+    # out of scope; so an old checkout is refused before anything runs.
+    scripts = meta / "scripts"
+    scope = scripts / "lib" / "scope.sh"
+    gaps = []
+    if not scope.exists():
+        gaps.append(f"{scope} is missing")
+    elif not SCOPE_DEFINITION.search(scope.read_text()):
+        gaps.append(f"{scope} defines no sync_repos_scope")
+    for script in SCRIPTS:
+        path = scripts / script
+        if not path.exists() or "sync_repos_filter" not in path.read_text():
+            gaps.append(f"{path} does not filter its repos with sync_repos_filter")
+    if gaps:
+        msg = (
+            f"meta checkout {meta} cannot narrow a reconcile with SYNC_REPOS,"
+            f" so it would reconcile the whole org: {'; '.join(gaps)}"
+        )
+        raise ValueError(msg)
 
 
 def reconcile(
@@ -95,16 +119,23 @@ def reconcile(
     A fresh ``secrets`` directory is seeded first,
     which lays out the placeholder files for the secret material.
     ``creds`` None skips credentials: the release-bot app does not exist yet.
+    ``only`` narrows the run to that one planned repo
+    with ``SYNC_REPOS=only:<name>`` in every script's environment;
+    the confs still come from the whole ``plan``.
+    A narrowed run never seeds, and it needs a ``secrets`` directory
+    that an org-wide run has made.
     Returns one outcome per reconciler.
     Raises RuntimeError naming the script and its output
     on an exit other than 0 or 1,
-    and ValueError when a meta conf cannot be retargeted.
+    and ValueError when a meta conf cannot be retargeted,
+    when ``only`` is no planned repo,
+    when ``meta`` cannot narrow a run (``require_narrowing``),
+    or when a narrowed run finds no ``secrets`` directory.
     """
-    if only is not None:
-        raise NotImplementedError
     scripts = meta / "scripts"
     confs = secrets / "confs"
-    seed_credentials = not secrets.exists()
+    narrowed = {} if only is None else _narrowing(org, plan, meta, secrets, only)
+    seed_credentials = only is None and not secrets.exists()
     confs.mkdir(parents=True, exist_ok=True)
     direct = [repo.name for repo in plan if repo.direct_pushes]
     planned = f"only:{','.join(repo.name for repo in plan)}"
@@ -119,7 +150,7 @@ def reconcile(
 
     def call(name: str, script: str, env: dict[str, str], *flags: str) -> Outcome:
         cmd = ["bash", str(scripts / script), *flags]
-        code, out = exec_(cmd, env)
+        code, out = exec_(cmd, {**env, **narrowed})
         if code not in (0, 1):
             msg = f"{script} for org={org!r} failed (exit {code}): {out.strip()}"
             raise RuntimeError(msg)
@@ -191,3 +222,24 @@ def reconcile(
         )
     )
     return outcomes
+
+
+def _narrowing(
+    org: str, plan: list[Repo], meta: Path, secrets: Path, only: str
+) -> dict[str, str]:
+    """Return the environment that narrows a run to ``only``, after refusing what cannot be."""
+    names = [repo.name for repo in plan]
+    if only not in names:
+        msg = f"cannot narrow the reconcile of org={org!r} to repo={only!r}: the plan holds {names}"
+        raise ValueError(msg)
+    require_narrowing(meta)
+    if not secrets.exists():
+        # DECISION:SCOPE — making the directory here would read as seeded,
+        # and org init would then never lay out the placeholders for the secrets.
+        msg = (
+            f"secrets dir {secrets} does not exist; a run narrowed to repo={only!r}"
+            f" never makes it: run `pandoscope org init` for org={org!r},"
+            " which seeds it, or pass the one it made with --secrets"
+        )
+        raise ValueError(msg)
+    return {"SYNC_REPOS": f"only:{only}"}
