@@ -100,6 +100,18 @@ def read_entry(path: Path) -> tuple[str, Repo]:
     return owner, _repo(owner, entry, gate)
 
 
+def read_agent(path: Path) -> str | None:
+    """
+    Return the agent login an org file or a repo-mode file names under ``agent``.
+
+    It is the account the org's agent sessions act as;
+    repo sync's check verifies that it can push.
+    Returns None when the file names none.
+    Raises ValueError when ``agent`` is not a forge login.
+    """
+    raise NotImplementedError
+
+
 def _gate(path: Path, approvers: object) -> dict[str, str]:
     """The merge-gate answers for ``approvers``, each checked to be a forge login."""
     if not approvers or not isinstance(approvers, list):
