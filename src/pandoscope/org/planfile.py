@@ -58,35 +58,92 @@ def read_plan(path: Path, org: str) -> list[Repo]:
     if data["org"] != org:
         msg = f"plan file {path} is for org={data['org']!r}, not org={org!r}"
         raise ValueError(msg)
-    if not data["approvers"]:
-        msg = f"plan file {path} has no approvers; the merge gate needs at least one"
-        raise ValueError(msg)
-    # DECISION:SEC — names and logins are checked where the file is read:
-    # meta's sync scripts source the confs written from them,
-    # so a value bash would expand must never become a Repo.
-    for approver in data["approvers"]:
-        if not isinstance(approver, str) or not LOGIN.fullmatch(approver):
-            msg = f"plan file {path} has approver={approver!r}; expected a forge login"
-            raise ValueError(msg)
+    gate = _gate(path, data["approvers"])
     names = [entry["name"] for entry in data["repos"]]
     for name in names:
-        if not isinstance(name, str) or not REPO_NAME.fullmatch(name) or name in (".", ".."):
-            msg = (
-                f"plan file {path} has repo name={name!r};"
-                " expected 1 to 100 of letters, digits, '.', '_' and '-'"
-            )
-            raise ValueError(msg)
+        _check_name(path, name)
     # The forge treats repo names case-insensitively, so App and app are twins.
     folded = [name.lower() for name in names]
     twins = sorted({name for name in names if folded.count(name.lower()) > 1})
     if twins:
         msg = f"plan file {path} names repos more than once: {twins}"
         raise ValueError(msg)
-    gate = {
-        "agentic_merge_approval_gate": "true",
-        "agentic_merge_approvers": ",".join(data["approvers"]),
-    }
     return [_repo(org, entry, gate) for entry in data["repos"]]
+
+
+def read_entry(path: Path) -> tuple[str, Repo]:
+    """
+    Return the owner and the repo that the repo-mode file at ``path`` declares.
+
+    A repo-mode file is how one repository is managed without an org file:
+    ``owner`` (an org or a user account), ``approvers``,
+    and one entry under ``repo`` in the same fields an org file's entries have.
+    Raises ValueError naming the offending value.
+    """
+    data = yaml.safe_load(path.read_text())
+    if not isinstance(data, dict):
+        msg = f"repo-mode file {path} holds no mapping"
+        raise ValueError(msg)
+    if "repos" in data or "org" in data:
+        msg = f"{path} is an org file, not a repo-mode file; give it to the org commands"
+        raise ValueError(msg)
+    owner = data.get("owner")
+    if not isinstance(owner, str) or not LOGIN.fullmatch(owner):
+        msg = f"repo-mode file {path} has owner={owner!r}; expected a forge login"
+        raise ValueError(msg)
+    entry = data.get("repo")
+    if not isinstance(entry, dict):
+        msg = f"repo-mode file {path} has no repo entry"
+        raise ValueError(msg)
+    gate = _gate(path, data.get("approvers"))
+    _check_name(path, entry.get("name"))
+    return owner, _repo(owner, entry, gate)
+
+
+def read_agent(path: Path) -> str | None:
+    """
+    Return the agent login an org file or a repo-mode file names under ``agent``.
+
+    It is the account the org's agent sessions act as;
+    repo sync's check verifies that it can push.
+    Returns None when the file names none.
+    Raises ValueError when ``agent`` is not a forge login.
+    """
+    data = yaml.safe_load(path.read_text())
+    agent = data.get("agent") if isinstance(data, dict) else None
+    if agent is None:
+        return None
+    if not isinstance(agent, str) or not LOGIN.fullmatch(agent):
+        msg = f"{path} has agent={agent!r}; expected a forge login"
+        raise ValueError(msg)
+    return agent
+
+
+def _gate(path: Path, approvers: object) -> dict[str, str]:
+    """The merge-gate answers for ``approvers``, each checked to be a forge login."""
+    if not approvers or not isinstance(approvers, list):
+        msg = f"{path} has no approvers; the merge gate needs at least one"
+        raise ValueError(msg)
+    # DECISION:SEC — names and logins are checked where the file is read:
+    # meta's sync scripts source the confs written from them,
+    # so a value bash would expand must never become a Repo.
+    for approver in approvers:
+        if not isinstance(approver, str) or not LOGIN.fullmatch(approver):
+            msg = f"{path} has approver={approver!r}; expected a forge login"
+            raise ValueError(msg)
+    return {
+        "agentic_merge_approval_gate": "true",
+        "agentic_merge_approvers": ",".join(approvers),
+    }
+
+
+def _check_name(path: Path, name: object) -> None:
+    if not isinstance(name, str) or not REPO_NAME.fullmatch(name) or name in (".", ".."):
+        msg = (
+            f"{path} has repo name={name!r};"
+            " expected 1 to 100 of letters, digits, '.', '_' and '-'"
+        )
+        raise ValueError(msg)
 
 
 def _repo(org: str, entry: dict[str, Any], gate: dict[str, str]) -> Repo:

@@ -10,6 +10,8 @@ from pandoscope.org.command import run_org_init
 from pandoscope.org.plan import default_plan
 from pandoscope.org.planfile import read_plan
 
+from pandoscope.org.seed import ANSWERS_FILE
+
 from .fakes import FakeRun
 from .test_reconcile import FakeExec, fake_meta
 
@@ -46,7 +48,7 @@ def test_dry_run_prints_the_plan_and_every_reconciler(
     out = capsys.readouterr().out
     assert code == 0
     assert "o/meta: exists" in out
-    assert "o/app: would create" in out
+    assert "o/app: exists would create; first commit would stamp" in out
     assert "settings: converged" in out
     assert "credentials: skipped" in out
 
@@ -107,6 +109,7 @@ def test_repos_are_stamped_with_the_stamp_run_org_init_is_given(
 
     def fake_stamp(directory: str, data: object = None, **_: object) -> None:
         stamped.append(Path(directory).name)
+        answered(directory)
 
     run_org_init(
         args(fake_meta(tmp_path), "--workdir", str(tmp_path / "w")),
@@ -128,7 +131,14 @@ BOT = ("--release-bot-app", "o-bot", "--release-bot-client-id", "Iv1")
 
 
 def no_stamp(directory: str, data: object = None, **_: object) -> None:
-    """Stamp nothing: these tests are about the board."""
+    """Stamp nothing but the answers file: these tests are about the board."""
+    answered(directory)
+
+
+def answered(directory: str) -> None:
+    """Write the answers file a real stamp leaves, with the commit it resolved to."""
+    Path(directory).mkdir(parents=True, exist_ok=True)
+    (Path(directory) / ANSWERS_FILE).write_text("_commit: v5.0.2\n")
 
 
 def credentials_conf(fake_exec: FakeExec) -> str:
@@ -207,8 +217,8 @@ def test_a_plan_file_brings_every_repo_it_names(
     out = capsys.readouterr().out
     assert code == 0
     assert "o/meta: exists" in out
-    assert "o/app: would create" in out
-    assert "o/helper: would create" in out
+    assert "o/app: exists would create; first commit would stamp" in out
+    assert "o/helper: exists would create; first commit would stamp" in out
     assert "session-memory" not in out
 
 
@@ -264,6 +274,7 @@ def test_prefixed_stores_are_created_stamped_and_reconciled_by_their_names(
 
     def fake_stamp(directory: str, data: object = None, **_: object) -> None:
         stamped.append(Path(directory).name)
+        answered(directory)
 
     plan = tmp_path / "org.yml"
     plan.write_text(PREFIXED_PLAN)

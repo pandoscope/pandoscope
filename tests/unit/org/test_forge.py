@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from pandoscope.org.forge import create_repo, ensure_board, existing_repos, run
+from pandoscope.org.forge import create_repo, ensure_board, existing_repos, find_board, run
 from pandoscope.org.plan import Repo
 
 from .fakes import FakeRun
@@ -113,3 +113,25 @@ def test_ensure_board_refuses_to_guess_between_open_projects() -> None:
     assert BOARD in str(error.value)
     assert OTHER in str(error.value)
     assert CREATE not in calls(fake)
+
+
+def test_find_board_keeps_a_recorded_board() -> None:
+    fake = FakeRun({VARIABLES: f"{BOARD}\n"})
+    assert find_board("o", fake) == (BOARD, "recorded")
+
+
+def test_find_board_adopts_the_orgs_only_open_project() -> None:
+    fake = FakeRun({PROJECTS: f"{BOARD}\tRoadmap\n"})
+    assert find_board("o", fake) == (BOARD, "adopted")
+
+
+def test_find_board_creates_none_when_the_org_has_none() -> None:
+    fake = FakeRun({CREATE: f"{BOARD}\n"})
+    assert find_board("o", fake) == (None, "none")
+    assert CREATE not in calls(fake)
+
+
+def test_find_board_refuses_to_guess_between_open_projects() -> None:
+    fake = FakeRun({PROJECTS: f"{BOARD}\tRoadmap\n{OTHER}\tBugs\n"})
+    with pytest.raises(ValueError, match="--board-url"):
+        find_board("o", fake)

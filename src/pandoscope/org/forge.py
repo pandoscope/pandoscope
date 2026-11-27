@@ -72,18 +72,17 @@ def create_repo(org: str, repo: Repo, run: Run) -> None:
     run(cmd, None)
 
 
-def ensure_board(org: str, run: Run, *, dry_run: bool) -> tuple[str | None, str]:
+def find_board(org: str, run: Run) -> tuple[str | None, str]:
     """
-    Return the URL of ``org``'s project board and how it was found.
+    Return the URL of ``org``'s project board and how it was found, creating none.
 
     The org variable PROJECT_BOARD_URL records the board the workflows file into.
-    A recorded board is kept ("recorded").
-    Without one, the org's only open project is adopted ("adopted").
-    An org with no open project gets one titled after the org:
-    "created", or "would create" under ``dry_run``, with no URL yet.
+    A recorded board is kept ("recorded");
+    without one, the org's only open project is adopted ("adopted");
+    with no open project there is no board (None, "none").
     Raises ValueError listing the open projects when there are several,
-    because choosing between them is the principal's call.
-    Raises what ``run`` raises.
+    because choosing between them is the principal's call,
+    and what ``run`` raises.
     """
     recorded = run(
         [
@@ -123,6 +122,21 @@ def ensure_board(org: str, run: Run, *, dry_run: bool) -> tuple[str | None, str]
             f" pass --board-url with one of them:\n{listing}"
         )
         raise ValueError(msg)
+    return None, "none"
+
+
+def ensure_board(org: str, run: Run, *, dry_run: bool) -> tuple[str | None, str]:
+    """
+    Return the URL of ``org``'s project board and how it was found or made.
+
+    As ``find_board``, except that an org with no open project
+    gets one titled after the org:
+    "created", or "would create" under ``dry_run``, with no URL yet.
+    Raises what ``find_board`` raises.
+    """
+    url, event = find_board(org, run)
+    if url is not None:
+        return url, event
     if dry_run:
         return None, "would create"
     created = run(
@@ -142,3 +156,32 @@ def ensure_board(org: str, run: Run, *, dry_run: bool) -> tuple[str | None, str]
         None,
     )
     return created.strip(), "created"
+
+
+def repo_present(owner: str, name: str, run: Run) -> bool:
+    """
+    Return whether ``owner/name`` exists on the forge; ``owner`` is an org or a user.
+
+    Raises what ``run`` raises for any answer but "not found",
+    so a missing permission is never read as an absent repo,
+    and ValueError when the lookup answers with anything but the repo's name.
+    """
+    try:
+        out = run(["gh", "api", f"repos/{owner}/{name}", "--jq", ".name"], None)
+    except RuntimeError as error:
+        if "HTTP 404" in str(error):
+            return False
+        raise
+    if out.strip().lower() != name.lower():
+        msg = f"looking up {owner}/{name} answered {out.strip()!r}, not the repo's name"
+        raise ValueError(msg)
+    return True
+
+
+def branches(owner: str, name: str, run: Run) -> list[str]:
+    """Return the names of ``owner/name``'s branches; an empty repo has none."""
+    out = run(
+        ["gh", "api", f"repos/{owner}/{name}/branches", "--paginate", "--jq", ".[].name"],
+        None,
+    )
+    return [line for line in out.splitlines() if line]

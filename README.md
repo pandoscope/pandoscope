@@ -218,6 +218,57 @@ The host needs `jq`, bash 4.4 or newer,
 and `gh` authenticated as an **org** owner with the `repo`, `admin:org` and `project` scopes.
 Installing the release-bot app on the **org** is a manual step the run reports.
 
+### `pandoscope org sync ORG`
+
+Bring an **org** that `org init` set up to its org file,
+for example after a new entry landed in it.
+
+```sh
+pandoscope org sync somnus-app --meta ~/src/meta \
+  --release-bot-app somnus-release-bot --release-bot-client-id Iv23... \
+  --dry-run
+```
+
+The org file is `--plan`, by default `org.yml` in the meta checkout,
+and it must name the agent login its sessions act as under `agent`.
+The command runs `repo sync` for every entry without its reconcile step,
+then each reconciler once for the whole **org**, as `org init` does,
+then the check for every repo.
+It is `org init` without what only a first setup does:
+it keeps the **org**'s board but creates none,
+and it refuses a `--secrets` directory that does not exist,
+because `org init` seeds the one it finds missing.
+It exits 1 while any reconciler reports DRIFT or MANUAL lines
+or a check reports MISSING.
+
+### `pandoscope repo sync FILE`
+
+Bring one repository to its entry in a repo-mode file,
+for a project managed without an org file.
+The file names the `owner` (an org or a personal account), the `agent`, the `approvers`,
+and one entry under `repo`, in the fields an org file's entries have.
+
+```sh
+pandoscope repo sync pandoscope.yml --meta ~/src/meta --dry-run
+```
+
+The command runs four steps, each checking state before it acts:
+it creates the repository, **stamps** `main`'s first commit,
+reconciles the repository, and checks it.
+The check prints one line per point, starting `OK`, `MISSING` or `MANUAL`.
+
+With `--meta`, the reconcile step runs meta's reconcilers in `org init`'s order
+with `SYNC_REPOS=only:<name>`, so they touch this repository and nothing else.
+It refuses a meta checkout whose reconcilers do not honour `SYNC_REPOS`,
+because they would reconcile the whole org instead.
+It also refuses a `--secrets` directory that does not exist (`org init` makes it),
+and it takes the reconcile options `org init` takes;
+without `--board-url` the credentials name no board.
+Without `--meta` the reconcile step is skipped.
+A dry run neither reconciles nor checks a repository that does not exist yet.
+The command exits 1 when a step reports MISSING or DRIFT;
+a MANUAL line names what someone else must do and does not fail the run.
+
 More commands land as the tool grows.
 
 ## Glossary
